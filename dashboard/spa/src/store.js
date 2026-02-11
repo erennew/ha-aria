@@ -91,6 +91,9 @@ const BACKOFF_MAX = 30000;
 /** Ping interval handle. */
 let pingInterval = null;
 
+/** Reconnect timeout handle. */
+let reconnectTimer = null;
+
 /**
  * Open a WebSocket connection to the hub.
  * Reconnects automatically with exponential backoff (1 s → 30 s cap).
@@ -159,10 +162,30 @@ function connectWebSocket() {
 }
 
 function scheduleReconnect() {
-  setTimeout(() => {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
     connectWebSocket();
   }, backoff);
   backoff = Math.min(backoff * 2, BACKOFF_MAX);
+}
+
+/**
+ * Close the WebSocket connection and cancel all timers.
+ * Prevents reconnect attempts. Call from useEffect cleanup.
+ */
+function disconnectWebSocket() {
+  clearInterval(pingInterval);
+  pingInterval = null;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  if (ws) {
+    ws.onclose = null; // prevent reconnect on intentional close
+    ws.close();
+    ws = null;
+  }
+  wsConnected.value = false;
+  wsMessage.value = '';
 }
 
 /**
@@ -186,4 +209,5 @@ export {
   wsConnected,
   wsMessage,
   connectWebSocket,
+  disconnectWebSocket,
 };

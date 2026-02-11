@@ -1,13 +1,13 @@
 import { render } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { connectWebSocket, fetchCategory, getCategory, wsConnected, wsMessage } from './store.js';
+import { connectWebSocket, disconnectWebSocket, fetchCategory, getCategory, wsConnected, wsMessage } from './store.js';
 
+// TEMPORARY: demo component, replaced in Task #22 with real App shell
 function App() {
-  // Connect WebSocket on mount
   useEffect(() => {
     connectWebSocket();
-    // Kick off an initial fetch to prove the data layer works
     fetchCategory('entities');
+    return () => disconnectWebSocket();
   }, []);
 
   const entities = getCategory('entities');
