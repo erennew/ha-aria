@@ -10,6 +10,7 @@ const config = {
   jsx: 'transform',
   jsxFactory: 'h',
   jsxFragment: 'Fragment',
+  inject: ['./src/preact-shim.js'],
   loader: { '.jsx': 'jsx' },
   minify: !isWatch,
   sourcemap: isWatch,
