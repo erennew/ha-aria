@@ -65,10 +65,11 @@ def create_dashboard_router(hub: IntelligenceHub) -> APIRouter:
             areas = areas_cache["data"] if areas_cache else {}
             capabilities = capabilities_cache["data"] if capabilities_cache else {}
 
-            # Pre-compute domain breakdown
+            # Pre-compute domain breakdown and slim entity data for frontend
             domain_counts = {}
             unavailable_count = 0
             area_entity_counts = {}
+            slim_entities = {}
             for eid, edata in entities.items():
                 domain = edata.get("domain", eid.split(".")[0])
                 domain_counts[domain] = domain_counts.get(domain, 0) + 1
@@ -77,6 +78,27 @@ def create_dashboard_router(hub: IntelligenceHub) -> APIRouter:
                 aid = edata.get("area_id")
                 if aid:
                     area_entity_counts[aid] = area_entity_counts.get(aid, 0) + 1
+
+                # Only pass fields the template actually uses (strip attributes blob)
+                slim_entities[eid] = {
+                    "state": edata.get("state", ""),
+                    "friendly_name": edata.get("friendly_name", ""),
+                    "domain": domain,
+                    "device_class": edata.get("device_class"),
+                    "area_id": aid,
+                    "device_id": edata.get("device_id"),
+                    "unit_of_measurement": edata.get("unit_of_measurement"),
+                }
+
+            # Slim device data — only fields the template uses
+            slim_devices = {}
+            for did, ddata in devices.items():
+                slim_devices[did] = {
+                    "name": ddata.get("name", ""),
+                    "manufacturer": ddata.get("manufacturer"),
+                    "model": ddata.get("model"),
+                    "area_id": ddata.get("area_id"),
+                }
 
             domain_breakdown = sorted(
                 [{"domain": d, "count": c} for d, c in domain_counts.items()],
@@ -87,8 +109,8 @@ def create_dashboard_router(hub: IntelligenceHub) -> APIRouter:
                 "discovery.html",
                 {
                     "request": request,
-                    "entities": entities,
-                    "devices": devices,
+                    "entities": slim_entities,
+                    "devices": slim_devices,
                     "areas": areas,
                     "capabilities": capabilities,
                     "entity_count": len(entities),
