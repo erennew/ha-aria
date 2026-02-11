@@ -18,7 +18,6 @@ import sys
 import os
 import asyncio
 import logging
-import signal
 from pathlib import Path
 
 # Add project root to path
@@ -61,17 +60,12 @@ async def start_hub(cache_path: str) -> IntelligenceHub:
 
 
 async def shutdown_hub(hub: IntelligenceHub):
-    """Gracefully shutdown the hub."""
+    """Gracefully shutdown the hub (idempotent)."""
+    if not hub.is_running():
+        return
     logging.info("Shutting down hub...")
     await hub.shutdown()
     logging.info("Hub shutdown complete")
-
-
-def signal_handler(signum, frame):
-    """Handle shutdown signals."""
-    logging.info(f"Received signal {signum}, initiating shutdown...")
-    if hub_instance:
-        asyncio.create_task(shutdown_hub(hub_instance))
 
 
 def parse_args():
@@ -215,11 +209,8 @@ async def main():
         await shutdown_hub(hub_instance)
         return 1
 
-    # Register signal handlers
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
     # Create FastAPI app
+    # Note: uvicorn handles SIGINT/SIGTERM internally — no custom signal handlers needed
     app = create_api(hub_instance)
 
     # Configure uvicorn
