@@ -68,11 +68,17 @@ async function fetchCategory(name) {
       lastFetched: Date.now(),
     };
   } catch (err) {
+    // 404 means the category doesn't exist yet (e.g. ML predictions before
+    // first training run). Treat as empty data so pages show their "no data"
+    // state instead of a scary red error banner.
+    const is404 = err.message && err.message.startsWith('HTTP 404');
     sig.value = {
       ...sig.value,
+      data: is404 ? { data: {} } : sig.value.data,
       loading: false,
-      error: err.message,
+      error: is404 ? null : err.message,
       stale: false,
+      lastFetched: Date.now(),
     };
   }
 }
