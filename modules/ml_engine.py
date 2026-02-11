@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, IsolationForest
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error, r2_score
 
 from hub.core import Module, IntelligenceHub
 
@@ -144,6 +145,14 @@ class MLEngine(Module):
 
         self.logger.info("Model training complete")
 
+        # Collect training summary from all trained models
+        trained_targets = []
+        accuracy_summary = {}
+        for target, model_data in self.models.items():
+            if "accuracy_scores" in model_data:
+                trained_targets.append(target)
+                accuracy_summary[target] = model_data["accuracy_scores"]
+
         # Store training metadata in cache
         await self.hub.set_cache(
             "ml_training_metadata",
@@ -151,7 +160,9 @@ class MLEngine(Module):
                 "last_trained": datetime.now().isoformat(),
                 "days_history": days_history,
                 "num_snapshots": len(training_data),
-                "capabilities_trained": list(capabilities.keys())
+                "capabilities_trained": list(capabilities.keys()),
+                "targets_trained": trained_targets,
+                "accuracy_summary": accuracy_summary
             }
         )
 
@@ -199,18 +210,28 @@ class MLEngine(Module):
         # Extract features and target values
         X, y = self._build_training_dataset(training_data, target)
 
-        if len(X) < 10:
-            self.logger.warning(f"Insufficient training data for {target}: {len(X)} samples")
+        if len(X) < 14:
+            self.logger.warning(f"Insufficient training data for {target}: {len(X)} samples (need 14+)")
             return
+
+        # Sort snapshots chronologically for proper train/validation split
+        # (already chronological from _load_training_data, but ensure it)
+
+        # 80/20 chronological split (no shuffle - time series data)
+        split_idx = int(len(X) * 0.8)
+        X_train, X_val = X[:split_idx], X[split_idx:]
+        y_train, y_val = y[:split_idx], y[split_idx:]
 
         # Train GradientBoosting model
         gb_model = GradientBoostingRegressor(
             n_estimators=100,
             learning_rate=0.1,
-            max_depth=3,
+            max_depth=4,
+            min_samples_leaf=max(3, len(X_train) // 20),
+            subsample=0.8,
             random_state=42
         )
-        gb_model.fit(X, y)
+        gb_model.fit(X_train, y_train)
 
         # Train RandomForest model
         rf_model = RandomForestRegressor(
@@ -218,23 +239,58 @@ class MLEngine(Module):
             max_depth=5,
             random_state=42
         )
-        rf_model.fit(X, y)
+        rf_model.fit(X_train, y_train)
+
+        # Train IsolationForest for anomaly detection
+        iso_model = IsolationForest(
+            n_estimators=100,
+            contamination=0.05,
+            random_state=42
+        )
+        iso_model.fit(X_train)
+
+        # Compute validation metrics
+        gb_pred = gb_model.predict(X_val)
+        rf_pred = rf_model.predict(X_val)
+
+        gb_mae = mean_absolute_error(y_val, gb_pred)
+        gb_r2 = r2_score(y_val, gb_pred) if len(y_val) > 1 else 0.0
+
+        rf_mae = mean_absolute_error(y_val, rf_pred)
+        rf_r2 = r2_score(y_val, rf_pred) if len(y_val) > 1 else 0.0
+
+        # Extract feature importance from RandomForest
+        config = self._get_feature_config()
+        feature_names = self._get_feature_names(config)
+        feature_importance = {
+            name: round(float(importance), 4)
+            for name, importance in zip(feature_names, rf_model.feature_importances_)
+        }
 
         # Create scaler for feature normalization
         scaler = StandardScaler()
-        scaler.fit(X)
+        scaler.fit(X_train)
 
-        # Store model data
-        config = self._get_feature_config()
+        # Store model data with complete metadata
         model_data = {
             "target": target,
             "capability": capability_name,
             "gb_model": gb_model,
             "rf_model": rf_model,
+            "iso_model": iso_model,
             "scaler": scaler,
             "trained_at": datetime.now().isoformat(),
             "num_samples": len(X),
-            "feature_names": self._get_feature_names(config)
+            "num_train": len(X_train),
+            "num_val": len(X_val),
+            "feature_names": feature_names,
+            "feature_importance": feature_importance,
+            "accuracy_scores": {
+                "gb_mae": round(gb_mae, 3),
+                "gb_r2": round(gb_r2, 3),
+                "rf_mae": round(rf_mae, 3),
+                "rf_r2": round(rf_r2, 3)
+            }
         }
 
         # Save to disk
@@ -247,7 +303,10 @@ class MLEngine(Module):
 
         self.logger.info(
             f"Model trained for {target}: "
-            f"{len(X)} samples, {len(model_data['feature_names'])} features"
+            f"{len(X)} samples ({len(X_train)} train, {len(X_val)} val), "
+            f"{len(feature_names)} features, "
+            f"GB MAE={gb_mae:.2f} R²={gb_r2:.3f}, "
+            f"RF MAE={rf_mae:.2f} R²={rf_r2:.3f}"
         )
 
     def _build_training_dataset(
