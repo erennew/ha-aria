@@ -1,0 +1,25 @@
+{
+  "name": "ha-intelligence-hub-spa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:css\" \"npm run dev:js\"",
+    "dev:css": "npx @tailwindcss/cli -i src/index.css -o dist/bundle.css --watch",
+    "dev:js": "node esbuild.config.mjs --watch",
+    "build": "npm run build:css && npm run build:js",
+    "build:css": "npx @tailwindcss/cli -i src/index.css -o dist/bundle.css --minify",
+    "build:js": "node esbuild.config.mjs"
+  },
+  "dependencies": {
+    "preact": "^10.25.0",
+    "preact-router": "^4.1.2",
+    "@preact/signals": "^2.0.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/cli": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "concurrently": "^9.1.0"
+  }
+}
