@@ -21,13 +21,13 @@ export default function Home() {
 
   useEffect(() => {
     fetchJson('/health')
-      .then(setHealth)
+      .then((d) => { setHealth(d); setHealthError(null); })
       .catch((err) => setHealthError(err.message || String(err)));
   }, []);
 
   useEffect(() => {
     fetchJson('/api/events?limit=20')
-      .then(setEvents)
+      .then((d) => { setEvents(d); setEventsError(null); })
       .catch((err) => setEventsError(err.message || String(err)));
   }, []);
 
@@ -110,7 +110,7 @@ export default function Home() {
       <section>
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Module Health</h2>
         {healthError ? (
-          <ErrorState error={healthError} onRetry={() => fetchJson('/health').then(setHealth).catch((e) => setHealthError(e.message))} />
+          <ErrorState error={healthError} onRetry={() => fetchJson('/health').then((d) => { setHealth(d); setHealthError(null); }).catch((e) => setHealthError(e.message))} />
         ) : modules.length === 0 ? (
           <div class="bg-white rounded-lg shadow-sm p-4 text-sm text-gray-500">Loading module data...</div>
         ) : (
@@ -159,7 +159,7 @@ export default function Home() {
       <section>
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Recent Events</h2>
         {eventsError ? (
-          <ErrorState error={eventsError} onRetry={() => fetchJson('/api/events?limit=20').then(setEvents).catch((e) => setEventsError(e.message))} />
+          <ErrorState error={eventsError} onRetry={() => fetchJson('/api/events?limit=20').then((d) => { setEvents(d); setEventsError(null); }).catch((e) => setEventsError(e.message))} />
         ) : !events ? (
           <LoadingState type="table" />
         ) : (

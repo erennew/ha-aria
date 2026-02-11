@@ -196,7 +196,12 @@ export default function Automations() {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
 
-      // Refetch to get authoritative state
+      // Clear optimistic override and refetch authoritative state
+      setLocalStatuses((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       refetch();
     } catch (err) {
       // Revert optimistic update
