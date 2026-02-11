@@ -29,6 +29,7 @@ from hub.core import IntelligenceHub
 from hub.api import create_api
 from modules.discovery import DiscoveryModule
 from modules.ml_engine import MLEngine
+from modules.orchestrator import OrchestratorModule
 
 
 # Global hub instance for signal handling
@@ -183,6 +184,19 @@ async def main():
         logger.info("ML engine ready")
     except Exception as e:
         logger.error(f"Failed to initialize ML engine: {e}")
+        await shutdown_hub(hub_instance)
+        return 1
+
+    # Register and initialize orchestrator
+    try:
+        logger.info("Initializing orchestrator...")
+        orchestrator = OrchestratorModule(hub_instance, ha_url, ha_token)
+        hub_instance.register_module(orchestrator)
+        await orchestrator.initialize()
+
+        logger.info("Orchestrator ready")
+    except Exception as e:
+        logger.error(f"Failed to initialize orchestrator: {e}")
         await shutdown_hub(hub_instance)
         return 1
 
