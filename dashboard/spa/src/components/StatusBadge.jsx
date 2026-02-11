@@ -12,7 +12,7 @@ export default function StatusBadge({ state }) {
     colorClass = 'bg-gray-400';
   } else if (s === 'unavailable' || s === 'unknown') {
     colorClass = 'bg-red-500';
-  } else if (!isNaN(Number(state)) && state !== '') {
+  } else if (state != null && state !== '' && !isNaN(Number(state))) {
     colorClass = 'bg-blue-500';
   } else {
     colorClass = 'bg-gray-400';

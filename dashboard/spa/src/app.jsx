@@ -33,8 +33,13 @@ function createHashHistory() {
 
   window.addEventListener('hashchange', notify);
 
+  // Ensure hash has a default route
+  if (!window.location.hash) {
+    window.location.hash = '#/';
+  }
+
   return {
-    location: getLocation(),
+    get location() { return getLocation(); },
     listen(callback) {
       listeners.push(callback);
       return () => {
@@ -60,11 +65,6 @@ export default function App() {
     connectWebSocket();
     return () => disconnectWebSocket();
   }, []);
-
-  // Ensure hash has a default route
-  if (!window.location.hash) {
-    window.location.hash = '#/';
-  }
 
   return (
     <div class="min-h-screen bg-gray-50">
