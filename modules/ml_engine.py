@@ -273,7 +273,8 @@ class MLEngine(Module):
         )
         rf_model.fit(X_train, y_train)
 
-        # Train LightGBM model
+        # Train LightGBM model (always trained even if disabled in enabled_models,
+        # so toggling a model on doesn't require a full retrain cycle)
         lgbm_model = lgb.LGBMRegressor(
             n_estimators=100,
             learning_rate=0.1,
@@ -283,6 +284,7 @@ class MLEngine(Module):
             subsample=0.8,
             random_state=42,
             verbosity=-1,  # Suppress LightGBM info logs
+            importance_type='gain',  # Gain-based importance (reduction in loss)
         )
         lgbm_model.fit(X_train, y_train)
 
@@ -952,9 +954,9 @@ class MLEngine(Module):
                 pred_values = list(individual_preds.values())
                 avg_pred = sum(pred_values) / len(pred_values)
 
-                if len(pred_values) > 1 and avg_pred > 0:
+                if len(pred_values) > 1 and abs(avg_pred) > 1e-6:
                     max_diff = max(abs(p - avg_pred) for p in pred_values)
-                    rel_diff = max_diff / avg_pred
+                    rel_diff = max_diff / abs(avg_pred)
                     confidence = max(0.0, min(1.0, 1.0 - rel_diff))
                 elif len(pred_values) == 1:
                     # Single model — no agreement signal, moderate confidence

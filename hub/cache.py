@@ -415,7 +415,9 @@ class CacheManager:
         query = "SELECT * FROM predictions WHERE 1=1"
         params: list = []
 
-        if outcome_filter is not None:
+        if outcome_filter == "pending":
+            query += " AND outcome IS NULL"
+        elif outcome_filter is not None:
             query += " AND outcome = ?"
             params.append(outcome_filter)
 
@@ -463,7 +465,9 @@ class CacheManager:
         """Calculate accuracy metrics over a time window.
 
         Args:
-            days: Number of days to look back
+            days: Number of days to look back (filters by prediction time,
+                not resolution time — a prediction made 8 days ago but
+                resolved today is excluded from a 7-day window)
 
         Returns:
             Dict with overall_accuracy, per_outcome breakdown, and daily_trend
