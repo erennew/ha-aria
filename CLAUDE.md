@@ -99,12 +99,12 @@ Four analytical methods computed on each 15-min flush and cached in `activity_su
 ## Testing
 
 ```bash
-# Run all tests (74 tests, ~0.3s)
+# Run all tests (81 tests, ~0.3s)
 .venv/bin/python -m pytest tests/ -v
 
 # Individual test files
 .venv/bin/python -m pytest tests/test_activity_monitor.py -v  # 37 tests
-.venv/bin/python -m pytest tests/test_intelligence.py -v       # 37 tests
+.venv/bin/python -m pytest tests/test_intelligence.py -v       # 44 tests
 .venv/bin/python -m pytest tests/test_discover.py -v
 .venv/bin/python -m pytest tests/test_patterns.py -v
 .venv/bin/python -m pytest tests/test_ml_training.py -v
