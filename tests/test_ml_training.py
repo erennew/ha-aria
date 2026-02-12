@@ -538,5 +538,362 @@ class TestMLEngine:
         assert result == {}
 
 
+class TestLightGBMIntegration:
+    """Test LightGBM integration in ML Engine."""
+
+    @pytest.fixture
+    def ml_engine_with_data(self, mock_hub, tmp_path):
+        """Create MLEngine with synthetic training data already on disk."""
+        models_dir = tmp_path / "models"
+        training_data_dir = tmp_path / "training_data"
+        models_dir.mkdir()
+        training_data_dir.mkdir()
+
+        engine = MLEngine(mock_hub, str(models_dir), str(training_data_dir))
+
+        # Write 30 days of synthetic snapshot files
+        base_date = datetime.now()
+        for day_offset in range(30):
+            date = base_date - timedelta(days=30 - day_offset)
+            snapshot = {
+                "date": date.strftime("%Y-%m-%d"),
+                "hour": 12,
+                "time_features": {
+                    "hour_sin": float(np.sin(2 * np.pi * 12 / 24)),
+                    "hour_cos": float(np.cos(2 * np.pi * 12 / 24)),
+                    "dow_sin": float(np.sin(2 * np.pi * date.weekday() / 7)),
+                    "dow_cos": float(np.cos(2 * np.pi * date.weekday() / 7)),
+                    "month_sin": 0.5, "month_cos": 0.866,
+                    "day_of_year_sin": 0.3, "day_of_year_cos": 0.95,
+                    "is_weekend": date.weekday() >= 5,
+                    "is_holiday": False, "is_night": False, "is_work_hours": True,
+                    "minutes_since_sunrise": 360,
+                    "minutes_until_sunset": 300,
+                    "daylight_remaining_pct": 0.5
+                },
+                "weather": {
+                    "temp_f": 65.0 + day_offset % 10,
+                    "humidity_pct": 50.0 + day_offset % 20,
+                    "wind_mph": 5.0
+                },
+                "power": {"total_watts": 500.0 + day_offset * 10 + float(np.random.default_rng(day_offset).normal() * 50)},
+                "lights": {"on": 3 + (day_offset % 3), "total_brightness": 150.0 + day_offset * 5},
+                "occupancy": {
+                    "people_home": ["person.justin"],
+                    "people_home_count": 1,
+                    "device_count_home": 2 + (day_offset % 2)
+                },
+                "motion": {"active_count": 1 + (day_offset % 2)}
+            }
+            snapshot_file = training_data_dir / f"{date.strftime('%Y-%m-%d')}.json"
+            with open(snapshot_file, "w") as f:
+                json.dump(snapshot, f)
+
+        return engine
+
+    @pytest.fixture
+    def mock_capabilities(self):
+        """Capabilities fixture for LightGBM tests."""
+        return {
+            "data": {
+                "power_monitoring": {"available": True, "entities": ["sensor.power_1"]},
+                "lighting": {"available": True, "entities": ["light.living_room"]},
+                "occupancy": {"available": True, "entities": ["person.justin"]},
+            }
+        }
+
+    @pytest.mark.asyncio
+    async def test_lgbm_model_trained(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """LightGBM model is trained alongside GB and RF."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        # Verify lgbm_model exists for at least one target
+        assert len(ml_engine_with_data.models) > 0
+
+        for target, model_data in ml_engine_with_data.models.items():
+            if target == "anomaly_detector":
+                continue
+            assert "lgbm_model" in model_data, f"lgbm_model missing from {target}"
+            assert "gb_model" in model_data, f"gb_model missing from {target}"
+            assert "rf_model" in model_data, f"rf_model missing from {target}"
+
+    @pytest.mark.asyncio
+    async def test_lgbm_accuracy_scores_stored(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """LightGBM MAE and R2 are recorded in accuracy_scores."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        for target, model_data in ml_engine_with_data.models.items():
+            if target == "anomaly_detector":
+                continue
+            scores = model_data["accuracy_scores"]
+            assert "lgbm_mae" in scores, f"lgbm_mae missing from {target} scores"
+            assert "lgbm_r2" in scores, f"lgbm_r2 missing from {target} scores"
+            assert isinstance(scores["lgbm_mae"], float)
+            assert isinstance(scores["lgbm_r2"], float)
+
+    @pytest.mark.asyncio
+    async def test_lgbm_feature_importance_stored(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """LightGBM feature importance is stored separately."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        for target, model_data in ml_engine_with_data.models.items():
+            if target == "anomaly_detector":
+                continue
+            assert "lgbm_feature_importance" in model_data, f"lgbm_feature_importance missing from {target}"
+            assert isinstance(model_data["lgbm_feature_importance"], dict)
+            assert len(model_data["lgbm_feature_importance"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_lgbm_predictions_included(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """Predictions include lgbm_prediction field."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        # Set up snapshot for prediction
+        current_snapshot = {
+            "date": datetime.now().isoformat(),
+            "weather": {"temp_f": 70, "humidity_pct": 55, "wind_mph": 5},
+            "power": {"total_watts": 600},
+            "lights": {"on": 4, "total_brightness": 200},
+            "occupancy": {"people_home_count": 1, "device_count_home": 3},
+            "motion": {"active_count": 1},
+        }
+
+        async def mock_get_cache(key):
+            if key == "latest_snapshot":
+                return {"data": current_snapshot}
+            if key == "feature_config":
+                return None
+            return None
+
+        mock_hub.get_cache = AsyncMock(side_effect=mock_get_cache)
+
+        result = await ml_engine_with_data.generate_predictions()
+
+        assert "predictions" in result
+        for target, pred in result["predictions"].items():
+            assert "lgbm_prediction" in pred, f"lgbm_prediction missing from {target}"
+            assert "gb_prediction" in pred, f"gb_prediction missing from {target}"
+            assert "rf_prediction" in pred, f"rf_prediction missing from {target}"
+            assert isinstance(pred["lgbm_prediction"], float)
+
+    @pytest.mark.asyncio
+    async def test_three_model_blending(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """Blended prediction uses configurable weights across all three models."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        current_snapshot = {
+            "date": datetime.now().isoformat(),
+            "weather": {"temp_f": 70, "humidity_pct": 55, "wind_mph": 5},
+            "power": {"total_watts": 600},
+            "lights": {"on": 4, "total_brightness": 200},
+            "occupancy": {"people_home_count": 1, "device_count_home": 3},
+            "motion": {"active_count": 1},
+        }
+
+        async def mock_get_cache(key):
+            if key == "latest_snapshot":
+                return {"data": current_snapshot}
+            if key == "feature_config":
+                return None
+            return None
+
+        mock_hub.get_cache = AsyncMock(side_effect=mock_get_cache)
+
+        result = await ml_engine_with_data.generate_predictions()
+
+        for target, pred in result["predictions"].items():
+            gb = pred["gb_prediction"]
+            rf = pred["rf_prediction"]
+            lgbm = pred["lgbm_prediction"]
+            blended = pred["value"]
+
+            # Verify blending uses normalized weights (0.35 + 0.25 + 0.40 = 1.0)
+            expected = round(0.35 * gb + 0.25 * rf + 0.40 * lgbm, 2)
+            assert abs(blended - expected) < 0.02, (
+                f"{target}: blended={blended}, expected={expected} "
+                f"(gb={gb}, rf={rf}, lgbm={lgbm})"
+            )
+
+    @pytest.mark.asyncio
+    async def test_blend_weights_in_prediction(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """Predictions include blend_weights showing which models contributed."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        current_snapshot = {
+            "date": datetime.now().isoformat(),
+            "weather": {"temp_f": 70, "humidity_pct": 55, "wind_mph": 5},
+            "power": {"total_watts": 600},
+            "lights": {"on": 4, "total_brightness": 200},
+            "occupancy": {"people_home_count": 1, "device_count_home": 3},
+            "motion": {"active_count": 1},
+        }
+
+        async def mock_get_cache(key):
+            if key == "latest_snapshot":
+                return {"data": current_snapshot}
+            if key == "feature_config":
+                return None
+            return None
+
+        mock_hub.get_cache = AsyncMock(side_effect=mock_get_cache)
+
+        result = await ml_engine_with_data.generate_predictions()
+
+        for target, pred in result["predictions"].items():
+            assert "blend_weights" in pred
+            weights = pred["blend_weights"]
+            assert "gb" in weights
+            assert "rf" in weights
+            assert "lgbm" in weights
+            # Weights should sum to 1.0
+            assert abs(sum(weights.values()) - 1.0) < 0.01
+
+    @pytest.mark.asyncio
+    async def test_disable_lgbm_model(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """Disabling LightGBM falls back to GB+RF blending only."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        # Disable LightGBM
+        ml_engine_with_data.enabled_models["lgbm"] = False
+
+        current_snapshot = {
+            "date": datetime.now().isoformat(),
+            "weather": {"temp_f": 70, "humidity_pct": 55, "wind_mph": 5},
+            "power": {"total_watts": 600},
+            "lights": {"on": 4, "total_brightness": 200},
+            "occupancy": {"people_home_count": 1, "device_count_home": 3},
+            "motion": {"active_count": 1},
+        }
+
+        async def mock_get_cache(key):
+            if key == "latest_snapshot":
+                return {"data": current_snapshot}
+            if key == "feature_config":
+                return None
+            return None
+
+        mock_hub.get_cache = AsyncMock(side_effect=mock_get_cache)
+
+        result = await ml_engine_with_data.generate_predictions()
+
+        for target, pred in result["predictions"].items():
+            # lgbm_prediction should not be present
+            assert "lgbm_prediction" not in pred
+            # gb and rf should still be present
+            assert "gb_prediction" in pred
+            assert "rf_prediction" in pred
+            # blend_weights should only have gb and rf
+            assert "lgbm" not in pred["blend_weights"]
+            # Weights should still sum to 1.0
+            assert abs(sum(pred["blend_weights"].values()) - 1.0) < 0.01
+
+    @pytest.mark.asyncio
+    async def test_disable_all_except_lgbm(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """Can run with only LightGBM enabled."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        # Enable only LightGBM
+        ml_engine_with_data.enabled_models["gb"] = False
+        ml_engine_with_data.enabled_models["rf"] = False
+        ml_engine_with_data.enabled_models["lgbm"] = True
+
+        current_snapshot = {
+            "date": datetime.now().isoformat(),
+            "weather": {"temp_f": 70, "humidity_pct": 55, "wind_mph": 5},
+            "power": {"total_watts": 600},
+            "lights": {"on": 4, "total_brightness": 200},
+            "occupancy": {"people_home_count": 1, "device_count_home": 3},
+            "motion": {"active_count": 1},
+        }
+
+        async def mock_get_cache(key):
+            if key == "latest_snapshot":
+                return {"data": current_snapshot}
+            if key == "feature_config":
+                return None
+            return None
+
+        mock_hub.get_cache = AsyncMock(side_effect=mock_get_cache)
+
+        result = await ml_engine_with_data.generate_predictions()
+
+        for target, pred in result["predictions"].items():
+            assert "lgbm_prediction" in pred
+            assert "gb_prediction" not in pred
+            assert "rf_prediction" not in pred
+            # Single model, confidence should be 0.7
+            assert pred["confidence"] == 0.7
+            # Blended == lgbm when it's the only model
+            assert pred["value"] == pred["lgbm_prediction"]
+
+    @pytest.mark.asyncio
+    async def test_model_pickle_includes_lgbm(self, ml_engine_with_data, mock_hub, mock_capabilities):
+        """Saved .pkl model files include LightGBM model."""
+        mock_hub.get_cache_fresh = AsyncMock(return_value=mock_capabilities)
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        await ml_engine_with_data.train_models(days_history=30)
+
+        # Load a pickle file and verify lgbm_model is in it
+        models_dir = Path(ml_engine_with_data.models_dir)
+        pkl_files = list(models_dir.glob("*_model.pkl"))
+        assert len(pkl_files) > 0
+
+        for pkl_file in pkl_files:
+            if "anomaly" in pkl_file.stem:
+                continue
+            import pickle
+            with open(pkl_file, "rb") as f:
+                data = pickle.load(f)
+            assert "lgbm_model" in data, f"lgbm_model not in {pkl_file.name}"
+
+    def test_default_model_config(self, mock_hub, tmp_path):
+        """Default config enables all three models with correct weights."""
+        engine = MLEngine(mock_hub, str(tmp_path / "m"), str(tmp_path / "t"))
+
+        assert engine.enabled_models == {"gb": True, "rf": True, "lgbm": True}
+        assert engine.model_weights["gb"] == 0.35
+        assert engine.model_weights["rf"] == 0.25
+        assert engine.model_weights["lgbm"] == 0.40
+        # Weights should sum to 1.0
+        assert abs(sum(engine.model_weights.values()) - 1.0) < 0.001
+
+    def test_model_config_mutable(self, mock_hub, tmp_path):
+        """Model config can be changed at runtime (prep for UI config)."""
+        engine = MLEngine(mock_hub, str(tmp_path / "m"), str(tmp_path / "t"))
+
+        # Simulate UI config change
+        engine.enabled_models["lgbm"] = False
+        engine.model_weights["gb"] = 0.6
+        engine.model_weights["rf"] = 0.4
+
+        assert engine.enabled_models["lgbm"] is False
+        assert engine.model_weights["gb"] == 0.6
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

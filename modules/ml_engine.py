@@ -1,13 +1,14 @@
 """ML Engine Module - Adaptive machine learning predictions.
 
-Trains sklearn models based on discovered capabilities and generates predictions
+Trains ML models based on discovered capabilities and generates predictions
 for home automation metrics (power, lights, occupancy, etc.).
 
 Architecture:
 - Reads capabilities from hub cache to determine what to predict
-- Trains separate models per capability (GradientBoosting, RandomForest, blend)
+- Trains separate models per capability (GradientBoosting, RandomForest, LightGBM, blend)
 - Stores trained models and predictions back to hub cache
 - Runs training on schedule (weekly) and prediction daily
+- Model selection is configurable: any subset of {gb, rf, lgbm} can be enabled
 """
 
 import os
@@ -23,6 +24,7 @@ import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, r2_score
+import lightgbm as lgb
 
 from hub.core import Module, IntelligenceHub
 
@@ -59,6 +61,20 @@ class MLEngine(Module):
             "occupancy": ["people_home", "devices_home"],
             "motion": ["motion_active_count"],
             "climate": ["temperature", "humidity"],
+        }
+
+        # Model configuration — which model types to train and their blend weights.
+        # Keys: "gb" (GradientBoosting), "rf" (RandomForest), "lgbm" (LightGBM)
+        # Weights are normalized at prediction time so they always sum to 1.0.
+        self.enabled_models: Dict[str, bool] = {
+            "gb": True,
+            "rf": True,
+            "lgbm": True,
+        }
+        self.model_weights: Dict[str, float] = {
+            "gb": 0.35,
+            "rf": 0.25,
+            "lgbm": 0.40,
         }
 
         # Loaded models cache
@@ -257,6 +273,19 @@ class MLEngine(Module):
         )
         rf_model.fit(X_train, y_train)
 
+        # Train LightGBM model
+        lgbm_model = lgb.LGBMRegressor(
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=4,
+            num_leaves=15,
+            min_child_samples=max(3, len(X_train) // 20),
+            subsample=0.8,
+            random_state=42,
+            verbosity=-1,  # Suppress LightGBM info logs
+        )
+        lgbm_model.fit(X_train, y_train)
+
         # Train IsolationForest for anomaly detection
         iso_model = IsolationForest(
             n_estimators=100,
@@ -268,6 +297,7 @@ class MLEngine(Module):
         # Compute validation metrics
         gb_pred = gb_model.predict(X_val)
         rf_pred = rf_model.predict(X_val)
+        lgbm_pred = lgbm_model.predict(X_val)
 
         gb_mae = mean_absolute_error(y_val, gb_pred)
         gb_r2 = r2_score(y_val, gb_pred) if len(y_val) > 1 else 0.0
@@ -275,12 +305,21 @@ class MLEngine(Module):
         rf_mae = mean_absolute_error(y_val, rf_pred)
         rf_r2 = r2_score(y_val, rf_pred) if len(y_val) > 1 else 0.0
 
+        lgbm_mae = mean_absolute_error(y_val, lgbm_pred)
+        lgbm_r2 = r2_score(y_val, lgbm_pred) if len(y_val) > 1 else 0.0
+
         # Extract feature importance from RandomForest
         config = await self._get_feature_config()
         feature_names = await self._get_feature_names(config)
         feature_importance = {
             name: round(float(importance), 4)
             for name, importance in zip(feature_names, rf_model.feature_importances_)
+        }
+
+        # Extract LightGBM feature importance (gain-based)
+        lgbm_feature_importance = {
+            name: round(float(importance), 4)
+            for name, importance in zip(feature_names, lgbm_model.feature_importances_)
         }
 
         # Create scaler for feature normalization
@@ -293,6 +332,7 @@ class MLEngine(Module):
             "capability": capability_name,
             "gb_model": gb_model,
             "rf_model": rf_model,
+            "lgbm_model": lgbm_model,
             "iso_model": iso_model,
             "scaler": scaler,
             "trained_at": datetime.now().isoformat(),
@@ -301,11 +341,14 @@ class MLEngine(Module):
             "num_val": len(X_val),
             "feature_names": feature_names,
             "feature_importance": feature_importance,
+            "lgbm_feature_importance": lgbm_feature_importance,
             "accuracy_scores": {
                 "gb_mae": round(gb_mae, 3),
                 "gb_r2": round(gb_r2, 3),
                 "rf_mae": round(rf_mae, 3),
-                "rf_r2": round(rf_r2, 3)
+                "rf_r2": round(rf_r2, 3),
+                "lgbm_mae": round(lgbm_mae, 3),
+                "lgbm_r2": round(lgbm_r2, 3),
             }
         }
 
@@ -322,7 +365,8 @@ class MLEngine(Module):
             f"{len(X)} samples ({len(X_train)} train, {len(X_val)} val), "
             f"{len(feature_names)} features, "
             f"GB MAE={gb_mae:.2f} R²={gb_r2:.3f}, "
-            f"RF MAE={rf_mae:.2f} R²={rf_r2:.3f}"
+            f"RF MAE={rf_mae:.2f} R²={rf_r2:.3f}, "
+            f"LGBM MAE={lgbm_mae:.2f} R²={lgbm_r2:.3f}"
         )
 
     async def _train_anomaly_detector(self, training_data: List[Dict[str, Any]]):
@@ -873,41 +917,77 @@ class MLEngine(Module):
                 scaler = model_data["scaler"]
                 X_scaled = scaler.transform(X)
 
-                # Get predictions from both models
-                gb_model = model_data["gb_model"]
-                rf_model = model_data["rf_model"]
+                # Collect predictions from all enabled models
+                individual_preds: Dict[str, float] = {}
+                active_weights: Dict[str, float] = {}
 
-                gb_pred = float(gb_model.predict(X_scaled)[0])
-                rf_pred = float(rf_model.predict(X_scaled)[0])
+                if self.enabled_models.get("gb") and "gb_model" in model_data:
+                    individual_preds["gb"] = float(model_data["gb_model"].predict(X_scaled)[0])
+                    active_weights["gb"] = self.model_weights.get("gb", 0.35)
 
-                # Blend predictions: 60% GB + 40% RF
-                blended_pred = 0.6 * gb_pred + 0.4 * rf_pred
+                if self.enabled_models.get("rf") and "rf_model" in model_data:
+                    individual_preds["rf"] = float(model_data["rf_model"].predict(X_scaled)[0])
+                    active_weights["rf"] = self.model_weights.get("rf", 0.25)
+
+                if self.enabled_models.get("lgbm") and "lgbm_model" in model_data:
+                    individual_preds["lgbm"] = float(model_data["lgbm_model"].predict(X_scaled)[0])
+                    active_weights["lgbm"] = self.model_weights.get("lgbm", 0.40)
+
+                if not individual_preds:
+                    self.logger.warning(f"No enabled models produced predictions for {target}")
+                    continue
+
+                # Normalize weights to sum to 1.0
+                weight_sum = sum(active_weights.values())
+                normalized_weights = {k: v / weight_sum for k, v in active_weights.items()}
+
+                # Blend predictions using normalized weights
+                blended_pred = sum(
+                    normalized_weights[k] * individual_preds[k]
+                    for k in individual_preds
+                )
 
                 # Calculate confidence based on model agreement
-                # High agreement = high confidence
-                pred_diff = abs(gb_pred - rf_pred)
-                avg_pred = (gb_pred + rf_pred) / 2
+                # Standard deviation of predictions relative to mean
+                pred_values = list(individual_preds.values())
+                avg_pred = sum(pred_values) / len(pred_values)
 
-                # Confidence: 1.0 if perfect agreement, lower if they diverge
-                # Use relative difference (% of average prediction)
-                if avg_pred > 0:
-                    rel_diff = pred_diff / avg_pred
+                if len(pred_values) > 1 and avg_pred > 0:
+                    max_diff = max(abs(p - avg_pred) for p in pred_values)
+                    rel_diff = max_diff / avg_pred
                     confidence = max(0.0, min(1.0, 1.0 - rel_diff))
+                elif len(pred_values) == 1:
+                    # Single model — no agreement signal, moderate confidence
+                    confidence = 0.7
                 else:
-                    # Both predictions near zero - high confidence if both agree
-                    confidence = 1.0 if pred_diff < 0.1 else 0.5
+                    # All predictions near zero
+                    max_diff = max(abs(p - avg_pred) for p in pred_values) if pred_values else 0
+                    confidence = 1.0 if max_diff < 0.1 else 0.5
 
-                predictions_dict[target] = {
+                # Build prediction entry with per-model values
+                pred_entry = {
                     "value": round(blended_pred, 2),
-                    "gb_prediction": round(gb_pred, 2),
-                    "rf_prediction": round(rf_pred, 2),
                     "confidence": round(confidence, 3),
-                    "is_anomaly": is_anomaly
+                    "is_anomaly": is_anomaly,
+                    "blend_weights": {k: round(v, 3) for k, v in normalized_weights.items()},
                 }
 
+                # Include individual model predictions
+                if "gb" in individual_preds:
+                    pred_entry["gb_prediction"] = round(individual_preds["gb"], 2)
+                if "rf" in individual_preds:
+                    pred_entry["rf_prediction"] = round(individual_preds["rf"], 2)
+                if "lgbm" in individual_preds:
+                    pred_entry["lgbm_prediction"] = round(individual_preds["lgbm"], 2)
+
+                predictions_dict[target] = pred_entry
+
+                model_details = ", ".join(
+                    f"{k.upper()}={v:.2f}" for k, v in individual_preds.items()
+                )
                 self.logger.debug(
                     f"Prediction for {target}: {blended_pred:.2f} "
-                    f"(GB={gb_pred:.2f}, RF={rf_pred:.2f}, conf={confidence:.3f})"
+                    f"({model_details}, conf={confidence:.3f})"
                 )
 
             except Exception as e:
