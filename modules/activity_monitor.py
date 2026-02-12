@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 
 from hub.core import Module, IntelligenceHub
+from hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY
 
 
 logger = logging.getLogger(__name__)
@@ -70,11 +71,21 @@ class ActivityMonitor(Module):
         # Snapshot control
         self._last_snapshot_time: Optional[datetime] = None
         self._snapshots_today = 0
-        self._snapshot_date = datetime.now().strftime("%Y-%m-%d")
 
-        # Stats
+        # Stats — single date tracker for all daily counters
         self._events_today = 0
         self._events_date = datetime.now().strftime("%Y-%m-%d")
+        self._snapshot_date = self._events_date
+
+        # In-memory today snapshot log (avoids full-file scan)
+        self._snapshot_log_today_cache: List[Dict[str, Any]] = []
+
+        # WebSocket liveness tracking
+        self._ws_connected = False
+        self._ws_last_connected_at: Optional[str] = None
+        self._ws_disconnect_count = 0
+        self._ws_total_disconnect_s = 0.0
+        self._ws_last_disconnect_at: Optional[datetime] = None
 
         # Path to ha-intelligence CLI
         self._ha_intelligence = Path.home() / ".local" / "bin" / "ha-intelligence"
@@ -84,6 +95,16 @@ class ActivityMonitor(Module):
             Path.home() / "ha-logs" / "intelligence" / "snapshot_log.jsonl"
         )
         self._snapshot_log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _reset_daily_counters(self):
+        """Reset daily counters if the date has changed."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        if today != self._events_date:
+            self._events_today = 0
+            self._snapshots_today = 0
+            self._snapshot_log_today_cache = []
+            self._events_date = today
+            self._snapshot_date = today
 
     async def initialize(self):
         """Start the WebSocket listener and buffer flush timer."""
@@ -145,6 +166,15 @@ class ActivityMonitor(Module):
                         )
                         retry_delay = 5  # reset backoff
 
+                        # Track liveness
+                        now = datetime.now()
+                        if self._ws_last_disconnect_at:
+                            gap = (now - self._ws_last_disconnect_at).total_seconds()
+                            self._ws_total_disconnect_s += gap
+                            self._ws_last_disconnect_at = None
+                        self._ws_connected = True
+                        self._ws_last_connected_at = now.isoformat()
+
                         # 3. Subscribe to state_changed
                         await ws.send_json({
                             "id": 1,
@@ -171,6 +201,12 @@ class ActivityMonitor(Module):
                 )
             except Exception as e:
                 self.logger.error(f"Activity WebSocket unexpected error: {e}")
+
+            # Track disconnect
+            if self._ws_connected:
+                self._ws_connected = False
+                self._ws_disconnect_count += 1
+                self._ws_last_disconnect_at = datetime.now()
 
             # Backoff: 5s → 10s → 20s → 60s max
             await asyncio.sleep(retry_delay)
@@ -208,13 +244,7 @@ class ActivityMonitor(Module):
             return
 
         # Reset daily counters at midnight
-        today = datetime.now().strftime("%Y-%m-%d")
-        if today != self._events_date:
-            self._events_today = 0
-            self._events_date = today
-        if today != self._snapshot_date:
-            self._snapshots_today = 0
-            self._snapshot_date = today
+        self._reset_daily_counters()
 
         self._events_today += 1
 
@@ -304,8 +334,16 @@ class ActivityMonitor(Module):
             f"Triggering adaptive snapshot ({self._snapshots_today}/{DAILY_SNAPSHOT_CAP} today)"
         )
 
-        # Fire-and-forget subprocess
-        asyncio.get_event_loop().run_in_executor(None, self._run_snapshot)
+        # Fire-and-forget subprocess (log errors from the future)
+        loop = asyncio.get_running_loop()
+        fut = loop.run_in_executor(None, self._run_snapshot)
+        fut.add_done_callback(self._snapshot_done_callback)
+
+    def _snapshot_done_callback(self, future):
+        """Log errors from the snapshot executor future."""
+        exc = future.exception()
+        if exc:
+            self.logger.error(f"Snapshot executor error: {exc}")
 
     def _run_snapshot(self):
         """Run ha-intelligence --snapshot-intraday in a subprocess."""
@@ -336,7 +374,8 @@ class ActivityMonitor(Module):
     # ------------------------------------------------------------------
 
     def _append_snapshot_log(self, entry: Dict[str, Any]):
-        """Append a snapshot record to the persistent JSONL log."""
+        """Append a snapshot record to the persistent JSONL log and in-memory cache."""
+        self._snapshot_log_today_cache.append(entry)
         try:
             with open(self._snapshot_log_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
@@ -344,26 +383,8 @@ class ActivityMonitor(Module):
             self.logger.warning(f"Failed to write snapshot log: {e}")
 
     def _read_snapshot_log_today(self) -> List[Dict[str, Any]]:
-        """Read today's entries from the persistent snapshot log."""
-        today = datetime.now().strftime("%Y-%m-%d")
-        entries = []
-        if not self._snapshot_log_path.exists():
-            return entries
-        try:
-            with open(self._snapshot_log_path, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        entry = json.loads(line)
-                        if entry.get("date") == today:
-                            entries.append(entry)
-                    except json.JSONDecodeError:
-                        continue
-        except Exception as e:
-            self.logger.warning(f"Failed to read snapshot log: {e}")
-        return entries
+        """Return today's snapshot entries from in-memory cache (O(1), no file scan)."""
+        return list(self._snapshot_log_today_cache)
 
     # ------------------------------------------------------------------
     # Buffer flush — 15-minute windows → cache
@@ -376,9 +397,11 @@ class ActivityMonitor(Module):
             return
 
         now = datetime.now()
-        # Window boundaries
-        minute_slot = (now.minute // 15) * 15
-        window_start = now.replace(minute=minute_slot, second=0, microsecond=0)
+        # Window boundaries based on earliest event in buffer (not flush time)
+        first_ts = self._activity_buffer[0].get("timestamp", now.isoformat())
+        first_dt = datetime.fromisoformat(first_ts) if isinstance(first_ts, str) else now
+        minute_slot = (first_dt.minute // 15) * 15
+        window_start = first_dt.replace(minute=minute_slot, second=0, microsecond=0)
         window_end = window_start + timedelta(minutes=15) - timedelta(seconds=1)
 
         # Group events by domain
@@ -406,7 +429,7 @@ class ActivityMonitor(Module):
         }
 
         # Read existing activity log from cache
-        existing = await self.hub.get_cache("activity_log")
+        existing = await self.hub.get_cache(CACHE_ACTIVITY_LOG)
         windows = []
         if existing and existing.get("data"):
             windows = existing["data"].get("windows", [])
@@ -424,7 +447,7 @@ class ActivityMonitor(Module):
             "snapshots_today": self._snapshots_today,
         }
 
-        await self.hub.set_cache("activity_log", activity_log, {
+        await self.hub.set_cache(CACHE_ACTIVITY_LOG, activity_log, {
             "source": "activity_monitor",
             "window_count": len(windows),
         })
@@ -459,7 +482,7 @@ class ActivityMonitor(Module):
                 break
 
         # Activity rate from cached windows
-        activity_log = await self.hub.get_cache("activity_log")
+        activity_log = await self.hub.get_cache(CACHE_ACTIVITY_LOG)
         windows = []
         if activity_log and activity_log.get("data"):
             windows = activity_log["data"].get("windows", [])
@@ -515,14 +538,19 @@ class ActivityMonitor(Module):
                 "today_count": self._snapshots_today,
                 "daily_cap": DAILY_SNAPSHOT_CAP,
                 "cooldown_remaining_s": int(cooldown_remaining),
-                "log_file": str(self._snapshot_log_path),
                 "log_today": self._read_snapshot_log_today(),
             },
             "domains_active_1h": dict(
                 sorted(domains_1h.items(), key=lambda x: x[1], reverse=True)
             ),
+            "websocket": {
+                "connected": self._ws_connected,
+                "last_connected_at": self._ws_last_connected_at,
+                "disconnect_count": self._ws_disconnect_count,
+                "total_disconnect_s": round(self._ws_total_disconnect_s, 1),
+            },
         }
 
-        await self.hub.set_cache("activity_summary", summary, {
+        await self.hub.set_cache(CACHE_ACTIVITY_SUMMARY, summary, {
             "source": "activity_monitor",
         })

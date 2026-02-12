@@ -4,17 +4,19 @@ Assembles predictions, baselines, trends, insights, run history, and config
 from ~/ha-logs/intelligence/ into a single consolidated cache category.
 """
 
+import asyncio
 import json
 import logging
 import os
 import re
-import urllib.request
-import urllib.error
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 
+import aiohttp
+
 from hub.core import Module, IntelligenceHub
+from hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY, CACHE_INTELLIGENCE
 
 
 logger = logging.getLogger(__name__)
@@ -46,7 +48,7 @@ class IntelligenceModule(Module):
         try:
             data = self._read_intelligence_data()
             data["activity"] = await self._read_activity_data()
-            await self.hub.set_cache("intelligence", data, {
+            await self.hub.set_cache(CACHE_INTELLIGENCE, data, {
                 "source": "intelligence_module",
                 "file_count": self._count_source_files(),
             })
@@ -65,14 +67,14 @@ class IntelligenceModule(Module):
             try:
                 data = self._read_intelligence_data()
                 data["activity"] = await self._read_activity_data()
-                await self.hub.set_cache("intelligence", data, {
+                await self.hub.set_cache(CACHE_INTELLIGENCE, data, {
                     "source": "intelligence_module",
                     "file_count": self._count_source_files(),
                 })
                 self.logger.debug("Intelligence cache refreshed")
 
                 # Check for new daily insight → send digest
-                self._maybe_send_digest(data)
+                await self._maybe_send_digest(data)
             except Exception as e:
                 self.logger.warning(f"Intelligence refresh failed: {e}")
 
@@ -93,8 +95,8 @@ class IntelligenceModule(Module):
 
     async def _read_activity_data(self) -> Dict[str, Any]:
         """Read activity_log and activity_summary from hub cache."""
-        activity_log = await self.hub.get_cache("activity_log")
-        activity_summary = await self.hub.get_cache("activity_summary")
+        activity_log = await self.hub.get_cache(CACHE_ACTIVITY_LOG)
+        activity_summary = await self.hub.get_cache(CACHE_ACTIVITY_SUMMARY)
         return {
             "activity_log": activity_log["data"] if activity_log else None,
             "activity_summary": activity_summary["data"] if activity_summary else None,
@@ -196,7 +198,8 @@ class IntelligenceModule(Module):
                     if val is not None:
                         entry[key] = round(val, 1) if isinstance(val, float) else val
                 trends.append(entry)
-            except Exception:
+            except Exception as e:
+                self.logger.debug(f"Skipping daily file {f.name}: {e}")
                 continue
         return trends
 
@@ -218,7 +221,8 @@ class IntelligenceModule(Module):
                     if val is not None:
                         entry[key] = round(val, 1) if isinstance(val, float) else val
                 entries.append(entry)
-            except Exception:
+            except Exception as e:
+                self.logger.debug(f"Skipping intraday file {f.name}: {e}")
                 continue
         return entries
 
@@ -232,7 +236,8 @@ class IntelligenceModule(Module):
         try:
             data = json.loads(files[-1].read_text())
             return {"date": data.get("date", files[-1].stem), "report": data.get("report", "")}
-        except Exception:
+        except Exception as e:
+            self.logger.debug(f"Failed to read insight {files[-1].name}: {e}")
             return None
 
     def _read_ml_models(self) -> Dict[str, Any]:
@@ -374,7 +379,7 @@ class IntelligenceModule(Module):
     # Daily digest to Telegram
     # ------------------------------------------------------------------
 
-    def _maybe_send_digest(self, data: Dict[str, Any]):
+    async def _maybe_send_digest(self, data: Dict[str, Any]):
         """Send a daily digest if there's a new insight we haven't sent yet."""
         if not self._telegram_token or not self._telegram_chat_id:
             return
@@ -391,7 +396,7 @@ class IntelligenceModule(Module):
         self._last_digest_date = insight_date
         try:
             message = self._format_digest(data)
-            self._send_telegram(message)
+            await self._send_telegram(message)
             self.logger.info(f"Daily digest sent for {insight_date}")
         except Exception as e:
             self.logger.warning(f"Failed to send daily digest: {e}")
@@ -464,19 +469,19 @@ class IntelligenceModule(Module):
 
         return "\n".join(lines)
 
-    def _send_telegram(self, text: str):
-        """Send a message via Telegram Bot API."""
+    async def _send_telegram(self, text: str):
+        """Send a message via Telegram Bot API (async, non-blocking)."""
         url = f"https://api.telegram.org/bot{self._telegram_token}/sendMessage"
-        payload = json.dumps({
+        payload = {
             "chat_id": self._telegram_chat_id,
             "text": text,
             "parse_mode": "Markdown",
-        }).encode()
-        req = urllib.request.Request(
-            url, data=payload,
-            headers={"Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read())
-            if not result.get("ok"):
-                raise RuntimeError(f"Telegram API error: {result}")
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    result = await resp.json()
+                    if not result.get("ok"):
+                        raise RuntimeError(f"Telegram API error: {result}")
+        except aiohttp.ClientError as e:
+            raise RuntimeError(f"Telegram request failed: {e}") from e

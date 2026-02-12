@@ -452,8 +452,9 @@ function ActivitySection({ activity }) {
                   const icon = EVENT_ICONS[desc.icon] || '·';
                   const isSignificant = ['lock', 'person', 'device_tracker'].includes(evt.domain)
                     || (evt.domain === 'binary_sensor' && ['door', 'window'].includes(evt.device_class));
+                  const evtKey = `${evt.entity || evt.friendly_name}-${evt.time}-${i}`;
                   return (
-                    <div key={i} class={`flex items-center gap-2 py-1 px-1 rounded ${isSignificant ? 'bg-amber-50' : ''}`}>
+                    <div key={evtKey} class={`flex items-center gap-2 py-1 px-1 rounded ${isSignificant ? 'bg-amber-50' : ''}`}>
                       <span class="w-5 text-center text-sm flex-shrink-0">{icon}</span>
                       <span class={`flex-1 text-sm ${isSignificant ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
                         {desc.text}
@@ -473,22 +474,24 @@ function ActivitySection({ activity }) {
               <p class="text-sm text-gray-400">No activity yet.</p>
             ) : (
               <div class="space-y-2">
-                {Object.entries(domains).map(([domain, count]) => {
-                  const label = DOMAIN_LABELS[domain] || domain;
-                  const maxDomain = Math.max(...Object.values(domains));
-                  const pct = maxDomain > 0 ? (count / maxDomain) * 100 : 0;
-                  return (
-                    <div key={domain} class="space-y-0.5">
-                      <div class="flex justify-between text-xs">
-                        <span class="text-gray-600">{label}</span>
-                        <span class="text-gray-400">{count}</span>
+                {(() => {
+                  const maxDomain = Math.max(...Object.values(domains), 1);
+                  return Object.entries(domains).map(([domain, count]) => {
+                    const label = DOMAIN_LABELS[domain] || domain;
+                    const pct = (count / maxDomain) * 100;
+                    return (
+                      <div key={domain} class="space-y-0.5">
+                        <div class="flex justify-between text-xs">
+                          <span class="text-gray-600">{label}</span>
+                          <span class="text-gray-400">{count}</span>
+                        </div>
+                        <div class="h-1.5 bg-gray-100 rounded-full">
+                          <div class="h-1.5 bg-purple-400 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
                       </div>
-                      <div class="h-1.5 bg-gray-100 rounded-full">
-                        <div class="h-1.5 bg-purple-400 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
