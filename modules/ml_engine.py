@@ -829,6 +829,8 @@ class MLEngine(Module):
             cutoff = (now - timedelta(hours=hours)).isoformat()
 
             # Filter windows within this time range
+            # String comparison works because activity_monitor generates ISO 8601
+            # timestamps in consistent local timezone format (lexicographic order)
             relevant = [w for w in windows if w.get("window_start", "") >= cutoff]
 
             if not relevant:

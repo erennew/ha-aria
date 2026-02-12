@@ -21,7 +21,8 @@ from hub.core import IntelligenceHub
 def mock_hub():
     """Create mock IntelligenceHub."""
     hub = Mock(spec=IntelligenceHub)
-    hub.get_cache = AsyncMock()
+    hub.get_cache = AsyncMock(return_value=None)
+    hub.get_cache_fresh = AsyncMock(return_value=None)
     hub.set_cache = AsyncMock()
     hub.logger = Mock()
     return hub
@@ -143,13 +144,15 @@ class TestMLEngine:
         assert all("power" in s for s in snapshots)
         assert all("time_features" in s for s in snapshots)
 
-    def test_build_training_dataset(self, ml_engine, synthetic_snapshots):
+    @pytest.mark.asyncio
+    async def test_build_training_dataset(self, ml_engine, synthetic_snapshots):
         """Test building training dataset from snapshots."""
-        X, y = ml_engine._build_training_dataset(synthetic_snapshots, "power_watts")
+        X, y, weights = await ml_engine._build_training_dataset(synthetic_snapshots, "power_watts")
 
         # Should have 30 samples
         assert len(X) == 30
         assert len(y) == 30
+        assert len(weights) == 30
 
         # X should be 2D numpy array
         assert isinstance(X, np.ndarray)
@@ -159,20 +162,25 @@ class TestMLEngine:
         assert isinstance(y, np.ndarray)
         assert y.ndim == 1
 
+        # Weights should be 1D numpy array of positive values
+        assert isinstance(weights, np.ndarray)
+        assert weights.ndim == 1
+        assert all(weights > 0)
+
         # Features should be reasonable
         assert X.shape[1] > 20  # Should have many features
 
         # Target values should be positive
         assert all(y > 0)
 
-    def test_rolling_stats_computation(self, ml_engine, synthetic_snapshots):
+    @pytest.mark.asyncio
+    async def test_rolling_stats_computation(self, ml_engine, synthetic_snapshots):
         """Test rolling stats are computed correctly."""
         # Get first 10 snapshots
         snapshots = synthetic_snapshots[:10]
 
         # For 8th snapshot (index 7), check rolling stats
         i = 7
-        prev_snapshot = snapshots[i - 1]
         recent = snapshots[max(0, i - 7):i]
 
         # Manual calculation
@@ -184,7 +192,7 @@ class TestMLEngine:
         ) / len(recent)
 
         # Build dataset and verify rolling stats are used
-        X, y = ml_engine._build_training_dataset(snapshots, "power_watts")
+        X, y, weights = await ml_engine._build_training_dataset(snapshots, "power_watts")
 
         # Snapshot at index 7 should have rolling stats
         assert len(X) == 10
@@ -211,7 +219,8 @@ class TestMLEngine:
         unknown = ml_engine._extract_target(snapshot, "unknown_metric")
         assert unknown is None
 
-    def test_feature_extraction(self, ml_engine, synthetic_snapshots):
+    @pytest.mark.asyncio
+    async def test_feature_extraction(self, ml_engine, synthetic_snapshots):
         """Test feature extraction from snapshot."""
         snapshot = synthetic_snapshots[5]
         prev_snapshot = synthetic_snapshots[4]
@@ -221,7 +230,7 @@ class TestMLEngine:
             "lights_mean_7d": 3.0
         }
 
-        features = ml_engine._extract_features(
+        features = await ml_engine._extract_features(
             snapshot,
             prev_snapshot=prev_snapshot,
             rolling_stats=rolling_stats
@@ -255,8 +264,8 @@ class TestMLEngine:
     @pytest.mark.asyncio
     async def test_train_models(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
         """Test complete training pipeline."""
-        # Setup mock capabilities
-        mock_hub.get_cache.return_value = mock_capabilities
+        # Setup mock capabilities (train_models uses get_cache_fresh)
+        mock_hub.get_cache_fresh.return_value = mock_capabilities
 
         # Train models
         await ml_engine.train_models(days_history=30)
@@ -270,6 +279,7 @@ class TestMLEngine:
         power_model = ml_engine.models["power_watts"]
         assert "gb_model" in power_model
         assert "rf_model" in power_model
+        assert "lgbm_model" in power_model
         assert "iso_model" in power_model
         assert "trained_at" in power_model
         assert "num_samples" in power_model
@@ -277,12 +287,14 @@ class TestMLEngine:
         assert "feature_importance" in power_model
         assert "accuracy_scores" in power_model
 
-        # Verify accuracy scores
+        # Verify accuracy scores (all 3 models)
         scores = power_model["accuracy_scores"]
         assert "gb_mae" in scores
         assert "gb_r2" in scores
         assert "rf_mae" in scores
         assert "rf_r2" in scores
+        assert "lgbm_mae" in scores
+        assert "lgbm_r2" in scores
 
         # Verify feature importance is a dict
         importance = power_model["feature_importance"]
@@ -294,26 +306,31 @@ class TestMLEngine:
         assert (models_dir / "power_watts_model.pkl").exists()
         assert (models_dir / "lights_on_model.pkl").exists()
 
-        # Verify cache was updated
+        # Verify cache was updated with training metadata
         mock_hub.set_cache.assert_called()
-        cache_call = mock_hub.set_cache.call_args
-        assert cache_call[0][0] == "ml_training_metadata"
+        metadata_calls = [
+            call for call in mock_hub.set_cache.call_args_list
+            if call[0][0] == "ml_training_metadata"
+        ]
+        assert len(metadata_calls) > 0, "ml_training_metadata not found in set_cache calls"
 
-        metadata = cache_call[0][1]
+        metadata = metadata_calls[0][0][1]
         assert "last_trained" in metadata
         assert "num_snapshots" in metadata
         assert metadata["num_snapshots"] >= 29  # May be 29 or 30 depending on if today's file exists
         assert "targets_trained" in metadata
         assert "accuracy_summary" in metadata
 
-    def test_insufficient_training_data(self, ml_engine, synthetic_snapshots):
+    @pytest.mark.asyncio
+    async def test_insufficient_training_data(self, ml_engine, synthetic_snapshots):
         """Test handling of insufficient training data."""
         # Use only 10 snapshots (need 14+)
-        X, y = ml_engine._build_training_dataset(synthetic_snapshots[:10], "power_watts")
+        X, y, weights = await ml_engine._build_training_dataset(synthetic_snapshots[:10], "power_watts")
 
         # Should still return arrays, but training will fail with warning
         assert isinstance(X, np.ndarray)
         assert isinstance(y, np.ndarray)
+        assert isinstance(weights, np.ndarray)
 
     def test_model_hyperparameters(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
         """Verify model hyperparameters match ha-intelligence."""
@@ -340,11 +357,11 @@ class TestMLEngine:
     @pytest.mark.asyncio
     async def test_generate_predictions_basic(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
         """Test basic prediction generation."""
-        # Setup: train models first
-        mock_hub.get_cache.return_value = mock_capabilities
+        # Setup: train models first (train_models uses get_cache_fresh)
+        mock_hub.get_cache_fresh.return_value = mock_capabilities
         await ml_engine.train_models(days_history=30)
 
-        # Setup: mock snapshot retrieval
+        # Setup: mock snapshot retrieval (generate_predictions uses get_cache)
         current_snapshot = synthetic_snapshots[-1]
 
         async def mock_get_cache(key):
@@ -375,6 +392,7 @@ class TestMLEngine:
             assert "value" in pred
             assert "gb_prediction" in pred
             assert "rf_prediction" in pred
+            assert "lgbm_prediction" in pred
             assert "confidence" in pred
             assert "is_anomaly" in pred
 
@@ -383,9 +401,9 @@ class TestMLEngine:
 
     @pytest.mark.asyncio
     async def test_generate_predictions_blending(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
-        """Test model blending logic (60% GB + 40% RF)."""
-        # Setup
-        mock_hub.get_cache.return_value = mock_capabilities
+        """Test N-model weighted blending (GB 35%, RF 25%, LGBM 40%)."""
+        # Setup (train_models uses get_cache_fresh)
+        mock_hub.get_cache_fresh.return_value = mock_capabilities
         await ml_engine.train_models(days_history=30)
 
         current_snapshot = synthetic_snapshots[-1]
@@ -402,21 +420,26 @@ class TestMLEngine:
         # Generate predictions
         result = await ml_engine.generate_predictions()
 
-        # Verify blending formula for each prediction
+        # Verify N-model weighted blending for each prediction
         for target, pred in result["predictions"].items():
             gb = pred["gb_prediction"]
             rf = pred["rf_prediction"]
+            lgbm = pred["lgbm_prediction"]
             blended = pred["value"]
+            weights = pred["blend_weights"]
 
-            # Check: blended = 0.6 * gb + 0.4 * rf
-            expected = round(0.6 * gb + 0.4 * rf, 2)
+            # Verify weights sum to 1.0
+            assert abs(sum(weights.values()) - 1.0) < 0.01
+
+            # Verify blended = sum(weight_i * pred_i)
+            expected = round(weights["gb"] * gb + weights["rf"] * rf + weights["lgbm"] * lgbm, 2)
             assert abs(blended - expected) < 0.01, f"{target}: blended={blended}, expected={expected}"
 
     @pytest.mark.asyncio
     async def test_generate_predictions_confidence(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
-        """Test confidence calculation based on model agreement."""
-        # Setup
-        mock_hub.get_cache.return_value = mock_capabilities
+        """Test confidence calculation based on N-model agreement."""
+        # Setup (train_models uses get_cache_fresh)
+        mock_hub.get_cache_fresh.return_value = mock_capabilities
         await ml_engine.train_models(days_history=30)
 
         current_snapshot = synthetic_snapshots[-1]
@@ -433,29 +456,27 @@ class TestMLEngine:
         # Generate predictions
         result = await ml_engine.generate_predictions()
 
-        # Verify confidence logic
+        # Verify confidence logic (N-model: max deviation / abs(mean))
         for target, pred in result["predictions"].items():
-            gb = pred["gb_prediction"]
-            rf = pred["rf_prediction"]
+            pred_values = [pred["gb_prediction"], pred["rf_prediction"], pred["lgbm_prediction"]]
             confidence = pred["confidence"]
+            avg_pred = sum(pred_values) / len(pred_values)
 
-            # Calculate expected confidence
-            pred_diff = abs(gb - rf)
-            avg_pred = (gb + rf) / 2
-
-            if avg_pred > 0:
-                rel_diff = pred_diff / avg_pred
+            if abs(avg_pred) > 1e-6:
+                max_diff = max(abs(p - avg_pred) for p in pred_values)
+                rel_diff = max_diff / abs(avg_pred)
                 expected_conf = max(0.0, min(1.0, 1.0 - rel_diff))
             else:
-                expected_conf = 1.0 if pred_diff < 0.1 else 0.5
+                max_diff = max(abs(p - avg_pred) for p in pred_values)
+                expected_conf = 1.0 if max_diff < 0.1 else 0.5
 
             assert abs(confidence - expected_conf) < 0.01, f"{target}: conf={confidence}, expected={expected_conf}"
 
     @pytest.mark.asyncio
     async def test_generate_predictions_anomaly_detection(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
         """Test anomaly detection in predictions."""
-        # Setup
-        mock_hub.get_cache.return_value = mock_capabilities
+        # Setup (train_models uses get_cache_fresh)
+        mock_hub.get_cache_fresh.return_value = mock_capabilities
         await ml_engine.train_models(days_history=30)
 
         current_snapshot = synthetic_snapshots[-1]
@@ -484,8 +505,8 @@ class TestMLEngine:
     @pytest.mark.asyncio
     async def test_generate_predictions_cache_storage(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
         """Test predictions are stored in cache."""
-        # Setup
-        mock_hub.get_cache.return_value = mock_capabilities
+        # Setup (train_models uses get_cache_fresh)
+        mock_hub.get_cache_fresh.return_value = mock_capabilities
         await ml_engine.train_models(days_history=30)
 
         current_snapshot = synthetic_snapshots[-1]
@@ -524,8 +545,8 @@ class TestMLEngine:
     @pytest.mark.asyncio
     async def test_generate_predictions_no_snapshot(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
         """Test predictions when no current snapshot available."""
-        # Setup: train models
-        mock_hub.get_cache.return_value = mock_capabilities
+        # Setup: train models (uses get_cache_fresh)
+        mock_hub.get_cache_fresh.return_value = mock_capabilities
         await ml_engine.train_models(days_history=30)
 
         # Setup: no snapshot available
