@@ -49,6 +49,21 @@ npx esbuild src/index.jsx --bundle --outfile=dist/bundle.js \
 - **Dashboard**: http://127.0.0.1:8001/ui/
 - **WebSocket**: ws://127.0.0.1:8001/ws (live cache updates)
 
-## Pages
+## Pages (12)
 
-Home, Discovery, Capabilities, Intelligence, Patterns, Predictions, Automations, Shadow Mode, Settings, Data Curation
+Sidebar organized by pipeline stage:
+
+- **Home** — Pipeline flowchart with live status
+- **Data Collection:** Discovery, Capabilities, Data Curation
+- **Learning:** Intelligence, Predictions, Patterns
+- **Actions:** Shadow Mode, Automations, Settings
+- **Guide** — Interactive onboarding (linked from sidebar footer)
+
+## Key Components
+
+- `AriaLogo.jsx` — SVG pixel-art logo (used in Sidebar + Home + Guide)
+- `Sidebar.jsx` — Nav with section headers, About section, WS status indicator
+
+## CSS Note
+
+Tailwind is pre-built into `bundle.css`. New utility classes (gradients, blurs, etc.) won't be available unless already in the bundle. Use inline `style` attributes for new visual effects.
