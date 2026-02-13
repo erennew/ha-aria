@@ -12,6 +12,8 @@ import Patterns from './pages/Patterns.jsx';
 import Automations from './pages/Automations.jsx';
 import Intelligence from './pages/Intelligence.jsx';
 import Shadow from './pages/Shadow.jsx';
+import Settings from './pages/Settings.jsx';
+import DataCuration from './pages/DataCuration.jsx';
 
 /**
  * Custom hash-based history for preact-router.
@@ -106,6 +108,8 @@ export default function App() {
               <Automations path="/automations" />
               <Intelligence path="/intelligence" />
               <Shadow path="/shadow" />
+              <Settings path="/settings" />
+              <DataCuration path="/data-curation" />
             </Router>
           </ErrorBoundary>
         </div>

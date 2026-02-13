@@ -1,7 +1,7 @@
 """FastAPI routes for Intelligence Hub REST API."""
 
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from typing import Optional, Dict, Any, List, Set
@@ -283,6 +283,123 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             return pipeline
         except Exception as e:
             logger.error(f"Error getting pipeline status: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Config endpoints
+    @app.get("/api/config")
+    async def get_all_config():
+        """Get all configuration parameters."""
+        try:
+            configs = await hub.cache.get_all_config()
+            return {"configs": configs}
+        except Exception as e:
+            logger.error(f"Error getting all config: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/config/reset/{key:path}")
+    async def reset_config(key: str):
+        """Reset a configuration parameter to its default value."""
+        try:
+            config = await hub.cache.reset_config(key)
+            return config
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error resetting config '{key}': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/config/{key:path}")
+    async def get_config(key: str):
+        """Get a single configuration parameter."""
+        try:
+            config = await hub.cache.get_config(key)
+            if config is None:
+                raise HTTPException(status_code=404, detail=f"Config key '{key}' not found")
+            return config
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting config '{key}': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.put("/api/config/{key:path}")
+    async def put_config(key: str, request: Request):
+        """Update a configuration parameter value."""
+        try:
+            body = await request.json()
+            value = body.get("value")
+            changed_by = body.get("changed_by", "user")
+            config = await hub.cache.set_config(key, value, changed_by=changed_by)
+            await ws_manager.broadcast({"type": "config_updated", "data": {"key": key}})
+            return config
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error updating config '{key}': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/config-history")
+    async def get_config_history(key: Optional[str] = None, limit: int = 50):
+        """Get configuration change history."""
+        try:
+            history = await hub.cache.get_config_history(key=key, limit=limit)
+            return {"history": history, "count": len(history)}
+        except Exception as e:
+            logger.error(f"Error getting config history: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Curation endpoints
+    @app.get("/api/curation")
+    async def get_all_curation():
+        """Get all entity curation classifications."""
+        try:
+            curations = await hub.cache.get_all_curation()
+            return {"curations": curations}
+        except Exception as e:
+            logger.error(f"Error getting all curation: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/curation/summary")
+    async def get_curation_summary():
+        """Get curation tier/status counts summary."""
+        try:
+            summary = await hub.cache.get_curation_summary()
+            return summary
+        except Exception as e:
+            logger.error(f"Error getting curation summary: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.put("/api/curation/{entity_id:path}")
+    async def put_curation(entity_id: str, request: Request):
+        """Override a single entity's curation classification."""
+        try:
+            body = await request.json()
+            status = body.get("status")
+            decided_by = body.get("decided_by", "user")
+            result = await hub.cache.upsert_curation(
+                entity_id, status=status, decided_by=decided_by, human_override=True
+            )
+            return result
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error updating curation for '{entity_id}': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/curation/bulk")
+    async def bulk_update_curation(request: Request):
+        """Bulk approve/reject entity curations."""
+        try:
+            body = await request.json()
+            entity_ids = body.get("entity_ids", [])
+            status = body.get("status")
+            decided_by = body.get("decided_by", "user")
+            count = await hub.cache.bulk_update_curation(
+                entity_ids, status=status, decided_by=decided_by
+            )
+            return {"updated": count}
+        except Exception as e:
+            logger.error(f"Error bulk updating curation: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     # WebSocket endpoint

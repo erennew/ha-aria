@@ -17,3 +17,8 @@ CACHE_DISCOVERY_METADATA = "discovery_metadata"
 # Shadow engine table name constants
 CACHE_PREDICTIONS = "predictions"
 CACHE_PIPELINE_STATE = "pipeline_state"
+
+# Phase 2: Config store + data curation table name constants
+CACHE_CONFIG = "config"
+CACHE_ENTITY_CURATION = "entity_curation"
+CACHE_CONFIG_HISTORY = "config_history"

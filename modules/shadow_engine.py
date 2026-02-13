@@ -121,6 +121,11 @@ class ShadowEngine(Module):
         entity_id = data.get("entity_id", "")
         domain = entity_id.split(".")[0] if "." in entity_id else ""
 
+        # Phase 2: Check entity curation — skip excluded entities
+        included_ids = await self.hub.cache.get_included_entity_ids()
+        if included_ids and entity_id not in included_ids:
+            return
+
         # Extract state values from either flat or nested format
         if "new_state" in data:
             # Nested format from HA WebSocket
@@ -155,10 +160,13 @@ class ShadowEngine(Module):
         for pred_id in list(self._window_events.keys()):
             self._window_events[pred_id].append(event)
 
-        # Check cooldown before generating predictions
+        # Check cooldown before generating predictions (config with constant fallback)
+        cooldown = await self.hub.cache.get_config_value(
+            "shadow.prediction_cooldown_s", PREDICTION_COOLDOWN_S
+        )
         if self._last_prediction_time:
             elapsed = (now - self._last_prediction_time).total_seconds()
-            if elapsed < PREDICTION_COOLDOWN_S:
+            if elapsed < cooldown:
                 return
 
         # Only predict on actionable domains
@@ -423,19 +431,24 @@ class ShadowEngine(Module):
         """
         predictions = []
 
+        # Phase 2: read min confidence from config store (constant as fallback)
+        min_conf = await self.hub.cache.get_config_value(
+            "shadow.min_confidence", MIN_CONFIDENCE
+        )
+
         # 1. Next domain action prediction
         domain_pred = await self._predict_next_domain(context)
-        if domain_pred and domain_pred.get("confidence", 0) >= MIN_CONFIDENCE:
+        if domain_pred and domain_pred.get("confidence", 0) >= min_conf:
             predictions.append(domain_pred)
 
         # 2. Room activation prediction
         room_pred = await self._predict_room_activation(context)
-        if room_pred and room_pred.get("confidence", 0) >= MIN_CONFIDENCE:
+        if room_pred and room_pred.get("confidence", 0) >= min_conf:
             predictions.append(room_pred)
 
         # 3. Routine trigger prediction
         routine_pred = await self._predict_routine_trigger(context)
-        if routine_pred and routine_pred.get("confidence", 0) >= MIN_CONFIDENCE:
+        if routine_pred and routine_pred.get("confidence", 0) >= min_conf:
             predictions.append(routine_pred)
 
         return predictions
@@ -454,6 +467,11 @@ class ShadowEngine(Module):
         Returns:
             Prediction dict or None.
         """
+        # Phase 2: read window from config store (constant as fallback)
+        window_s = await self.hub.cache.get_config_value(
+            "shadow.default_window_seconds", DEFAULT_WINDOW_SECONDS
+        )
+
         # Try activity_summary event_predictions (frequency-based)
         summary = await self.hub.get_cache(CACHE_ACTIVITY_SUMMARY)
         if summary and summary.get("data"):
@@ -465,11 +483,16 @@ class ShadowEngine(Module):
                     "predicted": event_preds["predicted_next_domain"],
                     "confidence": probability,
                     "method": event_preds.get("method", "frequency"),
-                    "window_seconds": DEFAULT_WINDOW_SECONDS,
+                    "window_seconds": window_s,
                 }
 
         # Fall back to simple frequency from recent events
+        # Phase 2: filter recent events by included entity set
+        included_ids = await self.hub.cache.get_included_entity_ids()
         recent = context.get("recent_events", [])
+        if included_ids:
+            recent = [e for e in recent if e.get("entity", "") in included_ids or not included_ids]
+
         if not recent:
             return None
 
@@ -491,7 +514,7 @@ class ShadowEngine(Module):
             "predicted": top_domain,
             "confidence": round(confidence, 3),
             "method": "recent_frequency",
-            "window_seconds": DEFAULT_WINDOW_SECONDS,
+            "window_seconds": window_s,
         }
 
     async def _predict_room_activation(
@@ -682,7 +705,11 @@ class ShadowEngine(Module):
         """Periodic loop to resolve expired prediction windows."""
         while True:
             try:
-                await asyncio.sleep(RESOLUTION_INTERVAL_S)
+                # Phase 2: read interval from config store (constant as fallback)
+                interval = await self.hub.cache.get_config_value(
+                    "shadow.resolution_interval_s", RESOLUTION_INTERVAL_S
+                )
+                await asyncio.sleep(interval)
                 await self._resolve_expired_predictions()
             except asyncio.CancelledError:
                 break

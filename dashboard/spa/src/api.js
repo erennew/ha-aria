@@ -38,4 +38,38 @@ export function fetchJson(path) {
   return promise;
 }
 
+/**
+ * PUT JSON to the hub API.
+ * @param {string} path - API path
+ * @param {any} body - Request body (will be JSON.stringify'd)
+ * @returns {Promise<any>} Parsed JSON response
+ */
+export function putJson(path, body) {
+  return fetch(`${baseUrl}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    return res.json();
+  });
+}
+
+/**
+ * POST JSON to the hub API.
+ * @param {string} path - API path
+ * @param {any} body - Request body (will be JSON.stringify'd)
+ * @returns {Promise<any>} Parsed JSON response
+ */
+export function postJson(path, body) {
+  return fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    return res.json();
+  });
+}
+
 export { baseUrl };

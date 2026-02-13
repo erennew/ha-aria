@@ -50,6 +50,10 @@ class MockHub:
         self.cache.get_recent_predictions = AsyncMock(return_value=[])
         self.cache.get_accuracy_stats = AsyncMock(return_value={})
 
+        # Phase 2: Config store + curation mocks (return fallbacks by default)
+        self.cache.get_config_value = AsyncMock(return_value=None)
+        self.cache.get_included_entity_ids = AsyncMock(return_value=set())
+
         self.logger = Mock()
         self.modules = {}
 
@@ -1428,3 +1432,167 @@ class TestActivityMonitorIntegration:
             assert shadow._recent_events[0]["from"] == "off"
         finally:
             await shadow.shutdown()
+
+
+# ============================================================================
+# Phase 2: Config store + curation integration
+# ============================================================================
+
+
+class TestConfigStoreIntegration:
+    """Verify shadow engine reads from config store and respects curation."""
+
+    @pytest.mark.asyncio
+    async def test_excluded_entity_skipped(self, hub, engine):
+        """Events from excluded entities should be silently dropped."""
+        # Set up: only light.kitchen is included
+        hub.cache.get_included_entity_ids = AsyncMock(
+            return_value={"light.kitchen"}
+        )
+
+        # Send event from an excluded entity
+        event = make_state_changed_event(entity_id="light.bedroom")
+        await engine._on_state_changed(event)
+
+        # Should NOT be buffered
+        assert len(engine._recent_events) == 0
+
+    @pytest.mark.asyncio
+    async def test_included_entity_processed(self, hub, engine):
+        """Events from included entities should be processed normally."""
+        hub.cache.get_included_entity_ids = AsyncMock(
+            return_value={"light.kitchen"}
+        )
+
+        event = make_state_changed_event(entity_id="light.kitchen")
+        await engine._on_state_changed(event)
+
+        # Should be buffered
+        assert len(engine._recent_events) == 1
+        assert engine._recent_events[0]["entity_id"] == "light.kitchen"
+
+    @pytest.mark.asyncio
+    async def test_empty_included_set_includes_all(self, hub, engine):
+        """When curation table is empty (no classifications), all entities pass."""
+        hub.cache.get_included_entity_ids = AsyncMock(return_value=set())
+
+        event = make_state_changed_event(entity_id="light.bedroom")
+        await engine._on_state_changed(event)
+
+        # Empty set = no curation data = include everything
+        assert len(engine._recent_events) == 1
+
+    @pytest.mark.asyncio
+    async def test_config_value_overrides_min_confidence(self, hub, engine):
+        """Min confidence from config store should filter predictions."""
+        # Set very high threshold via config
+        async def mock_config_value(key, fallback=None):
+            if key == "shadow.min_confidence":
+                return 0.99
+            if key == "shadow.default_window_seconds":
+                return DEFAULT_WINDOW_SECONDS
+            return fallback
+
+        hub.cache.get_config_value = AsyncMock(side_effect=mock_config_value)
+
+        # Set up some recent events so frequency prediction has data
+        engine._recent_events = [
+            {"domain": "light", "entity": "light.kitchen", "state": "on",
+             "timestamp": datetime.now().isoformat(), "seconds_ago": 10},
+        ]
+
+        # Build context and generate predictions
+        context = {
+            "timestamp": datetime.now().isoformat(),
+            "time_features": {"hour_sin": 0, "hour_cos": 1, "dow_sin": 0, "dow_cos": 1},
+            "presence": {"home": True, "rooms": ["kitchen"]},
+            "recent_events": engine._recent_events,
+            "current_states": {},
+            "rolling_stats": {"1h_event_count": 5, "1h_domain_entropy": 1.0, "1h_dominant_domain_pct": 0.5},
+            "trigger_event": {"entity_id": "light.kitchen", "domain": "light"},
+        }
+
+        predictions = await engine._generate_predictions(context)
+
+        # With 0.99 threshold, frequency-based predictions (typically <1.0 confidence)
+        # should mostly be filtered out
+        for pred in predictions:
+            assert pred["confidence"] >= 0.99
+
+    @pytest.mark.asyncio
+    async def test_config_value_overrides_cooldown(self, hub, engine):
+        """Prediction cooldown from config store should be respected."""
+        # Set very long cooldown via config
+        async def mock_config_value(key, fallback=None):
+            if key == "shadow.prediction_cooldown_s":
+                return 9999
+            if key == "shadow.default_window_seconds":
+                return DEFAULT_WINDOW_SECONDS
+            if key == "shadow.min_confidence":
+                return MIN_CONFIDENCE
+            return fallback
+
+        hub.cache.get_config_value = AsyncMock(side_effect=mock_config_value)
+        hub.cache.get_included_entity_ids = AsyncMock(return_value=set())
+
+        # Set up summary cache for predictions
+        await hub.set_cache(CACHE_ACTIVITY_SUMMARY, {
+            "event_predictions": {
+                "predicted_next_domain": "light",
+                "probability": 0.8,
+                "method": "test",
+            },
+            "occupancy": {"anyone_home": True},
+            "recent_activity": [],
+        })
+
+        # First event — should generate predictions (no last_prediction_time)
+        event1 = make_state_changed_event(entity_id="light.kitchen")
+        await engine._on_state_changed(event1)
+        assert hub.cache.insert_prediction.call_count == 1
+
+        # Second event — should be blocked by cooldown
+        event2 = make_state_changed_event(entity_id="light.bedroom")
+        await engine._on_state_changed(event2)
+        # Still 1 — second call was blocked by the 9999s cooldown
+        assert hub.cache.insert_prediction.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_config_value_overrides_window_seconds(self, hub, engine):
+        """Window seconds from config store should appear in predictions."""
+        async def mock_config_value(key, fallback=None):
+            if key == "shadow.default_window_seconds":
+                return 1200  # 20 minutes instead of default 600
+            if key == "shadow.min_confidence":
+                return 0.01  # low threshold so prediction passes
+            return fallback
+
+        hub.cache.get_config_value = AsyncMock(side_effect=mock_config_value)
+        hub.cache.get_included_entity_ids = AsyncMock(return_value=set())
+
+        # Set up summary with event_predictions so _predict_next_domain returns a result
+        await hub.set_cache(CACHE_ACTIVITY_SUMMARY, {
+            "event_predictions": {
+                "predicted_next_domain": "light",
+                "probability": 0.8,
+                "method": "frequency",
+            },
+            "occupancy": {"anyone_home": True},
+            "recent_activity": [],
+        })
+
+        context = {
+            "timestamp": datetime.now().isoformat(),
+            "time_features": {"hour_sin": 0, "hour_cos": 1, "dow_sin": 0, "dow_cos": 1},
+            "presence": {"home": True, "rooms": []},
+            "recent_events": [],
+            "current_states": {},
+            "rolling_stats": {"1h_event_count": 0, "1h_domain_entropy": 0, "1h_dominant_domain_pct": 0},
+            "trigger_event": {"entity_id": "light.kitchen", "domain": "light"},
+        }
+
+        predictions = await engine._generate_predictions(context)
+        # At least the domain prediction should use 1200s window
+        domain_preds = [p for p in predictions if p["type"] == "next_domain_action"]
+        assert len(domain_preds) >= 1
+        assert domain_preds[0]["window_seconds"] == 1200

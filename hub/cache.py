@@ -101,6 +101,67 @@ class CacheManager:
             )
         """)
 
+        # Phase 2: Config store
+        await self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS config (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                default_value TEXT,
+                value_type TEXT NOT NULL,
+                label TEXT,
+                description TEXT,
+                category TEXT,
+                min_value REAL,
+                max_value REAL,
+                options TEXT,
+                step REAL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
+        # Phase 2: Entity curation
+        await self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS entity_curation (
+                entity_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                tier INTEGER NOT NULL,
+                reason TEXT,
+                auto_classification TEXT,
+                human_override BOOLEAN DEFAULT FALSE,
+                metrics TEXT,
+                group_id TEXT,
+                decided_at TEXT NOT NULL,
+                decided_by TEXT
+            )
+        """)
+
+        await self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_entity_curation_tier
+            ON entity_curation(tier)
+        """)
+
+        await self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_entity_curation_status
+            ON entity_curation(status)
+        """)
+
+        # Phase 2: Config change history
+        await self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS config_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT,
+                changed_at TEXT NOT NULL,
+                changed_by TEXT
+            )
+        """)
+
+        await self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_config_history_key
+            ON config_history(key)
+        """)
+
         await self._conn.commit()
 
     async def close(self):
@@ -634,8 +695,479 @@ class CacheManager:
         await self._conn.commit()
 
     # ========================================================================
+    # Phase 2: Config store
+    # ========================================================================
+
+    async def get_config(self, key: str) -> Optional[Dict[str, Any]]:
+        """Get a single config parameter by key.
+
+        Args:
+            key: Config parameter key (e.g., 'shadow.min_confidence')
+
+        Returns:
+            Config row as dict, or None if not found.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        cursor = await self._conn.execute(
+            "SELECT * FROM config WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        return self._config_from_row(row)
+
+    async def get_all_config(self) -> List[Dict[str, Any]]:
+        """Get all config parameters.
+
+        Returns:
+            List of config dicts, ordered by category then key.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        cursor = await self._conn.execute(
+            "SELECT * FROM config ORDER BY category, key"
+        )
+        rows = await cursor.fetchall()
+        return [self._config_from_row(row) for row in rows]
+
+    async def set_config(
+        self, key: str, value: str, changed_by: str = "user"
+    ) -> Dict[str, Any]:
+        """Update a config parameter value with validation and history.
+
+        Args:
+            key: Config parameter key.
+            value: New value (as string).
+            changed_by: Who made the change.
+
+        Returns:
+            Updated config dict.
+
+        Raises:
+            ValueError: If key not found or value fails validation.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        current = await self.get_config(key)
+        if current is None:
+            raise ValueError(f"Config key not found: {key}")
+
+        # Validate against constraints
+        self._validate_config_value(value, current)
+
+        old_value = current["value"]
+        now = datetime.now().isoformat()
+
+        # Update config
+        await self._conn.execute(
+            "UPDATE config SET value = ?, updated_at = ? WHERE key = ?",
+            (value, now, key),
+        )
+
+        # Write history
+        await self._conn.execute(
+            """INSERT INTO config_history (key, old_value, new_value, changed_at, changed_by)
+               VALUES (?, ?, ?, ?, ?)""",
+            (key, old_value, value, now, changed_by),
+        )
+
+        await self._conn.commit()
+        return await self.get_config(key)
+
+    async def upsert_config_default(
+        self,
+        key: str,
+        default_value: str,
+        value_type: str,
+        label: str = "",
+        description: str = "",
+        category: str = "",
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+        options: Optional[str] = None,
+        step: Optional[float] = None,
+    ) -> bool:
+        """Insert a config default if the key doesn't already exist.
+
+        Uses INSERT OR IGNORE so user overrides are preserved.
+
+        Args:
+            key: Config parameter key.
+            default_value: Default value as string.
+            value_type: One of 'number', 'string', 'boolean', 'select'.
+            label: Human-readable label.
+            description: Help text.
+            category: Grouping category.
+            min_value: Minimum for number types.
+            max_value: Maximum for number types.
+            options: Comma-separated options for select type.
+            step: Step increment for number sliders.
+
+        Returns:
+            True if inserted, False if key already existed.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        now = datetime.now().isoformat()
+        cursor = await self._conn.execute(
+            """INSERT OR IGNORE INTO config
+               (key, value, default_value, value_type, label, description,
+                category, min_value, max_value, options, step, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                key, default_value, default_value, value_type, label,
+                description, category, min_value, max_value, options,
+                step, now,
+            ),
+        )
+        await self._conn.commit()
+        return cursor.rowcount > 0
+
+    async def reset_config(self, key: str, changed_by: str = "user") -> Dict[str, Any]:
+        """Reset a config parameter to its default value.
+
+        Args:
+            key: Config parameter key.
+            changed_by: Who reset it.
+
+        Returns:
+            Updated config dict.
+
+        Raises:
+            ValueError: If key not found.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        current = await self.get_config(key)
+        if current is None:
+            raise ValueError(f"Config key not found: {key}")
+
+        return await self.set_config(key, current["default_value"], changed_by)
+
+    async def get_config_value(self, key: str, fallback: Any = None) -> Any:
+        """Convenience method: get decoded config value only.
+
+        Returns the value decoded to its native Python type
+        (float for number, bool for boolean, str otherwise).
+
+        Args:
+            key: Config parameter key.
+            fallback: Value to return if key not found.
+
+        Returns:
+            Decoded value or fallback.
+        """
+        config = await self.get_config(key)
+        if config is None:
+            return fallback
+        return self._decode_config_value(config["value"], config["value_type"])
+
+    # ========================================================================
+    # Phase 2: Entity curation
+    # ========================================================================
+
+    async def get_all_curation(self) -> List[Dict[str, Any]]:
+        """Get all entity curation records.
+
+        Returns:
+            List of curation dicts, ordered by tier then entity_id.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        cursor = await self._conn.execute(
+            "SELECT * FROM entity_curation ORDER BY tier, entity_id"
+        )
+        rows = await cursor.fetchall()
+        return [self._curation_from_row(row) for row in rows]
+
+    async def get_curation(self, entity_id: str) -> Optional[Dict[str, Any]]:
+        """Get curation record for a single entity.
+
+        Args:
+            entity_id: HA entity ID.
+
+        Returns:
+            Curation dict or None.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        cursor = await self._conn.execute(
+            "SELECT * FROM entity_curation WHERE entity_id = ?", (entity_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        return self._curation_from_row(row)
+
+    async def get_curation_summary(self) -> Dict[str, Any]:
+        """Get aggregated curation counts by tier and status.
+
+        Returns:
+            Dict with total, per_tier, and per_status breakdowns.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        cursor = await self._conn.execute(
+            "SELECT tier, status, COUNT(*) as cnt FROM entity_curation GROUP BY tier, status"
+        )
+        rows = await cursor.fetchall()
+
+        per_tier: Dict[int, int] = {}
+        per_status: Dict[str, int] = {}
+        total = 0
+        for row in rows:
+            tier = row["tier"]
+            status = row["status"]
+            cnt = row["cnt"]
+            per_tier[tier] = per_tier.get(tier, 0) + cnt
+            per_status[status] = per_status.get(status, 0) + cnt
+            total += cnt
+
+        return {
+            "total": total,
+            "per_tier": per_tier,
+            "per_status": per_status,
+        }
+
+    async def upsert_curation(
+        self,
+        entity_id: str,
+        status: str,
+        tier: int,
+        reason: str = "",
+        auto_classification: str = "",
+        human_override: bool = False,
+        metrics: Optional[Dict[str, Any]] = None,
+        group_id: str = "",
+        decided_by: str = "system",
+    ) -> None:
+        """Insert or update an entity curation record.
+
+        Args:
+            entity_id: HA entity ID.
+            status: Classification status (included, excluded, auto_excluded, promoted).
+            tier: Tier level (1=auto-exclude, 2=edge cases, 3=default include).
+            reason: Human-readable reason for classification.
+            auto_classification: Machine-generated classification label.
+            human_override: Whether a human overrode the auto classification.
+            metrics: JSON metrics dict.
+            group_id: Device group identifier.
+            decided_by: Who made the decision.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        now = datetime.now().isoformat()
+        await self._conn.execute(
+            """INSERT INTO entity_curation
+               (entity_id, status, tier, reason, auto_classification,
+                human_override, metrics, group_id, decided_at, decided_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(entity_id) DO UPDATE SET
+                   status = excluded.status,
+                   tier = excluded.tier,
+                   reason = excluded.reason,
+                   auto_classification = excluded.auto_classification,
+                   human_override = excluded.human_override,
+                   metrics = excluded.metrics,
+                   group_id = excluded.group_id,
+                   decided_at = excluded.decided_at,
+                   decided_by = excluded.decided_by
+            """,
+            (
+                entity_id, status, tier, reason, auto_classification,
+                human_override,
+                json.dumps(metrics) if metrics else None,
+                group_id, now, decided_by,
+            ),
+        )
+        await self._conn.commit()
+
+    async def bulk_update_curation(
+        self,
+        entity_ids: List[str],
+        status: str,
+        decided_by: str = "user",
+    ) -> int:
+        """Bulk update status for multiple entities.
+
+        Args:
+            entity_ids: List of entity IDs to update.
+            status: New status to set.
+            decided_by: Who made the change.
+
+        Returns:
+            Number of rows updated.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        if not entity_ids:
+            return 0
+
+        now = datetime.now().isoformat()
+        placeholders = ",".join("?" for _ in entity_ids)
+        cursor = await self._conn.execute(
+            f"""UPDATE entity_curation
+                SET status = ?, human_override = TRUE,
+                    decided_at = ?, decided_by = ?
+                WHERE entity_id IN ({placeholders})""",
+            [status, now, decided_by] + entity_ids,
+        )
+        await self._conn.commit()
+        return cursor.rowcount
+
+    async def get_included_entity_ids(self) -> set:
+        """Get the set of entity IDs that are included or promoted.
+
+        Returns:
+            Set of entity_id strings where status in ('included', 'promoted').
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        cursor = await self._conn.execute(
+            "SELECT entity_id FROM entity_curation WHERE status IN ('included', 'promoted')"
+        )
+        rows = await cursor.fetchall()
+        return {row["entity_id"] for row in rows}
+
+    # ========================================================================
+    # Phase 2: Config history
+    # ========================================================================
+
+    async def get_config_history(
+        self, key: Optional[str] = None, limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get config change history.
+
+        Args:
+            key: Filter by config key (optional).
+            limit: Maximum records to return.
+
+        Returns:
+            List of history dicts, most recent first.
+        """
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        query = "SELECT * FROM config_history WHERE 1=1"
+        params: list = []
+
+        if key is not None:
+            query += " AND key = ?"
+            params.append(key)
+
+        query += " ORDER BY changed_at DESC LIMIT ?"
+        params.append(limit)
+
+        cursor = await self._conn.execute(query, params)
+        rows = await cursor.fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "key": row["key"],
+                "old_value": row["old_value"],
+                "new_value": row["new_value"],
+                "changed_at": row["changed_at"],
+                "changed_by": row["changed_by"],
+            }
+            for row in rows
+        ]
+
+    # ========================================================================
     # Internal helpers
     # ========================================================================
+
+    def _config_from_row(self, row: aiosqlite.Row) -> Dict[str, Any]:
+        """Convert a config table row to a dict."""
+        return {
+            "key": row["key"],
+            "value": row["value"],
+            "default_value": row["default_value"],
+            "value_type": row["value_type"],
+            "label": row["label"],
+            "description": row["description"],
+            "category": row["category"],
+            "min_value": row["min_value"],
+            "max_value": row["max_value"],
+            "options": row["options"],
+            "step": row["step"],
+            "updated_at": row["updated_at"],
+        }
+
+    def _curation_from_row(self, row: aiosqlite.Row) -> Dict[str, Any]:
+        """Convert an entity_curation table row to a dict."""
+        return {
+            "entity_id": row["entity_id"],
+            "status": row["status"],
+            "tier": row["tier"],
+            "reason": row["reason"],
+            "auto_classification": row["auto_classification"],
+            "human_override": bool(row["human_override"]),
+            "metrics": json.loads(row["metrics"]) if row["metrics"] else None,
+            "group_id": row["group_id"],
+            "decided_at": row["decided_at"],
+            "decided_by": row["decided_by"],
+        }
+
+    @staticmethod
+    def _decode_config_value(value: str, value_type: str) -> Any:
+        """Decode a config value string to its native Python type."""
+        if value is None:
+            return None
+        if value_type == "number":
+            try:
+                f = float(value)
+                return int(f) if f == int(f) else f
+            except (ValueError, TypeError):
+                return value
+        if value_type == "boolean":
+            return value.lower() in ("true", "1", "yes")
+        return value
+
+    @staticmethod
+    def _validate_config_value(value: str, config: Dict[str, Any]) -> None:
+        """Validate a config value against constraints.
+
+        Raises ValueError if validation fails.
+        """
+        vtype = config.get("value_type", "string")
+        if vtype == "number":
+            try:
+                num = float(value)
+            except (ValueError, TypeError):
+                raise ValueError(f"Expected number, got: {value}")
+
+            min_val = config.get("min_value")
+            max_val = config.get("max_value")
+            if min_val is not None and num < min_val:
+                raise ValueError(
+                    f"Value {num} below minimum {min_val}"
+                )
+            if max_val is not None and num > max_val:
+                raise ValueError(
+                    f"Value {num} above maximum {max_val}"
+                )
+
+        elif vtype == "select":
+            options_str = config.get("options", "")
+            if options_str:
+                valid = [o.strip() for o in options_str.split(",")]
+                if value not in valid:
+                    raise ValueError(
+                        f"Value '{value}' not in options: {valid}"
+                    )
 
     def _prediction_from_row(self, row: aiosqlite.Row) -> Dict[str, Any]:
         """Convert a predictions table row to a dict."""

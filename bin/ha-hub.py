@@ -140,6 +140,15 @@ async def main():
         logger.error(f"Failed to initialize hub: {e}")
         return 1
 
+    # Seed config defaults (INSERT OR IGNORE preserves user overrides)
+    try:
+        from hub.config_defaults import seed_config_defaults
+        seeded = await seed_config_defaults(hub_instance.cache)
+        if seeded:
+            logger.info(f"Seeded {seeded} new config parameter(s)")
+    except Exception as e:
+        logger.warning(f"Config seeding failed (non-fatal): {e}")
+
     # Get HA credentials from environment
     ha_url = os.environ.get("HA_URL")
     ha_token = os.environ.get("HA_TOKEN")
@@ -227,6 +236,17 @@ async def main():
         logger.info("Shadow engine ready")
     except Exception as e:
         logger.error(f"Shadow engine failed to initialize (hub continues without it): {e}")
+
+    # Register data quality module (non-fatal)
+    try:
+        logger.info("Initializing data quality module...")
+        from modules.data_quality import DataQualityModule
+        data_quality = DataQualityModule(hub_instance)
+        hub_instance.register_module(data_quality)
+        await data_quality.initialize()
+        logger.info("Data quality module ready")
+    except Exception as e:
+        logger.warning(f"Data quality module failed (non-fatal): {e}")
 
     # Register intelligence module (non-fatal — hub works without it)
     try:
