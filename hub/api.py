@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from typing import Optional, Dict, Any, List, Set
 import logging
 import json
+from datetime import datetime
 
 from hub.core import IntelligenceHub
 
@@ -283,6 +284,90 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             return pipeline
         except Exception as e:
             logger.error(f"Error getting pipeline status: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    PIPELINE_STAGES = ['backtest', 'shadow', 'suggest', 'autonomous']
+    PIPELINE_GATES = {
+        'backtest': {'field': 'backtest_accuracy', 'threshold': 0.40, 'label': 'backtest accuracy'},
+        'shadow': {'field': 'shadow_accuracy_7d', 'threshold': 0.50, 'label': '7-day shadow accuracy'},
+        'suggest': {'field': 'suggest_approval_rate_14d', 'threshold': 0.70, 'label': '14-day approval rate'},
+    }
+
+    @app.post("/api/pipeline/advance")
+    async def pipeline_advance():
+        """Advance pipeline to next stage (with gate validation)."""
+        try:
+            pipeline = await hub.cache.get_pipeline_state()
+            if pipeline is None:
+                raise HTTPException(status_code=400, detail="Pipeline state not initialized")
+
+            current = pipeline["current_stage"]
+            idx = PIPELINE_STAGES.index(current)
+
+            if idx >= len(PIPELINE_STAGES) - 1:
+                raise HTTPException(status_code=400, detail="Already at final stage")
+
+            # Check gate requirement for current stage
+            gate = PIPELINE_GATES.get(current)
+            if gate:
+                current_value = pipeline.get(gate['field']) or 0
+                if current_value < gate['threshold']:
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "error": "Gate not met",
+                            "gate": gate['label'],
+                            "required": gate['threshold'],
+                            "current": current_value,
+                        }
+                    )
+
+            next_stage = PIPELINE_STAGES[idx + 1]
+            now = datetime.now().isoformat()
+            await hub.cache.update_pipeline_state(
+                current_stage=next_stage,
+                stage_entered_at=now,
+            )
+
+            updated = await hub.cache.get_pipeline_state()
+            await hub.publish("pipeline_updated", updated)
+            return updated
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error advancing pipeline: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/pipeline/retreat")
+    async def pipeline_retreat():
+        """Retreat pipeline to previous stage (no gates)."""
+        try:
+            pipeline = await hub.cache.get_pipeline_state()
+            if pipeline is None:
+                raise HTTPException(status_code=400, detail="Pipeline state not initialized")
+
+            current = pipeline["current_stage"]
+            idx = PIPELINE_STAGES.index(current)
+
+            if idx <= 0:
+                raise HTTPException(status_code=400, detail="Already at first stage")
+
+            prev_stage = PIPELINE_STAGES[idx - 1]
+            now = datetime.now().isoformat()
+            await hub.cache.update_pipeline_state(
+                current_stage=prev_stage,
+                stage_entered_at=now,
+            )
+
+            updated = await hub.cache.get_pipeline_state()
+            await hub.publish("pipeline_updated", updated)
+            return updated
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error retreating pipeline: {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
     # Config endpoints

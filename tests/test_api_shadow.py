@@ -300,3 +300,124 @@ class TestGetPipeline:
 
         response = client.get("/api/pipeline")
         assert response.status_code == 500
+
+
+# ============================================================================
+# POST /api/pipeline/advance
+# ============================================================================
+
+
+class TestPipelineAdvance:
+
+    def _pipeline(self, stage="backtest", **overrides):
+        """Build a pipeline state dict."""
+        state = {
+            "id": 1,
+            "current_stage": stage,
+            "stage_entered_at": "2026-02-10T00:00:00",
+            "backtest_accuracy": None,
+            "shadow_accuracy_7d": None,
+            "suggest_approval_rate_14d": None,
+            "autonomous_contexts": None,
+            "updated_at": "2026-02-12T10:00:00",
+        }
+        state.update(overrides)
+        return state
+
+    def test_pipeline_advance_success(self, hub, client):
+        """Advances from backtest to shadow when gate is met."""
+        initial = self._pipeline("backtest", backtest_accuracy=0.55)
+        advanced = self._pipeline("shadow", backtest_accuracy=0.55)
+
+        hub.cache.get_pipeline_state = AsyncMock(side_effect=[initial, advanced])
+        hub.cache.update_pipeline_state = AsyncMock()
+        hub.publish = AsyncMock()
+
+        response = client.post("/api/pipeline/advance")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["current_stage"] == "shadow"
+
+        hub.cache.update_pipeline_state.assert_called_once()
+        call_kwargs = hub.cache.update_pipeline_state.call_args[1]
+        assert call_kwargs["current_stage"] == "shadow"
+        assert "stage_entered_at" in call_kwargs
+
+        hub.publish.assert_called_once_with("pipeline_updated", advanced)
+
+    def test_pipeline_advance_gate_not_met(self, hub, client):
+        """Returns 400 with structured error when gate threshold not met."""
+        initial = self._pipeline("backtest", backtest_accuracy=0.25)
+
+        hub.cache.get_pipeline_state = AsyncMock(return_value=initial)
+
+        response = client.post("/api/pipeline/advance")
+        assert response.status_code == 400
+
+        data = response.json()
+        assert data["error"] == "Gate not met"
+        assert data["required"] == 0.40
+        assert data["current"] == 0.25
+
+    def test_pipeline_advance_at_final_stage(self, hub, client):
+        """Returns 400 when already at autonomous."""
+        initial = self._pipeline("autonomous")
+
+        hub.cache.get_pipeline_state = AsyncMock(return_value=initial)
+
+        response = client.post("/api/pipeline/advance")
+        assert response.status_code == 400
+
+
+# ============================================================================
+# POST /api/pipeline/retreat
+# ============================================================================
+
+
+class TestPipelineRetreat:
+
+    def _pipeline(self, stage="shadow", **overrides):
+        """Build a pipeline state dict."""
+        state = {
+            "id": 1,
+            "current_stage": stage,
+            "stage_entered_at": "2026-02-10T00:00:00",
+            "backtest_accuracy": None,
+            "shadow_accuracy_7d": None,
+            "suggest_approval_rate_14d": None,
+            "autonomous_contexts": None,
+            "updated_at": "2026-02-12T10:00:00",
+        }
+        state.update(overrides)
+        return state
+
+    def test_pipeline_retreat_success(self, hub, client):
+        """Retreats from shadow to backtest with no gate check."""
+        initial = self._pipeline("shadow")
+        retreated = self._pipeline("backtest")
+
+        hub.cache.get_pipeline_state = AsyncMock(side_effect=[initial, retreated])
+        hub.cache.update_pipeline_state = AsyncMock()
+        hub.publish = AsyncMock()
+
+        response = client.post("/api/pipeline/retreat")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["current_stage"] == "backtest"
+
+        hub.cache.update_pipeline_state.assert_called_once()
+        call_kwargs = hub.cache.update_pipeline_state.call_args[1]
+        assert call_kwargs["current_stage"] == "backtest"
+
+        hub.publish.assert_called_once_with("pipeline_updated", retreated)
+
+    def test_pipeline_retreat_at_first_stage(self, hub, client):
+        """Returns 400 when already at backtest."""
+        initial = self._pipeline("backtest")
+
+        hub.cache.get_pipeline_state = AsyncMock(return_value=initial)
+
+        response = client.post("/api/pipeline/retreat")
+        assert response.status_code == 400

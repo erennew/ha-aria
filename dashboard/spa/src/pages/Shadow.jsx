@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
-import { fetchJson } from '../api.js';
+import { fetchJson, baseUrl } from '../api.js';
 import { relativeTime } from './intelligence/utils.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
@@ -23,11 +23,22 @@ const OUTCOME_COLORS = {
   nothing: 'bg-gray-100 text-gray-500',
 };
 
-function PipelineStage({ pipeline }) {
+// Gate thresholds — must stay in sync with PIPELINE_GATES in hub/api.py
+const GATE_REQUIREMENTS = {
+  backtest: { field: 'backtest_accuracy', threshold: 0.40, label: 'backtest accuracy', nextStage: 'shadow' },
+  shadow: { field: 'shadow_accuracy_7d', threshold: 0.50, label: '7-day shadow accuracy', nextStage: 'suggest' },
+  suggest: { field: 'suggest_approval_rate_14d', threshold: 0.70, label: '14-day approval rate', nextStage: 'autonomous' },
+};
+
+function PipelineStage({ pipeline, onAdvance, onRetreat, advanceError }) {
   const stage = pipeline?.current_stage || 'backtest';
   const idx = STAGES.indexOf(stage);
   const pct = Math.max(((idx + 1) / STAGES.length) * 100, 10);
   const enteredAt = pipeline?.stage_entered_at;
+
+  const gate = GATE_REQUIREMENTS[stage];
+  const gateValue = gate ? (pipeline?.[gate.field] ?? 0) : null;
+  const gateMet = gate ? gateValue >= gate.threshold : false;
 
   return (
     <section class="space-y-3">
@@ -47,6 +58,31 @@ function PipelineStage({ pipeline }) {
           <p class="text-xs text-gray-400">
             In {stage} since {new Date(enteredAt).toLocaleDateString()}
           </p>
+        )}
+        <div class="flex items-center gap-2 mt-3">
+          <button
+            onClick={onRetreat}
+            disabled={idx === 0}
+            class="text-xs px-3 py-1.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-30"
+          >
+            &larr; Retreat
+          </button>
+          <button
+            onClick={onAdvance}
+            disabled={idx === STAGES.length - 1}
+            class="text-xs px-3 py-1.5 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-30"
+          >
+            Advance &rarr;
+          </button>
+        </div>
+        {gate && (
+          <p class={`text-xs ${gateMet ? 'text-green-600' : 'text-red-500'}`}>
+            Advance to {gate.nextStage} requires &gt;{Math.round(gate.threshold * 100)}% {gate.label}
+            {' '}(current: {Math.round(gateValue * 100)}%)
+          </p>
+        )}
+        {advanceError && (
+          <p class="text-xs text-red-600 font-medium">{advanceError}</p>
         )}
       </div>
     </section>
@@ -237,6 +273,52 @@ export default function Shadow() {
   const [disagreements, setDisagreements] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [advanceError, setAdvanceError] = useState(null);
+
+  async function handleAdvance() {
+    setAdvanceError(null);
+    try {
+      // Use raw fetch instead of postJson to parse structured 400 error bodies
+      const res = await fetch(`${baseUrl}/api/pipeline/advance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (body.error === 'Gate not met') {
+          setAdvanceError(
+            `Gate not met: ${body.gate} requires ${Math.round(body.required * 100)}%, current ${Math.round(body.current * 100)}%`
+          );
+        } else {
+          setAdvanceError(body.detail || body.error || `HTTP ${res.status}`);
+        }
+        return;
+      }
+      await fetchAll();
+    } catch (err) {
+      setAdvanceError(err.message || String(err));
+    }
+  }
+
+  async function handleRetreat() {
+    setAdvanceError(null);
+    try {
+      const res = await fetch(`${baseUrl}/api/pipeline/retreat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setAdvanceError(body.detail || body.error || `HTTP ${res.status}`);
+        return;
+      }
+      await fetchAll();
+    } catch (err) {
+      setAdvanceError(err.message || String(err));
+    }
+  }
 
   async function fetchAll() {
     setLoading(true);
@@ -292,7 +374,7 @@ export default function Shadow() {
         <p class="text-sm text-gray-500">Prediction accuracy, pipeline progress, and learning insights.</p>
       </div>
 
-      <PipelineStage pipeline={pipeline} />
+      <PipelineStage pipeline={pipeline} onAdvance={handleAdvance} onRetreat={handleRetreat} advanceError={advanceError} />
       <AccuracySummary accuracy={accuracy} pipeline={pipeline} />
       <DailyTrend trend={accuracy?.daily_trend} />
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
