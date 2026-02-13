@@ -36,6 +36,7 @@ warnings.filterwarnings(
     module="sklearn",
 )
 
+from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG as _ENGINE_FEATURE_CONFIG
 from aria.hub.core import Module, IntelligenceHub
 
 
@@ -401,6 +402,7 @@ class MLEngine(Module):
 
         # Build feature matrix from all snapshots
         config = await self._get_feature_config()
+        feature_names = await self._get_feature_names(config)
         X_list = []
 
         for i, snapshot in enumerate(training_data):
@@ -425,7 +427,7 @@ class MLEngine(Module):
             )
 
             if features:
-                X_list.append(list(features.values()))
+                X_list.append([features.get(name, 0) for name in feature_names])
 
         if len(X_list) < 14:
             self.logger.warning(f"Insufficient feature vectors for anomaly detector ({len(X_list)} < 14)")
@@ -480,6 +482,7 @@ class MLEngine(Module):
         y_list = []
         included_snapshots = []
         config = await self._get_feature_config()
+        feature_names = await self._get_feature_names(config)
 
         for i, snapshot in enumerate(snapshots):
             # Get previous snapshot and rolling stats for lag features
@@ -511,7 +514,7 @@ class MLEngine(Module):
             if target_value is None:
                 continue
 
-            X_list.append(list(features.values()))
+            X_list.append([features.get(name, 0) for name in feature_names])
             y_list.append(target_value)
             included_snapshots.append(snapshot)
 
@@ -529,68 +532,20 @@ class MLEngine(Module):
         Returns:
             Feature configuration dictionary
         """
-        # Default feature config matching ARIA engine
-        DEFAULT_FEATURE_CONFIG = {
-            "version": 1,
-            "last_modified": "",
-            "modified_by": "ml_engine",
-            "time_features": {
-                "hour_sin_cos": True,
-                "dow_sin_cos": True,
-                "month_sin_cos": True,
-                "day_of_year_sin_cos": True,
-                "is_weekend": True,
-                "is_holiday": True,
-                "is_night": True,
-                "is_work_hours": True,
-                "minutes_since_sunrise": True,
-                "minutes_until_sunset": True,
-                "daylight_remaining_pct": True,
-            },
-            "weather_features": {
-                "temp_f": True,
-                "humidity_pct": True,
-                "wind_mph": True,
-            },
-            "home_features": {
-                "people_home_count": True,
-                "device_count_home": True,
-                "lights_on": True,
-                "total_brightness": True,
-                "motion_active_count": True,
-                "active_media_players": True,
-                "ev_battery_pct": True,
-                "ev_is_charging": True,
-            },
-            "lag_features": {
-                "prev_snapshot_power": True,
-                "prev_snapshot_lights": True,
-                "prev_snapshot_occupancy": True,
-                "rolling_7d_power_mean": True,
-                "rolling_7d_lights_mean": True,
-            },
-            "interaction_features": {
-                "is_weekend_x_temp": False,
-                "people_home_x_hour_sin": False,
-                "daylight_x_lights": False,
-            },
-            "target_metrics": [
-                "power_watts",
-                "lights_on",
-                "devices_home",
-                "unavailable",
-                "useful_events",
-            ],
-        }
+        # Use canonical engine config as default — hub extends with rolling
+        # window features in _get_feature_names(), not in the config dict.
+        import copy
+        default = copy.deepcopy(_ENGINE_FEATURE_CONFIG)
+        default["modified_by"] = "ml_engine"
 
         # Load from hub cache with fallback to default
         config_entry = await self.hub.get_cache("feature_config")
         if config_entry:
             self.logger.debug("Loaded feature config from cache")
-            return config_entry.get("data", DEFAULT_FEATURE_CONFIG.copy())
+            return config_entry.get("data", default)
 
         self.logger.debug("Using default feature config (no cache found)")
-        return DEFAULT_FEATURE_CONFIG.copy()
+        return default
 
     async def _get_feature_names(self, config: Optional[Dict[str, Any]] = None) -> List[str]:
         """Return ordered list of feature names from config.
@@ -1110,7 +1065,7 @@ class MLEngine(Module):
                 anomaly_model = self.models["anomaly_detector"]["model"]
                 anomaly_score = float(anomaly_model.decision_function(X)[0])
                 # Negative score = anomaly (more negative = more anomalous)
-                is_anomaly = anomaly_score < 0
+                is_anomaly = bool(anomaly_model.predict(X)[0] == -1)
                 self.logger.info(f"Anomaly detection: score={anomaly_score:.3f}, is_anomaly={is_anomaly}")
             except Exception as e:
                 self.logger.error(f"Anomaly detection failed: {e}")

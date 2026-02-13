@@ -37,8 +37,8 @@ def build_time_features(timestamp_str, sun_data=None, date_str=None):
 
     h_sin, h_cos = cyclical_encode(hour, 24)
     d_sin, d_cos = cyclical_encode(dow, 7)
-    m_sin, m_cos = cyclical_encode(month, 12)
-    y_sin, y_cos = cyclical_encode(doy, 365)
+    m_sin, m_cos = cyclical_encode(month - 1, 12)
+    y_sin, y_cos = cyclical_encode(doy - 1, 365)
 
     current_minutes = dt.hour * 60 + dt.minute
 
