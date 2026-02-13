@@ -8,6 +8,7 @@ a rolling 24-hour activity log in 15-minute windows.
 import asyncio
 import json
 import logging
+import shutil
 import subprocess
 import sys
 from collections import defaultdict, deque
@@ -92,14 +93,27 @@ class ActivityMonitor(Module):
         self._excluded_entities: Set[str] = set()
         self._curation_loaded: bool = False
 
-        # Path to ha-intelligence CLI
-        self._ha_intelligence = Path.home() / ".local" / "bin" / "ha-intelligence"
+        # Path to aria CLI (for subprocess snapshot calls)
+        self._aria_cli = self._find_aria_cli()
 
         # Persistent snapshot log (append-only JSONL, never pruned)
         self._snapshot_log_path = (
             Path.home() / "ha-logs" / "intelligence" / "snapshot_log.jsonl"
         )
         self._snapshot_log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _find_aria_cli() -> str:
+        """Locate the aria CLI executable.
+
+        Prefers the installed `aria` entry point on PATH. Falls back to
+        running `python -m aria.cli` using the current interpreter.
+        """
+        aria_path = shutil.which("aria")
+        if aria_path:
+            return aria_path
+        # Fallback: use current Python interpreter to invoke the module
+        return sys.executable
 
     def _reset_daily_counters(self):
         """Reset daily counters if the date has changed."""
@@ -430,10 +444,15 @@ class ActivityMonitor(Module):
             self.logger.error(f"Snapshot executor error: {exc}")
 
     def _run_snapshot(self):
-        """Run ha-intelligence --snapshot-intraday in a subprocess."""
+        """Run aria snapshot-intraday in a subprocess."""
         try:
+            if self._aria_cli.endswith("aria"):
+                cmd = [self._aria_cli, "snapshot-intraday"]
+            else:
+                # Fallback: invoke via python -m
+                cmd = [self._aria_cli, "-m", "aria.cli", "snapshot-intraday"]
             result = subprocess.run(
-                [str(self._ha_intelligence), "--snapshot-intraday"],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -446,7 +465,7 @@ class ActivityMonitor(Module):
                 self.logger.info("Adaptive snapshot completed")
         except FileNotFoundError:
             self.logger.warning(
-                f"ha-intelligence not found at {self._ha_intelligence}"
+                f"aria CLI not found at {self._aria_cli}"
             )
         except subprocess.TimeoutExpired:
             self.logger.warning("Snapshot subprocess timed out after 30s")
@@ -575,7 +594,6 @@ class ActivityMonitor(Module):
             trigram_counts[key] += 1
 
         # Get last_seen from windows (approximate: use window time)
-        window_idx = 0
         domain_offset = 0
         for w in windows:
             w_total = sum(w.get("by_domain", {}).values())

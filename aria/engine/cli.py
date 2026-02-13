@@ -1,28 +1,24 @@
-"""CLI entry point for ha-intelligence engine.
+"""CLI entry point for ARIA engine (batch ML pipeline).
 
 Wires all modules together and dispatches commands via argparse-style flags.
-Maintains backward-compatible interface with the v2 monolith.
+Called internally by ``aria <subcommand>`` — see aria/cli.py for the public CLI.
 
-Usage:
-  ha-intelligence --snapshot           # Collect today's daily snapshot
-  ha-intelligence --snapshot-intraday  # Collect intra-day snapshot (current hour)
-  ha-intelligence --analyze            # Run analysis on latest snapshot
-  ha-intelligence --predict            # Generate predictions for tomorrow
-  ha-intelligence --score              # Score yesterday's predictions
-  ha-intelligence --retrain            # Retrain sklearn ML models
-  ha-intelligence --meta-learn         # Run LLM meta-learning analysis
-  ha-intelligence --check-drift         # Check for concept drift, conditionally retrain
-  ha-intelligence --entity-correlations # Compute entity co-occurrence patterns
-  ha-intelligence --suggest-automations # Generate HA automation YAML from patterns
-  ha-intelligence --train-prophet       # Train Prophet seasonal forecasters
-  ha-intelligence --occupancy           # Estimate Bayesian occupancy from current snapshot
-  ha-intelligence --power-profiles      # Analyze per-outlet power profiles
-  ha-intelligence --train-sequences     # Train Markov chain from logbook events
-  ha-intelligence --sequence-anomalies  # Detect anomalous event sequences
-  ha-intelligence --report             # Full Ollama insight report
-  ha-intelligence --brief              # One-liner for telegram-brief
-  ha-intelligence --full               # Full daily pipeline
-  ha-intelligence --dry-run            # Print instead of saving
+Usage (internal flag-style, called by aria CLI dispatcher):
+  aria snapshot           # Collect today's daily snapshot
+  aria snapshot-intraday  # Collect intra-day snapshot (current hour)
+  aria predict            # Generate predictions for tomorrow
+  aria score              # Score yesterday's predictions
+  aria retrain            # Retrain sklearn ML models
+  aria meta-learn         # LLM meta-learning to tune feature config
+  aria check-drift        # Check for concept drift, conditionally retrain
+  aria correlations       # Compute entity co-occurrence patterns
+  aria suggest-automations # Generate HA automation YAML from patterns
+  aria prophet            # Train Prophet seasonal forecasters
+  aria occupancy          # Bayesian occupancy estimation
+  aria power-profiles     # Analyze per-outlet power profiles
+  aria sequences train    # Train Markov chain from logbook events
+  aria sequences detect   # Detect anomalous event sequences
+  aria full               # Full daily pipeline: snapshot → predict → report
 """
 
 import json
@@ -320,7 +316,6 @@ def cmd_brief():
     config, store = _init()
 
     from aria.engine.collectors.snapshot import build_snapshot
-    from aria.engine.analysis.baselines import compute_baselines
     from aria.engine.analysis.anomalies import detect_anomalies
     from aria.engine.llm.reports import generate_brief_line
 

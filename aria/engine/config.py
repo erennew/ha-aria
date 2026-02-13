@@ -1,4 +1,4 @@
-"""Configuration dataclasses for ha-intelligence engine.
+"""Configuration dataclasses for ARIA engine.
 
 Replaces module-level globals with type-safe, testable config objects.
 """

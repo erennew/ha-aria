@@ -1,10 +1,9 @@
-"""Intelligence Module - Reads ha-intelligence engine output files.
+"""Intelligence Module - Reads ARIA engine output files.
 
 Assembles predictions, baselines, trends, insights, run history, and config
 from ~/ha-logs/intelligence/ into a single consolidated cache category.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -32,7 +31,7 @@ METRIC_PATHS = {
 
 
 class IntelligenceModule(Module):
-    """Reads ha-intelligence output files and pushes to hub cache."""
+    """Reads ARIA engine output files and pushes to hub cache."""
 
     def __init__(self, hub: IntelligenceHub, intelligence_dir: str):
         super().__init__("intelligence", hub)

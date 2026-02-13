@@ -11,7 +11,6 @@ Architecture:
 - Model selection is configurable: any subset of {gb, rf, lgbm} can be enabled
 """
 
-import os
 import json
 import logging
 import pickle
@@ -519,7 +518,7 @@ class MLEngine(Module):
         Returns:
             Feature configuration dictionary
         """
-        # Default feature config matching ha-intelligence
+        # Default feature config matching ARIA engine
         DEFAULT_FEATURE_CONFIG = {
             "version": 1,
             "last_modified": "",
