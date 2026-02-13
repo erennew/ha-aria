@@ -31,7 +31,7 @@ export function durationSince(ts) {
 export function Section({ title, subtitle, children }) {
   return (
     <section class="space-y-3">
-      <div>
+      <div class="t-section-header" style="padding-bottom: 8px;">
         <h2 class="text-lg font-bold" style="color: var(--text-primary)">{title}</h2>
         {subtitle && <p class="text-sm" style="color: var(--text-tertiary)">{subtitle}</p>}
       </div>

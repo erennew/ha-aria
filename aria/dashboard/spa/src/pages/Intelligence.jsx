@@ -119,8 +119,11 @@ export default function Intelligence() {
   }
 
   return (
-    <div class="space-y-8">
-      <h1 class="text-2xl font-bold animate-fade-in-up" style="color: var(--text-primary)">Intelligence</h1>
+    <div class="space-y-8 animate-page-enter">
+      <div class="t-section-header" style="padding-bottom: 8px;">
+        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Intelligence</h1>
+        <p class="text-sm" style="color: var(--text-tertiary)">Your home's learning engine — data maturity, real-time activity, baselines, and ML insights.</p>
+      </div>
 
       <div class="animate-fade-in-up delay-100">
         <LearningProgress maturity={intel.data_maturity} shadowStage={pipeline?.current_stage} shadowAccuracy={shadowAccuracy?.overall_accuracy} />
@@ -131,11 +134,21 @@ export default function Intelligence() {
       <div class="animate-fade-in-up delay-300">
         <ActivitySection activity={intel.activity} />
       </div>
-      <ShadowBrief shadowAccuracy={shadowAccuracy} pipeline={pipeline} />
-      <TrendsOverTime trendData={intel.trend_data} intradayTrend={intel.intraday_trend} />
-      <PredictionsVsActuals predictions={intel.predictions} intradayTrend={intel.intraday_trend} />
-      <Baselines baselines={intel.baselines} />
-      <DailyInsight insight={intel.daily_insight} />
+      <div class="animate-fade-in-up delay-400">
+        <ShadowBrief shadowAccuracy={shadowAccuracy} pipeline={pipeline} />
+      </div>
+      <div class="animate-fade-in-up delay-500">
+        <TrendsOverTime trendData={intel.trend_data} intradayTrend={intel.intraday_trend} />
+      </div>
+      <div class="animate-fade-in-up delay-600">
+        <PredictionsVsActuals predictions={intel.predictions} intradayTrend={intel.intraday_trend} />
+      </div>
+      <div class="animate-fade-in-up delay-700">
+        <Baselines baselines={intel.baselines} />
+      </div>
+      <div class="animate-fade-in-up delay-800">
+        <DailyInsight insight={intel.daily_insight} />
+      </div>
       <Correlations correlations={intel.correlations} />
       <SystemStatus runLog={intel.run_log} mlModels={intel.ml_models} metaLearning={intel.meta_learning} />
       <Section title="Configuration" subtitle="Engine parameters are now managed in Settings.">

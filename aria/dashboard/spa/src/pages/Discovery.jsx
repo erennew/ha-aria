@@ -287,8 +287,8 @@ export default function Discovery() {
   }
 
   return (
-    <div class="space-y-6">
-      <div class="animate-fade-in-up">
+    <div class="space-y-6 animate-page-enter">
+      <div class="t-section-header animate-fade-in-up" style="padding-bottom: 8px;">
         <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Discovery</h1>
         <p class="text-sm" style="color: var(--text-tertiary)">{pageSubtitle}</p>
       </div>
@@ -298,7 +298,7 @@ export default function Discovery() {
 
       {/* Domain Breakdown */}
       <section class="animate-fade-in-up delay-100">
-        <div class="mb-4">
+        <div class="t-section-header mb-4" style="padding-bottom: 6px;">
           <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Domain Breakdown</h2>
           <p class="text-sm" style="color: var(--text-tertiary)">How your entities are distributed across HA domains. Larger bars = more entities in that domain.</p>
         </div>
@@ -309,8 +309,8 @@ export default function Discovery() {
 
       {/* Area Grid */}
       {areaCounts.length > 0 && (
-        <section>
-          <div class="mb-4">
+        <section class="animate-fade-in-up delay-200">
+          <div class="t-section-header mb-4" style="padding-bottom: 6px;">
             <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Areas</h2>
             <p class="text-sm" style="color: var(--text-tertiary)">Physical locations defined in Home Assistant, with entity counts per area.</p>
           </div>
@@ -326,8 +326,8 @@ export default function Discovery() {
       )}
 
       {/* Entity Table */}
-      <section>
-        <div class="mb-4">
+      <section class="animate-fade-in-up delay-300">
+        <div class="t-section-header mb-4" style="padding-bottom: 6px;">
           <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Entities</h2>
           <p class="text-sm" style="color: var(--text-tertiary)">Every entity registered in HA — sensors, switches, lights, and more. Filter by domain, state, or area.</p>
         </div>
@@ -342,8 +342,8 @@ export default function Discovery() {
       </section>
 
       {/* Device Table */}
-      <section>
-        <div class="mb-4">
+      <section class="animate-fade-in-up delay-400">
+        <div class="t-section-header mb-4" style="padding-bottom: 6px;">
           <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Devices</h2>
           <p class="text-sm" style="color: var(--text-tertiary)">Physical devices registered in HA. Each device groups multiple entities (e.g., a thermostat has temperature, humidity, and mode entities).</p>
         </div>

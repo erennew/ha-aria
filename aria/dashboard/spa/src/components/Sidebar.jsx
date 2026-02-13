@@ -161,7 +161,7 @@ export default function Sidebar() {
       {/* Desktop sidebar */}
       <nav
         class="hidden md:flex fixed left-0 top-0 bottom-0 w-60 flex-col z-30"
-        style="background: var(--bg-surface); border-right: 1px solid var(--border-subtle);"
+        style="background: var(--bg-surface); border-right: 1px solid var(--border-subtle); box-shadow: 2px 0 8px rgba(0,0,0,0.06);"
       >
         {/* Brand */}
         <div class="px-5 py-5">

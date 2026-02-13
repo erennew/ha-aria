@@ -241,7 +241,7 @@ function FaqSection() {
 
 export default function Guide() {
   return (
-    <div class="max-w-3xl mx-auto">
+    <div class="max-w-3xl mx-auto animate-page-enter">
       <HeroSection />
       <PrivacyNote />
       <JourneyTimeline />

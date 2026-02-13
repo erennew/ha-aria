@@ -196,8 +196,8 @@ export default function Settings() {
   const modified = configs.filter((c) => c.value !== c.default_value).length;
 
   return (
-    <div class="space-y-6">
-      <div class="animate-fade-in-up">
+    <div class="space-y-6 animate-page-enter">
+      <div class="t-section-header animate-fade-in-up" style="padding-bottom: 8px;">
         <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Settings</h1>
         <p class="text-sm" style="color: var(--text-tertiary)">
           {configs.length} parameters across {Object.keys(groups).length} categories.
@@ -205,7 +205,7 @@ export default function Settings() {
         </p>
       </div>
 
-      <div class="space-y-4 stagger-children">
+      <div class="space-y-4">
         {Object.entries(groups).map(([cat, items]) => (
           <CategorySection key={cat} category={cat} configs={items} onUpdate={fetchConfigs} />
         ))}

@@ -2,76 +2,83 @@
 
 /* ── Theme tokens ── */
 :root {
-  /* Surfaces */
-  --bg-base: #f8fafc;
+  /* Surfaces — gray base so white cards pop */
+  --bg-base: #eef1f6;
   --bg-surface: #ffffff;
   --bg-surface-raised: #f1f5f9;
-  --bg-inset: #e2e8f0;
+  --bg-inset: #dde3ec;
 
-  /* Borders */
-  --border-primary: #cbd5e1;
-  --border-subtle: #e2e8f0;
-  --border-accent: #22d3ee;
+  /* Borders — visible, not invisible */
+  --border-primary: #94a3b8;
+  --border-subtle: #cbd5e1;
+  --border-accent: #0891b2;
 
   /* Text */
   --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
   --text-inverse: #f8fafc;
 
-  /* Accent (cyan from logo) */
-  --accent: #22d3ee;
+  /* Accent — deeper cyan that reads on white */
+  --accent: #0891b2;
   --accent-dim: #0e7490;
-  --accent-glow: rgba(34, 211, 238, 0.15);
-  --accent-text: #0f172a;
+  --accent-glow: rgba(8, 145, 178, 0.12);
+  --accent-text: #ffffff;
 
-  /* Status */
-  --status-healthy: #22c55e;
-  --status-warning: #f59e0b;
-  --status-error: #ef4444;
-  --status-waiting: #94a3b8;
+  /* Status — saturated for light backgrounds */
+  --status-healthy: #16a34a;
+  --status-warning: #d97706;
+  --status-error: #dc2626;
+  --status-waiting: #64748b;
 
   /* Ambient */
-  --grid-line: rgba(15, 23, 42, 0.04);
-  --scan-line: rgba(34, 211, 238, 0.06);
-  --glow-spread: rgba(34, 211, 238, 0.08);
+  --grid-line: rgba(15, 23, 42, 0.06);
+  --scan-line: rgba(8, 145, 178, 0.10);
+  --glow-spread: rgba(8, 145, 178, 0.08);
+
+  /* Depth */
+  --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --card-shadow-hover: 0 4px 12px rgba(15, 23, 42, 0.10), 0 2px 4px rgba(15, 23, 42, 0.06);
 
   /* Typography */
   --font-mono: ui-monospace, 'Cascadia Code', 'Fira Code', 'Menlo', monospace;
 
   /* Shape */
-  --radius: 2px;
-  --radius-lg: 4px;
+  --radius: 4px;
+  --radius-lg: 6px;
 }
 
 [data-theme="dark"] {
-  --bg-base: #0b1120;
-  --bg-surface: #111827;
-  --bg-surface-raised: #1a2332;
-  --bg-inset: #0f172a;
+  --bg-base: #0a0f1a;
+  --bg-surface: #131a2b;
+  --bg-surface-raised: #1c2536;
+  --bg-inset: #0e1525;
 
-  --border-primary: #2a3545;
+  --border-primary: #334155;
   --border-subtle: #1e293b;
   --border-accent: #22d3ee;
 
-  --text-primary: #e5e7eb;
-  --text-secondary: #9ca3af;
-  --text-tertiary: #6b7280;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #64748b;
   --text-inverse: #0f172a;
 
   --accent: #22d3ee;
   --accent-dim: #06b6d4;
-  --accent-glow: rgba(34, 211, 238, 0.12);
+  --accent-glow: rgba(34, 211, 238, 0.15);
   --accent-text: #0f172a;
 
   --status-healthy: #4ade80;
   --status-warning: #fbbf24;
   --status-error: #f87171;
-  --status-waiting: #6b7280;
+  --status-waiting: #64748b;
 
-  --grid-line: rgba(34, 211, 238, 0.03);
-  --scan-line: rgba(34, 211, 238, 0.04);
-  --glow-spread: rgba(34, 211, 238, 0.06);
+  --grid-line: rgba(34, 211, 238, 0.04);
+  --scan-line: rgba(34, 211, 238, 0.06);
+  --glow-spread: rgba(34, 211, 238, 0.08);
+
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 /* ── Global theme-aware base styles ── */
@@ -91,14 +98,16 @@ body {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
-  transition: background 0.3s ease, border-color 0.3s ease;
+  box-shadow: var(--card-shadow);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 .t-card:hover {
   border-color: var(--border-primary);
+  box-shadow: var(--card-shadow-hover);
 }
 .t-card-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--accent-glow);
+  box-shadow: var(--card-shadow-hover);
   border-color: var(--accent);
 }
 
@@ -106,6 +115,7 @@ body {
 .t-section-header {
   position: relative;
   overflow: hidden;
+  border-bottom: 2px solid var(--border-subtle);
 }
 .t-section-header::after {
   content: '';
@@ -113,7 +123,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 1px;
+  height: 2px;
   background: linear-gradient(90deg, transparent, var(--accent), transparent);
   animation: scan-sweep 4s ease-in-out infinite;
 }
@@ -122,18 +132,20 @@ body {
 .t-status {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: var(--radius);
+  background: var(--bg-surface-raised);
 }
-.t-status-healthy { color: var(--status-healthy); border-left: 2px solid var(--status-healthy); }
-.t-status-warning { color: var(--status-warning); border-left: 2px solid var(--status-warning); }
-.t-status-error   { color: var(--status-error);   border-left: 2px solid var(--status-error); }
-.t-status-waiting { color: var(--status-waiting); border-left: 2px solid var(--status-waiting); }
+.t-status-healthy { color: var(--status-healthy); border-left: 3px solid var(--status-healthy); }
+.t-status-warning { color: var(--status-warning); border-left: 3px solid var(--status-warning); }
+.t-status-error   { color: var(--status-error);   border-left: 3px solid var(--status-error); }
+.t-status-waiting { color: var(--status-waiting); border-left: 3px solid var(--status-waiting); }
 
 /* Button base */
 .t-btn {
@@ -146,9 +158,12 @@ body {
 .t-btn-primary {
   background: var(--accent);
   color: var(--accent-text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 .t-btn-primary:hover {
   box-shadow: 0 2px 8px var(--accent-glow);
+  filter: brightness(1.1);
 }
 .t-btn-secondary {
   background: var(--bg-surface-raised);
@@ -176,11 +191,12 @@ body {
 
 /* Callout / info box */
 .t-callout {
-  background: var(--bg-surface-raised);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--accent);
+  border-left: 4px solid var(--accent);
   border-radius: var(--radius);
   color: var(--text-secondary);
+  box-shadow: var(--card-shadow);
 }
 
 /* ── New ambient animations ── */

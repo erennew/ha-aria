@@ -42,7 +42,7 @@ function PipelineStage({ pipeline, onAdvance, onRetreat, advanceError }) {
 
   return (
     <section class="space-y-3">
-      <h2 class="text-lg font-bold" style="color: var(--text-primary)">Pipeline Stage</h2>
+      <div class="t-section-header" style="padding-bottom: 6px;"><h2 class="text-lg font-bold" style="color: var(--text-primary)">Pipeline Stage</h2></div>
       <div class="t-card" style="padding: 1rem;">
         <div class="space-y-4">
           <div>
@@ -114,7 +114,7 @@ function AccuracySummary({ accuracy, pipeline }) {
 
   return (
     <section class="space-y-3">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 t-section-header" style="padding-bottom: 6px;">
         <h2 class="text-lg font-bold" style="color: var(--text-primary)">Accuracy</h2>
         <span class="text-xs font-medium rounded-full px-2.5 py-0.5 capitalize" style="background: var(--accent-glow); color: var(--accent)">{stage}</span>
       </div>
@@ -137,7 +137,7 @@ function DailyTrend({ trend }) {
   if (!trend || trend.length === 0) {
     return (
       <section class="space-y-3">
-        <h2 class="text-lg font-bold" style="color: var(--text-primary)">Daily Trend</h2>
+        <div class="t-section-header" style="padding-bottom: 6px;"><h2 class="text-lg font-bold" style="color: var(--text-primary)">Daily Trend</h2></div>
         <div class="t-callout" style="padding: 0.75rem;">
           <span class="text-sm" style="color: var(--text-secondary)">Accuracy trends will appear after 24-48 hours of predictions.</span>
         </div>
@@ -182,7 +182,7 @@ function PredictionFeed({ predictions }) {
   if (items.length === 0) {
     return (
       <section class="space-y-3">
-        <h2 class="text-lg font-bold" style="color: var(--text-primary)">Recent Predictions</h2>
+        <div class="t-section-header" style="padding-bottom: 6px;"><h2 class="text-lg font-bold" style="color: var(--text-primary)">Recent Predictions</h2></div>
         <div class="t-callout" style="padding: 0.75rem;">
           <span class="text-sm" style="color: var(--text-secondary)">No predictions yet. The shadow engine generates predictions when state changes occur.</span>
         </div>
@@ -227,7 +227,7 @@ function DisagreementsPanel({ disagreements }) {
   if (items.length === 0) {
     return (
       <section class="space-y-3">
-        <h2 class="text-lg font-bold" style="color: var(--text-primary)">Top Disagreements</h2>
+        <div class="t-section-header" style="padding-bottom: 6px;"><h2 class="text-lg font-bold" style="color: var(--text-primary)">Top Disagreements</h2></div>
         <div class="t-callout" style="padding: 0.75rem;">
           <span class="text-sm" style="color: var(--status-healthy)">No disagreements recorded yet.</span>
         </div>
@@ -370,8 +370,8 @@ export default function Shadow() {
   }
 
   return (
-    <div class="space-y-8">
-      <div class="animate-fade-in-up">
+    <div class="space-y-8 animate-page-enter">
+      <div class="t-section-header animate-fade-in-up" style="padding-bottom: 8px;">
         <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Shadow Mode</h1>
         <p class="text-sm" style="color: var(--text-tertiary)">Prediction accuracy, pipeline progress, and learning insights.</p>
       </div>

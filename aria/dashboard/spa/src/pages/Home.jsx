@@ -525,7 +525,7 @@ export default function Home() {
   }
 
   return (
-    <div class="space-y-6">
+    <div class="space-y-6 animate-page-enter">
       <div>
         <AriaLogo className="w-24 mb-1" color="var(--text-primary)" />
         <p class="text-sm" style="color: var(--text-tertiary)">Live system overview — data flow, module health, and your next steps.</p>

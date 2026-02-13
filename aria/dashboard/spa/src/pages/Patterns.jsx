@@ -142,8 +142,8 @@ export default function Patterns() {
   }
 
   return (
-    <div class="space-y-6">
-      <div class="animate-fade-in-up">
+    <div class="space-y-6 animate-page-enter">
+      <div class="t-section-header animate-fade-in-up" style="padding-bottom: 8px;">
         <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Patterns</h1>
         <p class="text-sm" style="color: var(--text-tertiary)">{pageSubtitle}</p>
       </div>
