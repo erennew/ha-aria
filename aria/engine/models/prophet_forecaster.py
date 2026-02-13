@@ -150,9 +150,9 @@ class ProphetForecaster(BaseModel):
         """
         METRIC_PATHS = {
             "power_watts": ("power", "total_watts"),
-            "lights_on": ("lights", "on_count"),
+            "lights_on": ("lights", "on"),
             "devices_home": ("occupancy", "device_count_home"),
-            "unavailable": ("entities_summary", "unavailable"),
+            "unavailable": ("entities", "unavailable"),
         }
 
         path = METRIC_PATHS.get(metric_name)

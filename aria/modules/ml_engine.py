@@ -710,7 +710,7 @@ class MLEngine(Module):
         is_weekend = 1 if dow >= 5 else 0
         is_holiday = 1 if snapshot.get("is_holiday") else 0
         is_night = 1 if dt.hour < 6 or dt.hour >= 22 else 0
-        is_work_hours = 1 if 9 <= dt.hour < 17 and dow < 5 else 0
+        is_work_hours = 1 if 8 <= dt.hour < 17 and dow < 5 else 0
 
         # Sun features (approximations - daily snapshots don't have precise sun data)
         # Assume sunrise ~6:30am (390 min), sunset ~6:30pm (1110 min)
