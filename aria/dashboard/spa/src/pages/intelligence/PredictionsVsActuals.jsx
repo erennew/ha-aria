@@ -34,14 +34,14 @@ export function PredictionsVsActuals({ predictions, intradayTrend }) {
       subtitle="Large deltas mean something unusual is happening. Small deltas mean the system understands your patterns."
     >
       {biggestDelta && (
-        <Callout color="amber">
+        <Callout>
           {biggestDelta.metric} is {biggestDelta.pct}% off prediction ({biggestDelta.actual} actual vs {biggestDelta.predicted} predicted). Worth a look?
         </Callout>
       )}
-      <div class="bg-white rounded-md shadow-sm overflow-x-auto">
+      <div class="t-card overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-gray-200 text-left text-xs text-gray-500 uppercase">
+            <tr class="text-left text-xs uppercase" style="border-bottom: 1px solid var(--border-subtle); color: var(--text-tertiary)">
               <th class="px-4 py-2">Metric</th>
               <th class="px-4 py-2">Predicted</th>
               <th class="px-4 py-2">Actual</th>
@@ -58,13 +58,13 @@ export function PredictionsVsActuals({ predictions, intradayTrend }) {
                 : null;
               const bigDelta = delta != null && pred.predicted > 0 && Math.abs(delta / pred.predicted) > 0.3;
               return (
-                <tr key={m} class={`border-b border-gray-100 ${bigDelta ? 'bg-amber-50' : ''}`}>
-                  <td class="px-4 py-2 font-medium text-gray-700">{m.replace(/_/g, ' ')}</td>
+                <tr key={m} style={`border-bottom: 1px solid var(--border-subtle)${bigDelta ? '; background: rgba(245,158,11,0.08)' : ''}`}>
+                  <td class="px-4 py-2 font-medium" style="color: var(--text-secondary)">{m.replace(/_/g, ' ')}</td>
                   <td class="px-4 py-2">{pred.predicted != null ? pred.predicted : '\u2014'}</td>
                   <td class="px-4 py-2">{actual != null ? actual : '\u2014'}</td>
                   <td class="px-4 py-2">{delta != null ? (delta >= 0 ? '+' : '') + delta : '\u2014'}</td>
                   <td class="px-4 py-2">
-                    <span class={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${confidenceColor(pred.confidence)}`}>
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={confidenceColor(pred.confidence)}>
                       {pred.confidence || 'n/a'}
                     </span>
                   </td>

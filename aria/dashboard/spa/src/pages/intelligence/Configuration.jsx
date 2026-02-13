@@ -16,16 +16,16 @@ export function Configuration({ config }) {
       title="Configuration"
       subtitle="Current engine settings. Edit ~/ha-logs/intelligence/feature_config.json to change."
     >
-      <details class="bg-white rounded-md shadow-sm">
-        <summary class="px-4 py-3 cursor-pointer text-sm font-medium text-gray-700 hover:bg-gray-50">
+      <details class="t-card">
+        <summary class="px-4 py-3 cursor-pointer text-sm font-medium" style="color: var(--text-secondary)">
           Show configuration details
         </summary>
         <div class="px-4 pb-4 space-y-4">
           <div>
-            <div class="text-xs font-bold text-gray-500 uppercase mb-1">ML Weight Schedule</div>
+            <div class="text-xs font-bold uppercase mb-1" style="color: var(--text-tertiary)">ML Weight Schedule</div>
             <table class="text-xs w-full">
               <thead>
-                <tr class="text-left text-gray-500"><th class="py-1">Days of Data</th><th>ML Weight</th></tr>
+                <tr class="text-left" style="color: var(--text-tertiary)"><th class="py-1">Days of Data</th><th>ML Weight</th></tr>
               </thead>
               <tbody>
                 {config.ml_weight_schedule && Object.entries(config.ml_weight_schedule).map(([range, weight]) => (
@@ -39,19 +39,21 @@ export function Configuration({ config }) {
           </div>
 
           <div>
-            <div class="text-xs font-bold text-gray-500 uppercase mb-1">Anomaly Threshold</div>
-            <p class="text-sm text-gray-700">{config.anomaly_threshold} standard deviations from baseline triggers an anomaly flag.</p>
+            <div class="text-xs font-bold uppercase mb-1" style="color: var(--text-tertiary)">Anomaly Threshold</div>
+            <p class="text-sm" style="color: var(--text-secondary)">{config.anomaly_threshold} standard deviations from baseline triggers an anomaly flag.</p>
           </div>
 
           <div>
-            <div class="text-xs font-bold text-gray-500 uppercase mb-1">Feature Toggles</div>
+            <div class="text-xs font-bold uppercase mb-1" style="color: var(--text-tertiary)">Feature Toggles</div>
             <div class="flex flex-wrap gap-2">
               {Object.entries(featureGroups).map(([name, enabled]) => (
                 <span
                   key={name}
-                  class={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                    enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
-                  }`}
+                  class="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                  style={enabled
+                    ? 'background: rgba(34,197,94,0.15); color: var(--status-healthy)'
+                    : 'background: var(--bg-surface-raised); color: var(--text-tertiary)'
+                  }
                 >
                   {name}: {enabled ? 'on' : 'off'}
                 </span>

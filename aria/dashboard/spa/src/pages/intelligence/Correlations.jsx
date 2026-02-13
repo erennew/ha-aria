@@ -14,10 +14,10 @@ export function Correlations({ correlations }) {
       {!hasData ? (
         <Callout>No correlations yet. Needs enough data to detect statistically reliable relationships between devices.</Callout>
       ) : (
-        <div class="bg-white rounded-md shadow-sm overflow-x-auto">
+        <div class="t-card overflow-x-auto">
           <table class="w-full text-sm">
             <thead>
-              <tr class="border-b border-gray-200 text-left text-xs text-gray-500 uppercase">
+              <tr class="text-left text-xs uppercase" style="border-bottom: 1px solid var(--border-subtle); color: var(--text-tertiary)">
                 <th class="px-4 py-2">Entity A</th>
                 <th class="px-4 py-2">Entity B</th>
                 <th class="px-4 py-2">Strength</th>
@@ -26,9 +26,9 @@ export function Correlations({ correlations }) {
             </thead>
             <tbody>
               {correlations.map((c, i) => (
-                <tr key={i} class="border-b border-gray-100">
-                  <td class="px-4 py-2 font-mono text-xs">{c.entity_a || c[0]}</td>
-                  <td class="px-4 py-2 font-mono text-xs">{c.entity_b || c[1]}</td>
+                <tr key={i} style="border-bottom: 1px solid var(--border-subtle)">
+                  <td class="px-4 py-2 data-mono text-xs">{c.entity_a || c[0]}</td>
+                  <td class="px-4 py-2 data-mono text-xs">{c.entity_b || c[1]}</td>
                   <td class="px-4 py-2">{c.strength || c[2]}</td>
                   <td class="px-4 py-2">{c.direction || c[3] || '\u2014'}</td>
                 </tr>

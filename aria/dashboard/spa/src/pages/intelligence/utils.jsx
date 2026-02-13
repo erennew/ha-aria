@@ -1,9 +1,9 @@
 // Shared utilities, constants, and layout components for Intelligence sub-sections
 
 export function confidenceColor(conf) {
-  if (conf === 'high') return 'bg-green-100 text-green-700';
-  if (conf === 'medium') return 'bg-amber-100 text-amber-700';
-  return 'bg-red-100 text-red-700';
+  if (conf === 'high') return 'background: rgba(34,197,94,0.15); color: var(--status-healthy);';
+  if (conf === 'medium') return 'background: rgba(245,158,11,0.15); color: var(--status-warning);';
+  return 'background: rgba(239,68,68,0.15); color: var(--status-error);';
 }
 
 export function relativeTime(ts) {
@@ -32,23 +32,17 @@ export function Section({ title, subtitle, children }) {
   return (
     <section class="space-y-3">
       <div>
-        <h2 class="text-lg font-bold text-gray-900">{title}</h2>
-        {subtitle && <p class="text-sm text-gray-500">{subtitle}</p>}
+        <h2 class="text-lg font-bold" style="color: var(--text-primary)">{title}</h2>
+        {subtitle && <p class="text-sm" style="color: var(--text-tertiary)">{subtitle}</p>}
       </div>
       {children}
     </section>
   );
 }
 
-export function Callout({ children, color }) {
-  const colors = {
-    blue: 'bg-blue-50 border-blue-200 text-blue-800',
-    amber: 'bg-amber-50 border-amber-200 text-amber-800',
-    green: 'bg-green-50 border-green-200 text-green-800',
-    gray: 'bg-gray-50 border-gray-200 text-gray-600',
-  };
+export function Callout({ children }) {
   return (
-    <div class={`border rounded-md p-3 text-sm ${colors[color || 'blue']}`}>
+    <div class="t-callout p-3 text-sm">
       {children}
     </div>
   );

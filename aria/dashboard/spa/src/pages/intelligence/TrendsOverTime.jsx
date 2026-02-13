@@ -7,7 +7,7 @@ function BarChart({ data, dataKey, label, color }) {
 
   return (
     <div class="space-y-1">
-      <div class="text-xs font-medium text-gray-600">{label}</div>
+      <div class="text-xs font-medium" style="color: var(--text-secondary)">{label}</div>
       <div class="flex items-end gap-1 h-12">
         {data.map((d, i) => {
           const val = d[dataKey];
@@ -23,7 +23,7 @@ function BarChart({ data, dataKey, label, color }) {
           );
         })}
       </div>
-      <div class="flex justify-between text-[10px] text-gray-400">
+      <div class="flex justify-between" style="font-size: 10px; color: var(--text-tertiary)">
         <span>{data[0]?.date || ('h' + data[0]?.hour)}</span>
         {data.length > 1 && <span>{data[data.length - 1]?.date || ('h' + data[data.length - 1]?.hour)}</span>}
       </div>
@@ -68,11 +68,11 @@ export function TrendsOverTime({ trendData, intradayTrend }) {
       title="Trends Over Time"
       subtitle="Spot when something changed \u2014 a new device, a routine shift, or a problem building. Each bar is one day."
     >
-      {trendNote && <Callout color="amber">{trendNote}</Callout>}
-      <div class="bg-white rounded-md shadow-sm p-4 space-y-4">
+      {trendNote && <Callout>{trendNote}</Callout>}
+      <div class="t-card p-4 space-y-4">
         {hasTrend && (
           <div class="space-y-3">
-            <div class="text-xs font-bold text-gray-500 uppercase">Daily</div>
+            <div class="text-xs font-bold uppercase" style="color: var(--text-tertiary)">Daily</div>
             <BarChart data={trendData} dataKey="power_watts" label="Power (W) \u2014 total household draw" color="#3b82f6" />
             <BarChart data={trendData} dataKey="lights_on" label="Lights On \u2014 how many at snapshot time" color="#f59e0b" />
             <BarChart data={trendData} dataKey="unavailable" label="Unavailable \u2014 entities not responding (should be low)" color="#ef4444" />
@@ -80,7 +80,7 @@ export function TrendsOverTime({ trendData, intradayTrend }) {
         )}
         {hasIntraday && (
           <div class="space-y-3">
-            <div class="text-xs font-bold text-gray-500 uppercase">Today (Intraday)</div>
+            <div class="text-xs font-bold uppercase" style="color: var(--text-tertiary)">Today (Intraday)</div>
             <BarChart data={intradayTrend} dataKey="power_watts" label="Power (W)" color="#6366f1" />
             <BarChart data={intradayTrend} dataKey="unavailable" label="Unavailable" color="#f43f5e" />
           </div>

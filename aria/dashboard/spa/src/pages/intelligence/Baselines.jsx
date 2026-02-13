@@ -21,10 +21,10 @@ export function Baselines({ baselines }) {
       title="Baselines"
       subtitle="This is 'normal' for each day of the week. The system flags deviations from these averages. More samples = tighter predictions."
     >
-      <div class="bg-white rounded-md shadow-sm overflow-x-auto">
+      <div class="t-card overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-gray-200 text-left text-xs text-gray-500 uppercase">
+            <tr class="text-left text-xs uppercase" style="border-bottom: 1px solid var(--border-subtle); color: var(--text-tertiary)">
               <th class="px-4 py-2">Day</th>
               <th class="px-4 py-2">Samples</th>
               <th class="px-4 py-2">Power (W)</th>
@@ -39,15 +39,15 @@ export function Baselines({ baselines }) {
               const isToday = day === today;
               if (!b) {
                 return (
-                  <tr key={day} class="border-b border-gray-100 text-gray-300">
+                  <tr key={day} style={`border-bottom: 1px solid var(--border-subtle); color: var(--text-tertiary)`}>
                     <td class="px-4 py-2">{day}{isToday ? ' (today)' : ''}</td>
                     <td class="px-4 py-2" colSpan="5">no data</td>
                   </tr>
                 );
               }
               return (
-                <tr key={day} class={`border-b border-gray-100 ${isToday ? 'bg-blue-50' : ''}`}>
-                  <td class="px-4 py-2 font-medium text-gray-700">{day}{isToday ? ' (today)' : ''}</td>
+                <tr key={day} style={`border-bottom: 1px solid var(--border-subtle)${isToday ? '; background: var(--accent-glow)' : ''}`}>
+                  <td class="px-4 py-2 font-medium" style="color: var(--text-secondary)">{day}{isToday ? ' (today)' : ''}</td>
                   <td class="px-4 py-2">{b.sample_count}</td>
                   <td class="px-4 py-2">{b.power_watts?.mean != null ? Math.round(b.power_watts.mean * 10) / 10 : '\u2014'}</td>
                   <td class="px-4 py-2">{b.lights_on?.mean != null ? Math.round(b.lights_on.mean) : '\u2014'}</td>

@@ -23,23 +23,27 @@ function ShadowBrief({ shadowAccuracy, pipeline }) {
   const acc = shadowAccuracy?.overall_accuracy ?? 0;
   const stage = pipeline?.current_stage || shadowAccuracy?.stage || 'backtest';
 
-  const accColor = acc >= 70 ? 'text-green-600' : acc >= 40 ? 'text-amber-500' : 'text-red-500';
+  const accStyle = acc >= 70
+    ? 'color: var(--status-healthy)'
+    : acc >= 40
+      ? 'color: var(--status-warning)'
+      : 'color: var(--status-error)';
 
   return (
     <Section title="Shadow Engine" subtitle="Predict-compare-score loop running alongside the main engine.">
-      <div class="bg-white rounded-md shadow-sm p-4">
+      <div class="t-card p-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-4">
-            <span class="text-xs font-medium bg-blue-100 text-blue-700 rounded-full px-2.5 py-0.5 capitalize">{stage}</span>
+            <span class="text-xs font-medium rounded-full px-2.5 py-0.5 capitalize" style="background: var(--accent-glow); color: var(--accent)">{stage}</span>
             {total > 0 ? (
-              <span class="text-sm text-gray-700">
-                <span class={`font-bold ${accColor}`}>{Math.round(acc)}%</span> accuracy ({correct}/{total})
+              <span class="text-sm" style="color: var(--text-secondary)">
+                <span class="font-bold" style={accStyle}>{Math.round(acc)}%</span> accuracy ({correct}/{total})
               </span>
             ) : (
-              <span class="text-sm text-gray-500">No predictions yet</span>
+              <span class="text-sm" style="color: var(--text-tertiary)">No predictions yet</span>
             )}
           </div>
-          <a href="#/shadow" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Full details &rarr;</a>
+          <a href="#/shadow" class="text-sm font-medium" style="color: var(--accent)">Full details &rarr;</a>
         </div>
         {/* Gate progress toward next stage */}
         {pipeline && (() => {
@@ -56,13 +60,13 @@ function ShadowBrief({ shadowAccuracy, pipeline }) {
           const pct = Math.min(100, Math.round((current / gate.threshold) * 100));
           const met = current >= gate.threshold;
           return (
-            <div class="mt-3 pt-3 border-t border-gray-100">
+            <div class="mt-3 pt-3" style="border-top: 1px solid var(--border-subtle)">
               <div class="flex items-center justify-between text-xs mb-1">
-                <span class="text-gray-500">Gate: {gate.label} &ge; {Math.round(gate.threshold * 100)}%</span>
-                <span class={met ? 'text-green-600 font-medium' : 'text-gray-500'}>{Math.round(current * 100)}%</span>
+                <span style="color: var(--text-tertiary)">Gate: {gate.label} &ge; {Math.round(gate.threshold * 100)}%</span>
+                <span class={met ? 'font-medium' : ''} style={met ? 'color: var(--status-healthy)' : 'color: var(--text-tertiary)'}>{Math.round(current * 100)}%</span>
               </div>
-              <div class="h-1.5 bg-gray-100 rounded-full">
-                <div class={`h-1.5 rounded-full ${met ? 'bg-green-500' : 'bg-blue-400'}`} style={{ width: `${pct}%` }} />
+              <div class="h-1.5 rounded-full" style="background: var(--bg-inset)">
+                <div class="h-1.5 rounded-full" style={`background: ${met ? 'var(--status-healthy)' : 'var(--accent)'}; width: ${pct}%`} />
               </div>
             </div>
           );
@@ -90,7 +94,7 @@ export default function Intelligence() {
   if (loading && !data) {
     return (
       <div class="space-y-6">
-        <h1 class="text-2xl font-bold text-gray-900">Intelligence</h1>
+        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Intelligence</h1>
         <LoadingState type="cards" />
       </div>
     );
@@ -99,7 +103,7 @@ export default function Intelligence() {
   if (error) {
     return (
       <div class="space-y-6">
-        <h1 class="text-2xl font-bold text-gray-900">Intelligence</h1>
+        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Intelligence</h1>
         <ErrorState error={error} onRetry={refetch} />
       </div>
     );
@@ -108,7 +112,7 @@ export default function Intelligence() {
   if (!intel) {
     return (
       <div class="space-y-6">
-        <h1 class="text-2xl font-bold text-gray-900">Intelligence</h1>
+        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Intelligence</h1>
         <Callout>Intelligence data is loading. The engine collects its first snapshot automatically via cron.</Callout>
       </div>
     );
@@ -116,7 +120,7 @@ export default function Intelligence() {
 
   return (
     <div class="space-y-8">
-      <h1 class="text-2xl font-bold text-gray-900 animate-fade-in-up">Intelligence</h1>
+      <h1 class="text-2xl font-bold animate-fade-in-up" style="color: var(--text-primary)">Intelligence</h1>
 
       <div class="animate-fade-in-up delay-100">
         <LearningProgress maturity={intel.data_maturity} shadowStage={pipeline?.current_stage} shadowAccuracy={shadowAccuracy?.overall_accuracy} />
@@ -135,9 +139,9 @@ export default function Intelligence() {
       <Correlations correlations={intel.correlations} />
       <SystemStatus runLog={intel.run_log} mlModels={intel.ml_models} metaLearning={intel.meta_learning} />
       <Section title="Configuration" subtitle="Engine parameters are now managed in Settings.">
-        <div class="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800 flex items-center justify-between">
+        <div class="t-callout p-3 text-sm flex items-center justify-between">
           <span>Engine settings have moved to the dedicated Settings page.</span>
-          <a href="#/settings" class="text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap">Settings &rarr;</a>
+          <a href="#/settings" class="font-medium whitespace-nowrap" style="color: var(--accent)">Settings &rarr;</a>
         </div>
       </Section>
     </div>

@@ -17,14 +17,14 @@ export function SystemStatus({ runLog, mlModels, metaLearning }) {
     >
       <div class="space-y-4">
         {/* Run Log */}
-        <div class="bg-white rounded-md shadow-sm overflow-x-auto">
-          <div class="px-4 py-2 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase">Run Log</div>
+        <div class="t-card overflow-x-auto">
+          <div class="px-4 py-2 text-xs font-bold uppercase" style="border-bottom: 1px solid var(--border-subtle); color: var(--text-tertiary)">Run Log</div>
           {(!runLog || runLog.length === 0) ? (
-            <div class="px-4 py-3 text-sm text-gray-400">No runs recorded yet.</div>
+            <div class="px-4 py-3 text-sm" style="color: var(--text-tertiary)">No runs recorded yet.</div>
           ) : (
             <table class="w-full text-sm">
               <thead>
-                <tr class="border-b border-gray-100 text-left text-xs text-gray-500">
+                <tr class="text-left text-xs" style="border-bottom: 1px solid var(--border-subtle); color: var(--text-tertiary)">
                   <th class="px-4 py-1">When</th>
                   <th class="px-4 py-1">Type</th>
                   <th class="px-4 py-1">Status</th>
@@ -32,14 +32,14 @@ export function SystemStatus({ runLog, mlModels, metaLearning }) {
               </thead>
               <tbody>
                 {runLog.map((r, i) => (
-                  <tr key={i} class="border-b border-gray-50">
-                    <td class="px-4 py-1.5 text-gray-600" title={r.timestamp}>{relativeTime(r.timestamp)}</td>
+                  <tr key={i} style="border-bottom: 1px solid var(--border-subtle)">
+                    <td class="px-4 py-1.5" style="color: var(--text-secondary)" title={r.timestamp}>{relativeTime(r.timestamp)}</td>
                     <td class="px-4 py-1.5">
-                      <span class="bg-gray-100 rounded px-1.5 py-0.5 text-xs">{r.type}</span>
+                      <span class="rounded px-1.5 py-0.5 text-xs" style="background: var(--bg-surface-raised)">{r.type}</span>
                     </td>
                     <td class="px-4 py-1.5">
-                      <span class={`inline-block w-2 h-2 rounded-full ${r.status === 'ok' ? 'bg-green-500' : 'bg-red-500'}`} />
-                      {r.message && <span class="ml-1 text-xs text-red-600">{r.message}</span>}
+                      <span class="inline-block w-2 h-2 rounded-full" style={`background: ${r.status === 'ok' ? 'var(--status-healthy)' : 'var(--status-error)'}`} />
+                      {r.message && <span class="ml-1 text-xs" style="color: var(--status-error)">{r.message}</span>}
                     </td>
                   </tr>
                 ))}
@@ -49,25 +49,25 @@ export function SystemStatus({ runLog, mlModels, metaLearning }) {
         </div>
 
         {/* ML Models */}
-        <div class="bg-white rounded-md shadow-sm p-4">
-          <div class="text-xs font-bold text-gray-500 uppercase mb-2">ML Models</div>
+        <div class="t-card p-4">
+          <div class="text-xs font-bold uppercase mb-2" style="color: var(--text-tertiary)">ML Models</div>
           {(!mlModels || mlModels.count === 0) ? (
-            <p class="text-sm text-gray-400">ML models activate after 14 days of data. Until then, predictions use statistical baselines only.</p>
+            <p class="text-sm" style="color: var(--text-tertiary)">ML models activate after 14 days of data. Until then, predictions use statistical baselines only.</p>
           ) : (
             <div class="space-y-2">
               <div class="flex gap-3 text-sm">
-                <span class="bg-gray-100 rounded px-2 py-0.5">{mlModels.count} model{mlModels.count !== 1 ? 's' : ''}</span>
-                {mlModels.last_trained && <span class="text-gray-500">Last trained: {relativeTime(mlModels.last_trained)}</span>}
+                <span class="rounded px-2 py-0.5" style="background: var(--bg-surface-raised)">{mlModels.count} model{mlModels.count !== 1 ? 's' : ''}</span>
+                {mlModels.last_trained && <span style="color: var(--text-tertiary)">Last trained: {relativeTime(mlModels.last_trained)}</span>}
               </div>
               {mlModels.scores && Object.keys(mlModels.scores).length > 0 && (
                 <table class="w-full text-xs">
                   <thead>
-                    <tr class="text-left text-gray-500"><th class="py-1">Model</th><th>R2</th><th>MAE</th></tr>
+                    <tr class="text-left" style="color: var(--text-tertiary)"><th class="py-1">Model</th><th>R2</th><th>MAE</th></tr>
                   </thead>
                   <tbody>
                     {Object.entries(mlModels.scores).map(([name, s]) => (
                       <tr key={name}>
-                        <td class="py-1 font-mono">{name}</td>
+                        <td class="py-1 data-mono">{name}</td>
                         <td>{s.r2 != null ? s.r2.toFixed(3) : '\u2014'}</td>
                         <td>{s.mae != null ? s.mae.toFixed(2) : '\u2014'}</td>
                       </tr>
@@ -80,18 +80,18 @@ export function SystemStatus({ runLog, mlModels, metaLearning }) {
         </div>
 
         {/* Meta-Learning */}
-        <div class="bg-white rounded-md shadow-sm p-4">
-          <div class="text-xs font-bold text-gray-500 uppercase mb-2">Meta-Learning</div>
+        <div class="t-card p-4">
+          <div class="text-xs font-bold uppercase mb-2" style="color: var(--text-tertiary)">Meta-Learning</div>
           {(!metaLearning || metaLearning.applied_count === 0) ? (
-            <p class="text-sm text-gray-400">Meta-learning reviews model performance weekly and auto-tunes feature selection. Activates after the first training cycle.</p>
+            <p class="text-sm" style="color: var(--text-tertiary)">Meta-learning reviews model performance weekly and auto-tunes feature selection. Activates after the first training cycle.</p>
           ) : (
             <div class="space-y-2">
               <div class="flex gap-3 text-sm">
-                <span class="bg-gray-100 rounded px-2 py-0.5">{metaLearning.applied_count} suggestion{metaLearning.applied_count !== 1 ? 's' : ''} applied</span>
-                {metaLearning.last_applied && <span class="text-gray-500">Last: {relativeTime(metaLearning.last_applied)}</span>}
+                <span class="rounded px-2 py-0.5" style="background: var(--bg-surface-raised)">{metaLearning.applied_count} suggestion{metaLearning.applied_count !== 1 ? 's' : ''} applied</span>
+                {metaLearning.last_applied && <span style="color: var(--text-tertiary)">Last: {relativeTime(metaLearning.last_applied)}</span>}
               </div>
               {metaLearning.suggestions && metaLearning.suggestions.length > 0 && (
-                <ul class="text-xs text-gray-600 space-y-1 list-disc ml-4">
+                <ul class="text-xs space-y-1 list-disc ml-4" style="color: var(--text-secondary)">
                   {metaLearning.suggestions.map((s, i) => (
                     <li key={i}>{s.description || s.action || JSON.stringify(s)}</li>
                   ))}
