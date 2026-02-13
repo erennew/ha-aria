@@ -64,7 +64,10 @@ curl -s http://127.0.0.1:8001/api/cache/activity_summary | /usr/bin/python3 -m j
 ### Dashboard (Preact SPA)
 
 **Stack:** Preact + Tailwind CSS, bundled with esbuild
-**Pages:** Home, Discovery, Capabilities, Intelligence, Patterns, Predictions, Automations, Shadow Mode, Settings, Data Curation
+**Pages:** Home (pipeline flowchart), Discovery, Capabilities, Intelligence, Patterns, Predictions, Automations, Shadow Mode, Settings, Data Curation
+
+**Home page** — Interactive 3-lane pipeline dashboard (Data Collection → Learning → Actions) with 9 module nodes, status chips, animated connection arrows, "YOU" guidance nodes, journey progress bar, and live metrics strip.
+**Data sources** (7, fetched in parallel): `/health`, `/api/cache/intelligence`, `/api/cache/activity_summary`, `/api/cache/entities`, `/api/shadow/accuracy`, `/api/pipeline`, `/api/curation/summary`
 
 ```bash
 # Rebuild SPA after JSX changes
