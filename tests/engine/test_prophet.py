@@ -26,9 +26,9 @@ def _make_daily_snapshots(n_days=30, base_power=200, weekly_pattern=True):
 
         snap = {
             "power": {"total_watts": power + (i % 7) * 5},
-            "lights": {"on_count": 3 + (i % 4)},
+            "lights": {"on": 3 + (i % 4)},
             "occupancy": {"device_count_home": 10 + (i % 3)},
-            "entities_summary": {"unavailable": 2 + (i % 2)},
+            "entities": {"unavailable": 2 + (i % 2)},
         }
         snapshots.append((date_str, snap))
     return snapshots
@@ -45,7 +45,7 @@ class TestProphetMetricExtraction(unittest.TestCase):
 
     def test_extract_lights_on(self):
         from aria.engine.models.prophet_forecaster import ProphetForecaster
-        snap = {"lights": {"on_count": 5}}
+        snap = {"lights": {"on": 5}}
         result = ProphetForecaster._extract_metric(snap, "lights_on")
         self.assertEqual(result, 5.0)
 
