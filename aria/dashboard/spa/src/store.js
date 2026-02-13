@@ -93,6 +93,44 @@ const wsConnected = signal(false);
 /** Last WebSocket status/error message (for UI display). */
 const wsMessage = signal('');
 
+// ---------------------------------------------------------------------------
+// Theme
+// ---------------------------------------------------------------------------
+
+/** Current theme: 'light' or 'dark'. */
+const theme = signal(getInitialTheme());
+
+/**
+ * Determine initial theme from localStorage or system preference.
+ * @returns {'light'|'dark'}
+ */
+function getInitialTheme() {
+  if (typeof window === 'undefined') return 'light';
+  const stored = localStorage.getItem('aria-theme');
+  if (stored === 'light' || stored === 'dark') return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * Apply theme to document and persist.
+ * @param {'light'|'dark'} t
+ */
+function setTheme(t) {
+  theme.value = t;
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('aria-theme', t);
+}
+
+/** Toggle between light and dark. */
+function toggleTheme() {
+  setTheme(theme.value === 'dark' ? 'light' : 'dark');
+}
+
+// Apply theme on load
+if (typeof document !== 'undefined') {
+  document.documentElement.setAttribute('data-theme', theme.value);
+}
+
 /** @type {WebSocket|null} */
 let ws = null;
 
@@ -222,4 +260,7 @@ export {
   wsMessage,
   connectWebSocket,
   disconnectWebSocket,
+  theme,
+  setTheme,
+  toggleTheme,
 };
