@@ -8,7 +8,6 @@ Inspired by HA WashData — learns appliance fingerprints from power data.
 Operates on per-outlet wattage from USP PDU Pro smart plugs.
 """
 
-import math
 from collections import defaultdict
 from datetime import datetime
 

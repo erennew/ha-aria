@@ -7,11 +7,10 @@ import pytest
 import pytest_asyncio
 import asyncio
 import tempfile
-import os
 import json
 import sqlite3
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
 
 import sys
@@ -21,7 +20,6 @@ from aria.hub.core import IntelligenceHub
 from aria.modules.discovery import DiscoveryModule
 from aria.modules.ml_engine import MLEngine
 from aria.modules.patterns import PatternRecognition
-from aria.modules.orchestrator import OrchestratorModule
 
 
 # ============================================================================

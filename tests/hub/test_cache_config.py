@@ -1,6 +1,5 @@
 """Tests for Phase 2 cache tables: config, entity_curation, config_history."""
 
-import json
 import sys
 from datetime import datetime
 from pathlib import Path

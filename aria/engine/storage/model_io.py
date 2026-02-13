@@ -1,6 +1,5 @@
 """Model serialization — pickle save/load for sklearn models."""
 
-import os
 import pickle
 from pathlib import Path
 

@@ -6,7 +6,6 @@ validates each suggestion by retraining, and auto-applies guardrailed changes.
 
 import copy
 import json
-import os
 import re
 import shutil
 import tempfile
@@ -14,7 +13,7 @@ from datetime import datetime
 
 from aria.engine.config import AppConfig, OllamaConfig
 from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG
-from aria.engine.llm.client import ollama_chat, strip_think_tags
+from aria.engine.llm.client import ollama_chat
 from aria.engine.storage.data_store import DataStore
 
 # --- Constants ---

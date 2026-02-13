@@ -10,7 +10,7 @@ Degrades gracefully — works with whatever sensors are available.
 
 import math
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 # Sensor type weights and decay rates (seconds)

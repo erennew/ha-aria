@@ -7,8 +7,8 @@ association rules for signal correlation, and LLM for semantic interpretation.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
-from datetime import datetime, time, timedelta
+from typing import Dict, Any, List
+from datetime import datetime
 from collections import defaultdict
 import asyncio
 
@@ -145,9 +145,8 @@ class PatternRecognition(Module):
                         with open(snapshot_file) as f:
                             snapshot = json.load(f)
 
-                        # Extract hour and timestamp
+                        # Extract hour
                         hour = snapshot.get("hour", 0)
-                        timestamp_str = snapshot.get("timestamp", "")
 
                         # Parse snapshot into sequences
                         snapshot_sequences = self._parse_snapshot_to_sequences(
@@ -215,7 +214,6 @@ class PatternRecognition(Module):
         lights_data = snapshot.get("lights", {})
         lights_on = lights_data.get("on", 0)
         total_brightness = lights_data.get("total_brightness", 0)
-        rooms_lit = lights_data.get("rooms_lit", [])
 
         # Extract occupancy
         occupancy = snapshot.get("occupancy", {})

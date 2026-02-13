@@ -1,8 +1,5 @@
 """Shared test fixtures for ha-intelligence test suite."""
 
-import os
-import tempfile
-import shutil
 
 import pytest
 
@@ -13,7 +10,6 @@ from aria.engine.config import (
 from aria.engine.storage.data_store import DataStore
 from aria.engine.collectors.snapshot import build_empty_snapshot
 from aria.engine.features.time_features import build_time_features
-from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG
 
 
 # --- Common test data ---

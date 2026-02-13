@@ -1,9 +1,7 @@
 """Tests for Prophet seasonal forecaster."""
 
-import json
 import os
 import unittest
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 
 try:

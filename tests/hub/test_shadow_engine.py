@@ -5,27 +5,22 @@ expired window resolution, and event handling.
 """
 
 import asyncio
-import math
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, Mock, patch
+from typing import Any, Dict, Optional
+from unittest.mock import AsyncMock, Mock
 
 import pytest
-import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aria.hub.core import Module, IntelligenceHub
 from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY
 from aria.modules.shadow_engine import (
     ShadowEngine,
     DEFAULT_WINDOW_SECONDS,
     MIN_CONFIDENCE,
     PREDICTION_COOLDOWN_S,
-    PREDICTABLE_DOMAINS,
-    RESOLUTION_INTERVAL_S,
 )
 
 
@@ -1296,19 +1291,6 @@ class TestActivityMonitorIntegration:
         await shadow.initialize()
 
         try:
-            # Build a realistic HA state_changed event data dict
-            event_data = {
-                "entity_id": "light.kitchen",
-                "new_state": {
-                    "state": "on",
-                    "attributes": {
-                        "friendly_name": "Kitchen Light",
-                        "device_class": "",
-                    },
-                },
-                "old_state": {"state": "off"},
-            }
-
             # Simulate what activity_monitor._handle_state_changed does:
             # It appends to its own buffers then fires asyncio.create_task(hub.publish(...))
             # We replicate the publish call directly since _handle_state_changed

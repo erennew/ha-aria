@@ -1,6 +1,6 @@
 """Feature vector construction from snapshots using feature config."""
 
-from .feature_config import DEFAULT_FEATURE_CONFIG, load_feature_config
+from .feature_config import DEFAULT_FEATURE_CONFIG
 
 
 def get_feature_names(config=None):

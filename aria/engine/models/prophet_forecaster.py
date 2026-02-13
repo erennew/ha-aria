@@ -8,10 +8,8 @@ Blended with GradientBoosting output via the existing blend_predictions
 mechanism — Prophet weight increases with data maturity.
 """
 
-import json
 import os
 import pickle
-from datetime import datetime, timedelta
 
 from aria.engine.models.registry import ModelRegistry, BaseModel
 
@@ -27,7 +25,7 @@ except ImportError:
 PROPHET_METRICS = ["power_watts", "lights_on", "devices_home", "unavailable"]
 
 # Suppress Prophet's verbose stdout
-import logging
+import logging  # noqa: E402
 logging.getLogger("prophet").setLevel(logging.WARNING)
 logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
@@ -75,7 +73,6 @@ class ProphetForecaster(BaseModel):
 
         # Add holidays if available
         if holidays_list:
-            holidays_df = pd.DataFrame(holidays_list)
             model.add_country_holidays(country_name="US")
 
         model.fit(df)

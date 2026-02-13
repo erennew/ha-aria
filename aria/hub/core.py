@@ -4,7 +4,6 @@ import asyncio
 import logging
 from typing import Dict, Set, Optional, Any, Callable
 from datetime import datetime, timedelta
-import json
 
 from aria.hub.cache import CacheManager
 

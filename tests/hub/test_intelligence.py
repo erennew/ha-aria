@@ -4,24 +4,20 @@ Tests data assembly from disk files, phase detection, activity data merge,
 trend extraction, digest formatting, and Telegram sending.
 """
 
-import asyncio
 import json
-import os
-import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY, CACHE_INTELLIGENCE
-from aria.modules.intelligence import IntelligenceModule, METRIC_PATHS
+from aria.modules.intelligence import IntelligenceModule
 
 
 # ============================================================================

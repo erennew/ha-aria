@@ -4,31 +4,23 @@ Tests event filtering, occupancy tracking, buffer windowing, snapshot
 triggering, daily counter resets, snapshot logging, and WebSocket liveness.
 """
 
-import asyncio
 import json
-import logging
-import tempfile
-from collections import deque
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aria.hub.core import Module, IntelligenceHub
 from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY
 from aria.modules.activity_monitor import (
     ActivityMonitor,
     DAILY_SNAPSHOT_CAP,
-    NOISE_TRANSITIONS,
     SNAPSHOT_COOLDOWN_S,
-    TRACKED_DOMAINS,
 )
 
 

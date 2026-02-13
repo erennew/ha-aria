@@ -6,7 +6,7 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from aria.engine.config import HolidayConfig, PathConfig, AppConfig
+from aria.engine.config import HolidayConfig, PathConfig
 from aria.engine.collectors.snapshot import (
     build_empty_snapshot, aggregate_intraday_to_daily,
 )

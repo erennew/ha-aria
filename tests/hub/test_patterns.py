@@ -2,7 +2,6 @@
 
 import pytest
 import pytest_asyncio
-import asyncio
 from pathlib import Path
 from aria.hub.core import IntelligenceHub
 from aria.modules.patterns import PatternRecognition

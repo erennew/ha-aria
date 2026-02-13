@@ -5,7 +5,7 @@ config threshold usage, human override preservation, and graceful empty-data han
 """
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, Mock
@@ -17,15 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aria.modules.data_quality import (
     DataQualityModule,
-    CONFIG_AUTO_EXCLUDE_DOMAINS,
     CONFIG_NOISE_EVENT_THRESHOLD,
-    CONFIG_STALE_DAYS_THRESHOLD,
-    CONFIG_VEHICLE_PATTERNS,
-    DEFAULT_AUTO_EXCLUDE_DOMAINS,
-    DEFAULT_NOISE_EVENT_THRESHOLD,
-    DEFAULT_STALE_DAYS_THRESHOLD,
-    DEFAULT_VEHICLE_PATTERNS,
-    PRESENCE_DOMAINS,
 )
 
 

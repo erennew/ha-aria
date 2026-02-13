@@ -1,9 +1,5 @@
 """Tests for shadow engine cache tables: predictions and pipeline_state."""
 
-import asyncio
-import json
-import os
-import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 

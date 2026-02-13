@@ -13,7 +13,6 @@ from aria.engine.collectors.ha_api import (
     fetch_calendar_events,
 )
 from aria.engine.collectors.logbook import summarize_logbook
-from aria.engine.collectors.extractors import EntitiesSummaryCollector
 
 
 def build_empty_snapshot(date_str: str, holidays_config: HolidayConfig) -> dict:

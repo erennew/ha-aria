@@ -10,7 +10,6 @@ import aiohttp
 import hashlib
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from aria.hub.core import Module, IntelligenceHub
 
@@ -509,8 +508,8 @@ class OrchestratorModule(Module):
                 elif response.status == 401:
                     # Expected for standard tokens - log automation for manual creation
                     self.logger.warning(
-                        f"Automation creation requires admin token (HTTP 401). "
-                        f"Automation YAML logged for manual creation."
+                        "Automation creation requires admin token (HTTP 401). "
+                        "Automation YAML logged for manual creation."
                     )
                     self.logger.info(
                         f"Manual automation YAML for {automation_id}:\n"

@@ -18,14 +18,13 @@ from aria.engine.models.device_failure import (
 )
 from aria.engine.config import HolidayConfig, PathConfig
 from aria.engine.collectors.snapshot import build_empty_snapshot
-from aria.engine.storage.data_store import DataStore
 
 from conftest import make_synthetic_snapshots
 
 
 HAS_SKLEARN = True
 try:
-    import numpy as np
+    import numpy  # noqa: F401
 except ImportError:
     HAS_SKLEARN = False
 

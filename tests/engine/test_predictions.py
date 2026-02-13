@@ -1,7 +1,5 @@
 """Tests for predictions: generation, scoring, ML blending."""
 
-import json
-import os
 import unittest
 import tempfile
 import shutil
@@ -14,7 +12,6 @@ from aria.engine.predictions.scoring import (
     score_prediction, score_all_predictions, accuracy_trend,
 )
 
-from conftest import make_snapshot
 
 
 class TestPredictions(unittest.TestCase):

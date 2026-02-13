@@ -7,14 +7,14 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import pytest
-import json
-import numpy as np
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, Mock
+import pytest  # noqa: E402
+import json  # noqa: E402
+import numpy as np  # noqa: E402
+from datetime import datetime, timedelta  # noqa: E402
+from unittest.mock import AsyncMock, Mock  # noqa: E402
 
-from aria.modules.ml_engine import MLEngine
-from aria.hub.core import IntelligenceHub
+from aria.modules.ml_engine import MLEngine  # noqa: E402
+from aria.hub.core import IntelligenceHub  # noqa: E402
 
 
 @pytest.fixture
@@ -932,7 +932,6 @@ class TestFeatureEngineering:
 
     def test_sinusoidal_hour_known_values(self, engine):
         """Sinusoidal encoding produces correct values for known hours."""
-        import math
 
         # Hour 0 (midnight): sin=0, cos=1
         snap_0 = {"date": "2026-02-12T00:00:00"}
@@ -980,7 +979,6 @@ class TestFeatureEngineering:
 
     def test_sinusoidal_unit_circle_property(self, engine):
         """sin^2 + cos^2 == 1 for all hour and dow encodings."""
-        import math
 
         for hour in range(24):
             snap = {"date": f"2026-02-12T{hour:02d}:00:00"}
@@ -1004,7 +1002,6 @@ class TestFeatureEngineering:
 
     def test_decay_weight_recency_ordering(self, engine):
         """Today's weight > yesterday's weight > last week's weight."""
-        from aria.modules.ml_engine import DECAY_HALF_LIFE_DAYS
         now = datetime(2026, 2, 12, 12, 0, 0)
 
         snapshots = [
@@ -1033,7 +1030,7 @@ class TestFeatureEngineering:
             {"date": "2026-02-05"},  # Thursday, 7 days ago (same dow)
         ]
 
-        weights = engine._compute_decay_weights(snapshots, reference_date=now)
+        engine._compute_decay_weights(snapshots, reference_date=now)
 
         # Wednesday (1 day ago) has higher recency but no weekday bonus
         # Thursday (7 days ago) has lower recency but weekday bonus

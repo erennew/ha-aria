@@ -5,7 +5,7 @@ UI metadata. On startup, seed_config_defaults() inserts any missing keys using
 INSERT OR IGNORE, preserving user overrides.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 CONFIG_DEFAULTS: List[Dict[str, Any]] = [

@@ -6,9 +6,8 @@ results to the entity_curation table. Runs on startup and daily.
 """
 
 import logging
-import re
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from aria.hub.core import Module, IntelligenceHub
 from aria.hub.constants import CACHE_ENTITIES, CACHE_ACTIVITY_LOG

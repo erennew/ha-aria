@@ -5,7 +5,6 @@ import aiosqlite
 import os
 from datetime import datetime, timedelta
 from typing import Any, Optional, Dict, List
-from pathlib import Path
 
 
 class CacheManager:

@@ -2,24 +2,22 @@
 
 import copy
 import json
-import os
 import unittest
 import tempfile
 import shutil
 
-from aria.engine.config import OllamaConfig, HolidayConfig, PathConfig
+from aria.engine.config import OllamaConfig, PathConfig
 from aria.engine.llm.client import strip_think_tags
 from aria.engine.llm.meta_learning import (
     parse_suggestions, apply_suggestion_to_config, validate_suggestion,
 )
 from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG
-from aria.engine.collectors.snapshot import build_empty_snapshot
 from aria.engine.storage.data_store import DataStore
 
 
 HAS_SKLEARN = True
 try:
-    import numpy as np
+    import numpy  # noqa: F401
 except ImportError:
     HAS_SKLEARN = False
 

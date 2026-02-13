@@ -3,7 +3,7 @@
 import json
 import sys
 import os
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 from io import BytesIO
 
 # Add bin/ to path for imports

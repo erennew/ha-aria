@@ -5,7 +5,6 @@ current error exceeds threshold (default: 2x rolling median).
 """
 
 import statistics
-from datetime import datetime, timedelta
 
 
 class DriftDetector:
