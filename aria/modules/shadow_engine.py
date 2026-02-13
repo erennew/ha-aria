@@ -4,13 +4,16 @@ Captures context snapshots when significant events arrive, generates
 predictions using ML models and frequency heuristics, tracks open
 predictions within time windows, and scores outcomes when windows expire.
 
-Phase 1 MVP: core loop only — no correction propagation, no explore/exploit,
-no LLM narration.
+Exploration strategy (configurable via shadow.explore_strategy):
+- "epsilon" (default): Fixed 80/20 epsilon-greedy explore/exploit
+- "thompson": Thompson Sampling with Beta posterior per context bucket
+  (Cavenaghi et al., Entropy 2021 — validated for non-stationary bandits)
 """
 
 import asyncio
 import logging
 import math
+import random
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -45,6 +48,88 @@ ROOM_INDICATOR_DOMAINS = {
 }
 
 
+class ThompsonSampler:
+    """Thompson Sampling for explore/exploit decisions using Beta posteriors.
+
+    Maintains per-context-bucket success/failure counts. On each decision,
+    samples from Beta(alpha, beta) for each bucket and picks the best.
+
+    For the shadow engine, "explore" means making predictions in contexts
+    where we have less data, while "exploit" uses highest-confidence methods.
+
+    Reference: Cavenaghi et al., "f-dsw Thompson Sampling" (Entropy 2021).
+    This is the basic version; f-dsw adaptation can be layered later.
+    """
+
+    def __init__(self):
+        # Maps bucket_key -> {"alpha": successes+1, "beta": failures+1}
+        self._buckets: Dict[str, Dict[str, float]] = {}
+
+    def get_bucket_key(self, context: Dict[str, Any]) -> str:
+        """Derive a bucket key from context features.
+
+        Uses hour-of-day quantized to 4 time bands + presence.
+        """
+        time_features = context.get("time_features", {})
+        hour_sin = time_features.get("hour_sin", 0)
+        # Quantize to 4 periods: night(0), morning(1), afternoon(2), evening(3)
+        # Using hour_sin: >0.5 = morning, <-0.5 = evening, etc.
+        if hour_sin > 0.5:
+            period = "morning"
+        elif hour_sin > -0.5:
+            period = "afternoon" if time_features.get("hour_cos", 0) < 0 else "night"
+        else:
+            period = "evening"
+
+        presence = context.get("presence", {})
+        home = "home" if presence.get("home") else "away"
+        return f"{period}_{home}"
+
+    def should_explore(self, context: Dict[str, Any]) -> bool:
+        """Decide whether to explore (try less-tested methods) or exploit.
+
+        Samples from Beta posteriors for this context bucket.
+        Returns True if the explore arm wins the sample.
+        """
+        key = self.get_bucket_key(context)
+        bucket = self._buckets.get(key, {"alpha": 1.0, "beta": 1.0})
+
+        # Sample from Beta posterior
+        exploit_sample = random.betavariate(bucket["alpha"], bucket["beta"])
+        # Explore arm has a flat prior (less informed = more uncertain)
+        explore_sample = random.betavariate(1.0, 1.0)
+
+        return explore_sample > exploit_sample
+
+    def record_outcome(self, context: Dict[str, Any], success: bool):
+        """Update the posterior for this context bucket.
+
+        Args:
+            context: The prediction context.
+            success: Whether the prediction was correct.
+        """
+        key = self.get_bucket_key(context)
+        if key not in self._buckets:
+            self._buckets[key] = {"alpha": 1.0, "beta": 1.0}
+
+        if success:
+            self._buckets[key]["alpha"] += 1.0
+        else:
+            self._buckets[key]["beta"] += 1.0
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Return current bucket statistics for observability."""
+        return {
+            key: {
+                "alpha": round(b["alpha"], 1),
+                "beta": round(b["beta"], 1),
+                "mean": round(b["alpha"] / (b["alpha"] + b["beta"]), 3),
+                "trials": int(b["alpha"] + b["beta"] - 2),
+            }
+            for key, b in self._buckets.items()
+        }
+
+
 class ShadowEngine(Module):
     """Shadow mode prediction engine: predict-compare-score loop."""
 
@@ -64,6 +149,9 @@ class ShadowEngine(Module):
         # Track events that occurred during open prediction windows
         # Maps prediction_id -> list of events that happened in that window
         self._window_events: Dict[str, List[Dict[str, Any]]] = {}
+
+        # Thompson Sampling for explore/exploit
+        self._thompson = ThompsonSampler()
 
     async def initialize(self):
         """Subscribe to state_changed events and start periodic resolution."""
@@ -179,7 +267,20 @@ class ShadowEngine(Module):
             predictions = await self._generate_predictions(context)
 
             if predictions:
-                await self._store_predictions(context, predictions)
+                # Determine explore/exploit via configured strategy
+                explore_strategy = await self.hub.cache.get_config_value(
+                    "shadow.explore_strategy", "epsilon"
+                ) or "epsilon"
+
+                if explore_strategy == "thompson":
+                    is_exploration = self._thompson.should_explore(context)
+                else:
+                    # Default epsilon-greedy (80% exploit, 20% explore)
+                    is_exploration = random.random() < 0.2
+
+                await self._store_predictions(
+                    context, predictions, is_exploration=is_exploration
+                )
                 self._last_prediction_time = now
         except Exception as e:
             self.logger.error(f"Prediction generation failed: {e}")

@@ -6,10 +6,27 @@ mock in tests or swap backends (e.g., SQLite) in the future.
 
 import json
 import os
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from aria.engine.config import PathConfig
+
+
+def _atomic_write_json(path, data, **kwargs):
+    """Write JSON atomically using temp file + rename."""
+    path = Path(path)
+    fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, **kwargs)
+        os.replace(tmp_path, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 class DataStore:
@@ -28,8 +45,7 @@ class DataStore:
         """Save snapshot to daily directory."""
         self.ensure_dirs()
         path = self.paths.daily_dir / f"{snapshot['date']}.json"
-        with open(path, "w") as f:
-            json.dump(snapshot, f, indent=2)
+        _atomic_write_json(path, snapshot, indent=2)
         return path
 
     def load_snapshot(self, date_str: str) -> dict | None:
@@ -60,8 +76,7 @@ class DataStore:
         day_dir.mkdir(parents=True, exist_ok=True)
         hour = snapshot.get("hour", 0)
         path = day_dir / f"{hour:02d}.json"
-        with open(path, "w") as f:
-            json.dump(snapshot, f, indent=2)
+        _atomic_write_json(path, snapshot, indent=2)
         return path
 
     def load_intraday_snapshots(self, date_str: str) -> list[dict]:
@@ -93,8 +108,7 @@ class DataStore:
     def save_baselines(self, baselines: dict):
         """Save computed baselines."""
         self.ensure_dirs()
-        with open(self.paths.baselines_path, "w") as f:
-            json.dump(baselines, f, indent=2)
+        _atomic_write_json(self.paths.baselines_path, baselines, indent=2)
 
     def load_baselines(self) -> dict:
         """Load baselines. Returns empty dict if not yet computed."""
@@ -108,8 +122,7 @@ class DataStore:
     def save_predictions(self, predictions: dict):
         """Save generated predictions."""
         self.ensure_dirs()
-        with open(self.paths.predictions_path, "w") as f:
-            json.dump(predictions, f, indent=2)
+        _atomic_write_json(self.paths.predictions_path, predictions, indent=2)
 
     def load_predictions(self) -> dict:
         """Load predictions. Returns empty dict if none exist."""
@@ -123,8 +136,7 @@ class DataStore:
     def save_correlations(self, correlations: dict):
         """Save cross-correlation results."""
         self.ensure_dirs()
-        with open(self.paths.correlations_path, "w") as f:
-            json.dump(correlations, f, indent=2)
+        _atomic_write_json(self.paths.correlations_path, correlations, indent=2)
 
     def load_correlations(self) -> dict:
         """Load correlations. Returns empty dict if not yet computed."""
@@ -139,8 +151,7 @@ class DataStore:
         """Save entity co-occurrence correlation summary."""
         self.ensure_dirs()
         path = self.paths.data_dir / "entity_correlations.json"
-        with open(path, "w") as f:
-            json.dump(summary, f, indent=2)
+        _atomic_write_json(path, summary, indent=2)
 
     def load_entity_correlations(self) -> dict:
         """Load entity co-occurrence correlations. Returns empty dict if none."""
@@ -166,8 +177,7 @@ class DataStore:
         history["scores"].append(new_score)
         history["scores"] = history["scores"][-90:]
         # Trend computation imported from analysis when needed
-        with open(self.paths.accuracy_path, "w") as f:
-            json.dump(history, f, indent=2)
+        _atomic_write_json(self.paths.accuracy_path, history, indent=2)
         return history
 
     # --- Feature Config ---
@@ -182,8 +192,7 @@ class DataStore:
     def save_feature_config(self, config: dict):
         """Save feature config."""
         self.ensure_dirs()
-        with open(self.paths.feature_config_path, "w") as f:
-            json.dump(config, f, indent=2)
+        _atomic_write_json(self.paths.feature_config_path, config, indent=2)
 
     # --- Meta-Learning Suggestions ---
 
@@ -199,16 +208,14 @@ class DataStore:
         """Save meta-learning applied suggestions history."""
         self.paths.meta_dir.mkdir(parents=True, exist_ok=True)
         path = self.paths.meta_dir / "applied.json"
-        with open(path, "w") as f:
-            json.dump(history, f, indent=2)
+        _atomic_write_json(path, history, indent=2)
 
     # --- Sequence Anomaly Detection ---
 
     def save_sequence_model(self, model_data: dict):
         """Save trained Markov chain model."""
         self.ensure_dirs()
-        with open(self.paths.sequence_model_path, "w") as f:
-            json.dump(model_data, f, indent=2)
+        _atomic_write_json(self.paths.sequence_model_path, model_data, indent=2)
 
     def load_sequence_model(self) -> dict | None:
         """Load trained Markov chain model. Returns None if not yet trained."""
@@ -221,8 +228,7 @@ class DataStore:
         """Save sequence anomaly detection results."""
         self.ensure_dirs()
         path = self.paths.data_dir / "sequence_anomalies.json"
-        with open(path, "w") as f:
-            json.dump(summary, f, indent=2)
+        _atomic_write_json(path, summary, indent=2)
 
     def load_sequence_anomalies(self) -> dict | None:
         """Load sequence anomaly results. Returns None if none exist."""

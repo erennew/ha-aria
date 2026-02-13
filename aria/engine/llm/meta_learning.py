@@ -20,6 +20,19 @@ from aria.engine.storage.data_store import DataStore
 
 MAX_META_CHANGES_PER_WEEK = 3
 
+# --- Safety Guards (research-backed) ---
+# Khritankov et al. (2024) "Hidden Feedback Loop" + Shumailov et al. (Nature 2024)
+# These prevent feedback loop oscillation in the meta-learner.
+
+# Change budget: max config changes per run (prevents over-modification)
+MAX_CHANGES_PER_RUN = 3
+
+# Hysteresis thresholds: require improvement > ACCEPT_THRESHOLD before accepting,
+# and degradation > REVERT_THRESHOLD before reverting. The asymmetry prevents
+# oscillation where small noise causes accept/revert/accept cycles.
+ACCEPT_IMPROVEMENT_PCT = 2.0   # Must improve accuracy by >2% to accept
+REVERT_DEGRADATION_PCT = 5.0   # Must degrade by >5% to trigger revert
+
 META_LEARNING_PROMPT = """You are a data scientist analyzing a home automation prediction system.
 Your job is to find patterns in prediction errors and suggest improvements.
 
@@ -186,6 +199,62 @@ def validate_suggestion(suggestion, snapshots, config):
         shutil.rmtree(tmpdir_mod, ignore_errors=True)
 
 
+# --- Safety Guards ---
+
+def check_revert_needed(accuracy_history: dict, applied_history: dict) -> dict:
+    """Check if recent meta-learner changes should be reverted.
+
+    Uses hysteresis: only reverts when degradation exceeds REVERT_DEGRADATION_PCT.
+    This prevents oscillation from noisy accuracy measurements.
+
+    Args:
+        accuracy_history: Dict with "scores" list (date, overall, metrics).
+        applied_history: Dict with "applied" list of past changes.
+
+    Returns:
+        Dict with revert_needed (bool), reason, and degradation_pct.
+    """
+    applied = applied_history.get("applied", [])
+    if not applied:
+        return {"revert_needed": False, "reason": "no changes to revert"}
+
+    scores = accuracy_history.get("scores", [])
+    if len(scores) < 7:
+        return {"revert_needed": False, "reason": "insufficient data for revert check"}
+
+    # Compare accuracy before vs after the most recent change
+    last_change = applied[-1]
+    change_date = last_change.get("date", "")
+
+    before_scores = [s["overall"] for s in scores if s.get("date", "") < change_date]
+    after_scores = [s["overall"] for s in scores if s.get("date", "") >= change_date]
+
+    if len(before_scores) < 3 or len(after_scores) < 3:
+        return {"revert_needed": False, "reason": "not enough data around change point"}
+
+    import statistics
+    before_mean = statistics.mean(before_scores[-5:])
+    after_mean = statistics.mean(after_scores[-5:])
+    degradation = before_mean - after_mean
+
+    if degradation > REVERT_DEGRADATION_PCT:
+        return {
+            "revert_needed": True,
+            "reason": f"accuracy degraded {degradation:.1f}% since last change "
+                      f"(threshold: {REVERT_DEGRADATION_PCT}%)",
+            "degradation_pct": round(degradation, 2),
+            "before_accuracy": round(before_mean, 2),
+            "after_accuracy": round(after_mean, 2),
+        }
+
+    return {
+        "revert_needed": False,
+        "reason": f"degradation {degradation:.1f}% within tolerance "
+                  f"(threshold: {REVERT_DEGRADATION_PCT}%)",
+        "degradation_pct": round(degradation, 2),
+    }
+
+
 # --- Main Pipeline ---
 
 def run_meta_learning(config: AppConfig = None, store: DataStore = None):
@@ -263,6 +332,32 @@ def run_meta_learning(config: AppConfig = None, store: DataStore = None):
     suggestions = parse_suggestions(response)
     print(f"Parsed {len(suggestions)} suggestions from LLM")
 
+    # Safety guard: check if previous changes need reverting
+    revert_check = check_revert_needed(accuracy_history, applied_history)
+    if revert_check.get("revert_needed"):
+        print(f"  SAFETY: {revert_check['reason']}")
+        print(f"  Reverting to default config and skipping new suggestions.")
+        default_config = DEFAULT_FEATURE_CONFIG.copy()
+        default_config["last_modified"] = datetime.now().isoformat()
+        store.save_feature_config(default_config)
+
+        weekly_report = {
+            "week": week_str,
+            "generated_at": datetime.now().isoformat(),
+            "suggestions": [],
+            "applied_count": 0,
+            "reverted": True,
+            "revert_reason": revert_check["reason"],
+            "accuracy_context": recent_scores,
+        }
+        weekly_dir = config.paths.meta_dir / "weekly"
+        weekly_dir.mkdir(parents=True, exist_ok=True)
+        with open(weekly_dir / f"{week_str}.json", "w") as f:
+            json.dump(weekly_report, f, indent=2)
+
+        print("Meta-learning complete: reverted to default config")
+        return weekly_report
+
     # Validate and apply
     snapshots = store.load_all_intraday_snapshots(90)
     if len(snapshots) < 14:
@@ -271,8 +366,8 @@ def run_meta_learning(config: AppConfig = None, store: DataStore = None):
     results = []
     applied_count = 0
     for suggestion in suggestions:
-        if applied_count >= MAX_META_CHANGES_PER_WEEK:
-            results.append({"suggestion": suggestion, "applied": False, "reason": "weekly limit reached"})
+        if applied_count >= MAX_CHANGES_PER_RUN:
+            results.append({"suggestion": suggestion, "applied": False, "reason": "per-run change budget reached"})
             continue
 
         improvement, modified_config = validate_suggestion(suggestion, snapshots, feature_config)
@@ -280,7 +375,7 @@ def run_meta_learning(config: AppConfig = None, store: DataStore = None):
             results.append({"suggestion": suggestion, "applied": False, "reason": "validation failed"})
             continue
 
-        if improvement >= 2.0:
+        if improvement >= ACCEPT_IMPROVEMENT_PCT:
             # Update last_modified before saving
             modified_config["last_modified"] = datetime.now().isoformat()
             store.save_feature_config(modified_config)
@@ -296,10 +391,10 @@ def run_meta_learning(config: AppConfig = None, store: DataStore = None):
             results.append({
                 "suggestion": suggestion,
                 "applied": False,
-                "reason": f"improvement {improvement:.1f}% < 2% threshold",
+                "reason": f"improvement {improvement:.1f}% < {ACCEPT_IMPROVEMENT_PCT}% threshold",
                 "accuracy_delta": improvement,
             })
-            print(f"  Rejected: {suggestion.get('target')} ({improvement:+.1f}%, need >=2%)")
+            print(f"  Rejected: {suggestion.get('target')} ({improvement:+.1f}%, need >={ACCEPT_IMPROVEMENT_PCT}%)")
 
     # Save weekly report
     week_str = datetime.now().strftime("%Y-W%W")

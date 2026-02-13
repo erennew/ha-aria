@@ -28,6 +28,10 @@ class CacheManager:
         self._conn = await aiosqlite.connect(self.db_path)
         self._conn.row_factory = aiosqlite.Row
 
+        # Enable WAL mode for concurrent reads + busy timeout for lock contention
+        await self._conn.execute("PRAGMA journal_mode=WAL")
+        await self._conn.execute("PRAGMA busy_timeout=5000")
+
         # Create tables
         await self._conn.execute("""
             CREATE TABLE IF NOT EXISTS cache (
@@ -243,13 +247,6 @@ class CacheManager:
 
         await self._conn.commit()
 
-        # Log event
-        await self.log_event(
-            event_type="cache_update",
-            category=category,
-            metadata={"version": new_version}
-        )
-
         return new_version
 
     async def delete(self, category: str) -> bool:
@@ -374,6 +371,35 @@ class CacheManager:
             }
             for row in rows
         ]
+
+    # ========================================================================
+    # Retention / pruning
+    # ========================================================================
+
+    async def prune_events(self, retention_days: int = 7) -> int:
+        """Delete events older than retention_days. Returns count deleted."""
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
+        cursor = await self._conn.execute(
+            "DELETE FROM events WHERE timestamp < ?", (cutoff,)
+        )
+        await self._conn.commit()
+        return cursor.rowcount
+
+    async def prune_predictions(self, retention_days: int = 30) -> int:
+        """Delete resolved predictions older than retention_days."""
+        if not self._conn:
+            raise RuntimeError("Cache not initialized. Call initialize() first.")
+
+        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
+        cursor = await self._conn.execute(
+            "DELETE FROM predictions WHERE resolved_at IS NOT NULL AND resolved_at < ?",
+            (cutoff,)
+        )
+        await self._conn.commit()
+        return cursor.rowcount
 
     # ========================================================================
     # Shadow engine: predictions
