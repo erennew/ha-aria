@@ -33,10 +33,18 @@ aria = "aria.cli:main"
 [tool.setuptools.packages.find]
 include = ["aria*"]
 
+[tool.setuptools.package-data]
+"aria.dashboard.spa" = ["dist/**"]
+"aria.dashboard" = ["templates/**", "static/**"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore:X does not have valid feature names:UserWarning",
+    "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning",
+]
 
 [tool.ruff]
 line-length = 120

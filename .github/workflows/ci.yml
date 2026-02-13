@@ -32,20 +32,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
       - name: Install dependencies
-        run: pip install -e ".[dev,ml-extra]"
-      - name: Run tests
-        run: pytest tests/ -v --tb=short
+        run: pip install -e ".[dev,ml-extra]" pytest-cov
       - name: Run tests with coverage
+        run: pytest tests/ --cov=aria --cov-report=xml -v --tb=short
+      - name: Upload coverage
         if: matrix.python-version == '3.12'
-        run: |
-          pip install pytest-cov
-          pytest tests/ --cov=aria --cov-report=xml --cov-report=term-missing
-      - uses: codecov/codecov-action@v4
-        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
         with:
           file: coverage.xml
-        continue-on-error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true  # Works without token but uploads fail
 
   dashboard:
     runs-on: ubuntu-latest

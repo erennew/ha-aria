@@ -28,6 +28,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build dashboard
+        run: |
+          cd aria/dashboard/spa
+          npm ci
+          npx esbuild src/index.jsx --bundle --outfile=dist/bundle.js \
+            --jsx-factory=h --jsx-fragment=Fragment --inject:src/preact-shim.js \
+            --loader:.jsx=jsx --minify
       - name: Build package
         run: |
           pip install build
