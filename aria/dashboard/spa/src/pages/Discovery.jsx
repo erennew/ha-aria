@@ -122,8 +122,8 @@ export default function Discovery() {
       sortable: true,
       render: (_, row) => (
         <div>
-          <div class="font-semibold text-gray-900">{row.friendly_name || row.entity_id}</div>
-          <div class="text-xs font-mono text-gray-400">{row.entity_id}</div>
+          <div class="font-semibold" style="color: var(--text-primary)">{row.friendly_name || row.entity_id}</div>
+          <div class="text-xs data-mono" style="color: var(--text-tertiary)">{row.entity_id}</div>
         </div>
       ),
     },
@@ -135,7 +135,7 @@ export default function Discovery() {
         <span class="inline-flex items-center gap-1">
           <StatusBadge state={val} />
           {row.unit_of_measurement && (
-            <span class="text-xs text-gray-400">{row.unit_of_measurement}</span>
+            <span class="text-xs" style="color: var(--text-tertiary)">{row.unit_of_measurement}</span>
           )}
         </span>
       ),
@@ -147,7 +147,7 @@ export default function Discovery() {
       render: (val, row) => {
         const domain = val || row.entity_id?.split('.')[0] || '\u2014';
         return (
-          <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-white">
+          <span class="inline-block px-2 py-0.5 text-xs font-medium" style="background: var(--bg-inset); color: var(--text-primary); border-radius: var(--radius);">
             {domain}
           </span>
         );
@@ -198,8 +198,8 @@ export default function Discovery() {
       sortable: true,
       render: (val, row) => (
         <div>
-          <div class="font-semibold text-gray-900">{val || row.device_id}</div>
-          <div class="text-xs font-mono text-gray-400">{row.device_id}</div>
+          <div class="font-semibold" style="color: var(--text-primary)">{val || row.device_id}</div>
+          <div class="text-xs data-mono" style="color: var(--text-tertiary)">{row.device_id}</div>
         </div>
       ),
     },
@@ -214,7 +214,7 @@ export default function Discovery() {
       <select
         value={domainFilter}
         onChange={(e) => setDomainFilter(e.target.value)}
-        class="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="t-input px-2 py-1.5 text-sm"
       >
         <option value="">All domains</option>
         {uniqueDomains.map((d) => (
@@ -224,7 +224,7 @@ export default function Discovery() {
       <select
         value={stateFilter}
         onChange={(e) => setStateFilter(e.target.value)}
-        class="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="t-input px-2 py-1.5 text-sm"
       >
         <option value="">All states</option>
         <option value="on">on</option>
@@ -239,7 +239,7 @@ export default function Discovery() {
       <select
         value={areaFilter}
         onChange={(e) => setAreaFilter(e.target.value)}
-        class="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="t-input px-2 py-1.5 text-sm"
       >
         <option value="">All areas</option>
         {uniqueAreas.map((a) => (
@@ -249,7 +249,8 @@ export default function Discovery() {
       {(domainFilter || stateFilter || areaFilter) && (
         <button
           onClick={() => { setDomainFilter(''); setStateFilter(''); setAreaFilter(''); }}
-          class="px-2 py-1.5 text-sm text-blue-600 hover:text-blue-800"
+          class="px-2 py-1.5 text-sm"
+          style="color: var(--accent);"
         >
           Clear filters
         </button>
@@ -264,8 +265,8 @@ export default function Discovery() {
     return (
       <div class="space-y-6">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">Discovery</h1>
-          <p class="text-sm text-gray-500">{pageSubtitle}</p>
+          <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Discovery</h1>
+          <p class="text-sm" style="color: var(--text-tertiary)">{pageSubtitle}</p>
         </div>
         <LoadingState type="full" />
       </div>
@@ -277,8 +278,8 @@ export default function Discovery() {
     return (
       <div class="space-y-6">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">Discovery</h1>
-          <p class="text-sm text-gray-500">{pageSubtitle}</p>
+          <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Discovery</h1>
+          <p class="text-sm" style="color: var(--text-tertiary)">{pageSubtitle}</p>
         </div>
         <ErrorState error={cacheError} onRetry={() => { entities.refetch(); devices.refetch(); areas.refetch(); capabilities.refetch(); }} />
       </div>
@@ -288,8 +289,8 @@ export default function Discovery() {
   return (
     <div class="space-y-6">
       <div class="animate-fade-in-up">
-        <h1 class="text-2xl font-bold text-gray-900">Discovery</h1>
-        <p class="text-sm text-gray-500">{pageSubtitle}</p>
+        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Discovery</h1>
+        <p class="text-sm" style="color: var(--text-tertiary)">{pageSubtitle}</p>
       </div>
 
       {/* Stats */}
@@ -298,10 +299,10 @@ export default function Discovery() {
       {/* Domain Breakdown */}
       <section class="animate-fade-in-up delay-100">
         <div class="mb-4">
-          <h2 class="text-lg font-semibold text-gray-900">Domain Breakdown</h2>
-          <p class="text-sm text-gray-500">How your entities are distributed across HA domains. Larger bars = more entities in that domain.</p>
+          <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Domain Breakdown</h2>
+          <p class="text-sm" style="color: var(--text-tertiary)">How your entities are distributed across HA domains. Larger bars = more entities in that domain.</p>
         </div>
-        <div class="bg-white rounded-md shadow-sm p-4">
+        <div class="t-card p-4">
           <DomainChart data={domainBreakdown} total={entityArray.length} />
         </div>
       </section>
@@ -310,14 +311,14 @@ export default function Discovery() {
       {areaCounts.length > 0 && (
         <section>
           <div class="mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Areas</h2>
-            <p class="text-sm text-gray-500">Physical locations defined in Home Assistant, with entity counts per area.</p>
+            <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Areas</h2>
+            <p class="text-sm" style="color: var(--text-tertiary)">Physical locations defined in Home Assistant, with entity counts per area.</p>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {areaCounts.map((a) => (
-              <div key={a.area_id} class="bg-white rounded-md shadow-sm p-4">
-                <div class="font-semibold text-gray-900 text-sm truncate" title={a.name}>{a.name}</div>
-                <div class="text-sm text-gray-400 mt-1">{a.count} entities</div>
+              <div key={a.area_id} class="t-card p-4">
+                <div class="font-semibold text-sm truncate" style="color: var(--text-primary)" title={a.name}>{a.name}</div>
+                <div class="text-sm mt-1" style="color: var(--text-tertiary)">{a.count} entities</div>
               </div>
             ))}
           </div>
@@ -327,8 +328,8 @@ export default function Discovery() {
       {/* Entity Table */}
       <section>
         <div class="mb-4">
-          <h2 class="text-lg font-semibold text-gray-900">Entities</h2>
-          <p class="text-sm text-gray-500">Every entity registered in HA — sensors, switches, lights, and more. Filter by domain, state, or area.</p>
+          <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Entities</h2>
+          <p class="text-sm" style="color: var(--text-tertiary)">Every entity registered in HA — sensors, switches, lights, and more. Filter by domain, state, or area.</p>
         </div>
         <DataTable
           columns={entityColumns}
@@ -343,8 +344,8 @@ export default function Discovery() {
       {/* Device Table */}
       <section>
         <div class="mb-4">
-          <h2 class="text-lg font-semibold text-gray-900">Devices</h2>
-          <p class="text-sm text-gray-500">Physical devices registered in HA. Each device groups multiple entities (e.g., a thermostat has temperature, humidity, and mode entities).</p>
+          <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Devices</h2>
+          <p class="text-sm" style="color: var(--text-tertiary)">Physical devices registered in HA. Each device groups multiple entities (e.g., a thermostat has temperature, humidity, and mode entities).</p>
         </div>
         <DataTable
           columns={deviceColumns}

@@ -82,39 +82,26 @@ const CONCEPTS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Shared styles
-// ---------------------------------------------------------------------------
-
-const DARK = '#111827';
-const DARK_CARD = '#1a2332';
-const DARK_BORDER = '#2a3545';
-const CYAN = '#22d3ee';
-const CYAN_DIM = '#0e7490';
-const TEXT_PRIMARY = '#e5e7eb';
-const TEXT_SECONDARY = '#9ca3af';
-const TEXT_DIM = '#6b7280';
-
-// ---------------------------------------------------------------------------
 // Components
 // ---------------------------------------------------------------------------
 
 function HeroSection() {
   return (
-    <div class="relative rounded-md px-6 py-8 mb-6 overflow-hidden" style={`background: ${DARK}`}>
+    <div class="relative overflow-hidden px-6 py-8 mb-6" style="background: var(--bg-surface); border-radius: var(--radius);">
       <div class="absolute inset-0 pointer-events-none" style="opacity: 0.04">
-        <div class="animate-scan-line" style={`width: 100%; height: 2px; background: ${CYAN}`} />
+        <div class="animate-scan-line" style="width: 100%; height: 2px; background: var(--accent);" />
       </div>
 
       <div class="relative">
-        <AriaLogo className="w-36 mb-3 animate-fade-in" color={CYAN} />
-        <p class="text-xs font-medium mb-4 animate-fade-in delay-100" style={`color: #67e8f9; letter-spacing: 0.08em`}>
-          ADAPTIVE RESIDENCE INTELLIGENCE ARCHITECTURE<span class="animate-blink" style={`color: ${CYAN}`}>_</span>
+        <AriaLogo className="w-36 mb-3 animate-fade-in" color="var(--accent)" />
+        <p class="text-xs font-medium mb-4 animate-fade-in delay-100" style="color: var(--accent-dim); letter-spacing: 0.08em;">
+          ADAPTIVE RESIDENCE INTELLIGENCE ARCHITECTURE<span class="animate-blink" style="color: var(--accent);">_</span>
         </p>
-        <p class="text-lg font-semibold leading-snug mb-3 animate-fade-in delay-200" style={`color: ${TEXT_PRIMARY}`}>
+        <p class="text-lg font-semibold leading-snug mb-3 animate-fade-in delay-200" style="color: var(--text-primary);">
           Your home generates 22,000+ events every day.{' '}
-          <span style={`color: ${CYAN}`}>ARIA learns what they mean.</span>
+          <span style="color: var(--accent);">ARIA learns what they mean.</span>
         </p>
-        <p class="text-sm leading-relaxed animate-fade-in delay-300" style={`color: ${TEXT_DIM}`}>
+        <p class="text-sm leading-relaxed animate-fade-in delay-300" style="color: var(--text-tertiary);">
           Local ML. No cloud. No subscriptions. Watches Home Assistant, learns patterns, generates automation suggestions.
         </p>
       </div>
@@ -125,11 +112,11 @@ function HeroSection() {
 function PrivacyNote() {
   return (
     <div
-      class="rounded-md px-4 py-3 mb-6 animate-fade-in-up delay-400"
-      style={`background: ${DARK_CARD}; border-left: 3px solid ${CYAN}`}
+      class="px-4 py-3 mb-6 animate-fade-in-up delay-400"
+      style="background: var(--bg-surface-raised); border-left: 3px solid var(--accent); border-radius: var(--radius);"
     >
-      <p class="text-sm" style={`color: ${TEXT_SECONDARY}`}>
-        <span class="font-semibold" style={`color: ${CYAN}`}>Fully local.</span>{' '}
+      <p class="text-sm" style="color: var(--text-secondary);">
+        <span class="font-semibold" style="color: var(--accent);">Fully local.</span>{' '}
         ML via scikit-learn, optional LLM via Ollama. No API calls, no telemetry, no cloud accounts.
       </p>
     </div>
@@ -138,9 +125,9 @@ function PrivacyNote() {
 
 function JourneyTimeline() {
   return (
-    <div class="rounded-md mb-6 overflow-hidden" style={`background: ${DARK_CARD}`}>
+    <div class="mb-6 overflow-hidden" style="background: var(--bg-surface-raised); border-radius: var(--radius);">
       <div class="px-5 pt-4 pb-2">
-        <h2 class="text-sm font-bold uppercase tracking-wider animate-fade-in-up" style={`color: ${CYAN}; letter-spacing: 0.06em`}>
+        <h2 class="text-sm font-bold uppercase tracking-wider animate-fade-in-up" style="color: var(--accent); letter-spacing: 0.06em;">
           How ARIA Learns
         </h2>
       </div>
@@ -151,20 +138,20 @@ function JourneyTimeline() {
             <div
               key={i}
               class="flex gap-4 items-start py-3"
-              style={i < JOURNEY_STEPS.length - 1 ? `border-bottom: 1px solid ${DARK_BORDER}` : ''}
+              style={i < JOURNEY_STEPS.length - 1 ? 'border-bottom: 1px solid var(--border-subtle);' : ''}
             >
               <div
-                class="shrink-0 w-6 h-6 flex items-center justify-center rounded-sm text-xs font-bold"
-                style={`background: ${CYAN}; color: ${DARK}`}
+                class="shrink-0 w-6 h-6 flex items-center justify-center text-xs font-bold"
+                style="background: var(--accent); color: var(--bg-surface); border-radius: var(--radius);"
               >
                 {i + 1}
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-baseline gap-2 mb-0.5">
-                  <span class="text-xs font-mono" style={`color: ${CYAN_DIM}`}>{step.day}</span>
-                  <span class="text-sm font-semibold" style={`color: ${TEXT_PRIMARY}`}>{step.title}</span>
+                  <span class="text-xs" style="color: var(--accent-dim); font-family: var(--font-mono);">{step.day}</span>
+                  <span class="text-sm font-semibold" style="color: var(--text-primary);">{step.title}</span>
                 </div>
-                <p class="text-sm leading-relaxed" style={`color: ${TEXT_DIM}`}>{step.desc}</p>
+                <p class="text-sm leading-relaxed" style="color: var(--text-tertiary);">{step.desc}</p>
               </div>
             </div>
           ))}
@@ -176,18 +163,18 @@ function JourneyTimeline() {
 
 function KeyConcepts() {
   return (
-    <div class="rounded-md mb-6 overflow-hidden" style={`background: ${DARK_CARD}`}>
+    <div class="mb-6 overflow-hidden" style="background: var(--bg-surface-raised); border-radius: var(--radius);">
       <div class="px-5 pt-4 pb-2">
-        <h2 class="text-sm font-bold uppercase tracking-wider animate-fade-in-up" style={`color: ${CYAN}; letter-spacing: 0.06em`}>
+        <h2 class="text-sm font-bold uppercase tracking-wider animate-fade-in-up" style="color: var(--accent); letter-spacing: 0.06em;">
           Key Concepts
         </h2>
       </div>
 
       <div class="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-3 stagger-children">
         {CONCEPTS.map((c, i) => (
-          <div key={i} class="rounded-sm px-3 py-2.5" style={`background: ${DARK}; border: 1px solid ${DARK_BORDER}`}>
-            <h3 class="text-sm font-bold mb-0.5" style={`color: ${CYAN}`}>{c.term}</h3>
-            <p class="text-xs leading-relaxed" style={`color: ${TEXT_DIM}`}>{c.def}</p>
+          <div key={i} class="px-3 py-2.5" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius);">
+            <h3 class="text-sm font-bold mb-0.5" style="color: var(--accent);">{c.term}</h3>
+            <p class="text-xs leading-relaxed" style="color: var(--text-tertiary);">{c.def}</p>
           </div>
         ))}
       </div>
@@ -197,9 +184,9 @@ function KeyConcepts() {
 
 function PageGuide() {
   return (
-    <div class="rounded-md mb-6 overflow-hidden" style={`background: ${DARK_CARD}`}>
+    <div class="mb-6 overflow-hidden" style="background: var(--bg-surface-raised); border-radius: var(--radius);">
       <div class="px-5 pt-4 pb-2">
-        <h2 class="text-sm font-bold uppercase tracking-wider animate-fade-in-up" style={`color: ${CYAN}; letter-spacing: 0.06em`}>
+        <h2 class="text-sm font-bold uppercase tracking-wider animate-fade-in-up" style="color: var(--accent); letter-spacing: 0.06em;">
           Pages
         </h2>
       </div>
@@ -210,12 +197,12 @@ function PageGuide() {
             key={i}
             href={`#${page.path}`}
             class="flex items-baseline gap-3 px-5 py-2.5 transition-colors"
-            style={`border-bottom: 1px solid ${DARK_BORDER}`}
-            onMouseEnter={(e) => { e.currentTarget.style.background = DARK; }}
+            style="border-bottom: 1px solid var(--border-subtle);"
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-surface)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <span class="text-sm font-semibold shrink-0" style={`color: ${CYAN}; min-width: 7rem`}>{page.title}</span>
-            <span class="text-sm" style={`color: ${TEXT_DIM}`}>{page.desc}</span>
+            <span class="text-sm font-semibold shrink-0" style="color: var(--accent); min-width: 7rem;">{page.title}</span>
+            <span class="text-sm" style="color: var(--text-tertiary);">{page.desc}</span>
           </a>
         ))}
       </div>
@@ -225,9 +212,9 @@ function PageGuide() {
 
 function FaqSection() {
   return (
-    <div class="rounded-md mb-6 overflow-hidden" style={`background: ${DARK_CARD}`}>
+    <div class="mb-6 overflow-hidden" style="background: var(--bg-surface-raised); border-radius: var(--radius);">
       <div class="px-5 pt-4 pb-2">
-        <h2 class="text-sm font-bold uppercase tracking-wider animate-fade-in-up" style={`color: ${CYAN}; letter-spacing: 0.06em`}>
+        <h2 class="text-sm font-bold uppercase tracking-wider animate-fade-in-up" style="color: var(--accent); letter-spacing: 0.06em;">
           FAQ
         </h2>
       </div>
@@ -237,10 +224,10 @@ function FaqSection() {
           <div
             key={i}
             class="py-3"
-            style={i < FAQ.length - 1 ? `border-bottom: 1px solid ${DARK_BORDER}` : ''}
+            style={i < FAQ.length - 1 ? 'border-bottom: 1px solid var(--border-subtle);' : ''}
           >
-            <h3 class="text-sm font-semibold mb-1" style={`color: ${TEXT_PRIMARY}`}>{item.q}</h3>
-            <p class="text-sm leading-relaxed" style={`color: ${TEXT_DIM}`}>{item.a}</p>
+            <h3 class="text-sm font-semibold mb-1" style="color: var(--text-primary);">{item.q}</h3>
+            <p class="text-sm leading-relaxed" style="color: var(--text-tertiary);">{item.a}</p>
           </div>
         ))}
       </div>
@@ -265,8 +252,8 @@ export default function Guide() {
       <div class="text-center pb-6">
         <a
           href="#/"
-          class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-md transition-colors"
-          style={`background: ${CYAN}; color: ${DARK}`}
+          class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold transition-colors"
+          style="background: var(--accent); color: var(--bg-surface); border-radius: var(--radius);"
         >
           Go to Dashboard
         </a>

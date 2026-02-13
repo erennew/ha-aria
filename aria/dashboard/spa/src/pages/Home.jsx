@@ -11,10 +11,10 @@ import AriaLogo from '../components/AriaLogo.jsx';
 // ---------------------------------------------------------------------------
 
 const STATUS = {
-  HEALTHY: { label: 'Healthy', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
-  WAITING: { label: 'Waiting', bg: 'bg-gray-100', text: 'text-gray-500', dot: 'bg-gray-400' },
-  REVIEW:  { label: 'Review', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500', pulse: true },
-  BLOCKED: { label: 'Blocked', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
+  HEALTHY: { label: 'Healthy', color: 'var(--status-healthy)' },
+  WAITING: { label: 'Waiting', color: 'var(--status-waiting)' },
+  REVIEW:  { label: 'Review', color: 'var(--status-warning)', pulse: true },
+  BLOCKED: { label: 'Blocked', color: 'var(--status-error)' },
 };
 
 // Inline SVG icons for pipeline nodes (monochrome, matches sidebar style)
@@ -49,9 +49,9 @@ const NODE_META = {
 };
 
 const LANES = [
-  { title: 'Data Collection', subtitle: 'What feeds the system', color: 'border-cyan-400' },
-  { title: 'Learning',        subtitle: 'How the system learns', color: 'border-cyan-500' },
-  { title: 'Actions',         subtitle: 'What the system produces', color: 'border-cyan-600' },
+  { title: 'Data Collection', subtitle: 'What feeds the system' },
+  { title: 'Learning',        subtitle: 'How the system learns' },
+  { title: 'Actions',         subtitle: 'What the system produces' },
 ];
 
 const PHASES = ['collecting', 'baselines', 'ml-training', 'ml-active'];
@@ -170,8 +170,8 @@ function computeNodeStats(data) {
 
 function StatusChip({ status }) {
   return (
-    <span class={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.text}`}>
-      <span class={`w-1.5 h-1.5 rounded-full ${status.dot}${status.pulse ? ' animate-pulse-amber' : ''}`} />
+    <span class="t-status" style={`border-left-color: ${status.color}; color: ${status.color};`}>
+      <span style={`width: 6px; height: 6px; border-radius: 50%; background: ${status.color};${status.pulse ? ' animation: pulse-amber 2s ease-in-out infinite;' : ''}`} />
       {status.label}
     </span>
   );
@@ -179,9 +179,9 @@ function StatusChip({ status }) {
 
 function LaneHeader({ lane }) {
   return (
-    <div class={`border-b-2 ${lane.color} pb-2 mb-4`}>
-      <h3 class="text-sm font-semibold text-gray-900">{lane.title}</h3>
-      <p class="text-xs text-gray-500">{lane.subtitle}</p>
+    <div style="border-bottom: 2px solid var(--accent); padding-bottom: 8px; margin-bottom: 16px;">
+      <h3 class="text-sm font-semibold" style="color: var(--text-primary)">{lane.title}</h3>
+      <p class="text-xs" style="color: var(--text-tertiary)">{lane.subtitle}</p>
     </div>
   );
 }
@@ -190,7 +190,7 @@ function DownArrow() {
   return (
     <div class="flex justify-center md:hidden py-1">
       <svg width="20" height="24" viewBox="0 0 20 24" fill="none">
-        <path d="M10 2 L10 18 M4 14 L10 20 L16 14" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M10 2 L10 18 M4 14 L10 20 L16 14" stroke="var(--border-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     </div>
   );
@@ -200,8 +200,8 @@ function LaneArrow() {
   return (
     <div class="hidden md:flex items-center justify-center px-2">
       <svg width="40" height="24" viewBox="0 0 40 24" fill="none">
-        <line x1="0" y1="12" x2="30" y2="12" stroke="#94A3B8" stroke-width="2" stroke-dasharray="6 4" class="animate-dash-flow" />
-        <path d="M28 6 L36 12 L28 18" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <line x1="0" y1="12" x2="30" y2="12" stroke="var(--border-primary)" stroke-width="2" stroke-dasharray="6 4" class="animate-dash-flow" />
+        <path d="M28 6 L36 12 L28 18" stroke="var(--border-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
       </svg>
     </div>
   );
@@ -213,13 +213,13 @@ function PipelineNode({ nodeId, status, stat, link }) {
 
   const isHealthy = status === STATUS.HEALTHY;
   const inner = (
-    <div class={`bg-white rounded-md shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow${isHealthy ? ' animate-pulse-cyan' : ''}`}>
+    <div class={`t-card p-3${isHealthy ? ' animate-pulse-cyan' : ''}`}>
       <div class="flex items-center gap-2 mb-1">
-        <span class="text-gray-500">{typeof meta.icon === 'function' ? <meta.icon /> : meta.icon}</span>
-        <span class="text-sm font-medium text-gray-900">{meta.label}</span>
+        <span style="color: var(--text-tertiary)">{typeof meta.icon === 'function' ? <meta.icon /> : meta.icon}</span>
+        <span class="text-sm font-medium" style="color: var(--text-primary)">{meta.label}</span>
       </div>
       <StatusChip status={status} />
-      {stat && <p class="text-xs text-gray-500 mt-1.5">{stat}</p>}
+      {stat && <p class="text-xs mt-1.5" style="color: var(--text-tertiary)">{stat}</p>}
     </div>
   );
 
@@ -231,14 +231,14 @@ function PipelineNode({ nodeId, status, stat, link }) {
 
 function YouNode({ title, guidance, linkHref, linkLabel }) {
   return (
-    <div class="border-2 border-dashed border-blue-300 rounded-md p-3 bg-blue-50/50">
+    <div style="border: 2px dashed var(--accent); border-radius: var(--radius); padding: 12px; background: var(--accent-glow);">
       <div class="flex items-center gap-2 mb-1">
-        <span class="text-xs font-bold bg-blue-600 text-white rounded px-1.5 py-0.5">YOU</span>
-        <span class="text-sm font-medium text-gray-900">{title}</span>
+        <span class="text-xs font-bold px-1.5 py-0.5" style="background: var(--accent); color: var(--bg-surface); border-radius: var(--radius);">YOU</span>
+        <span class="text-sm font-medium" style="color: var(--text-primary)">{title}</span>
       </div>
-      <p class="text-xs text-gray-600">{guidance}</p>
+      <p class="text-xs" style="color: var(--text-secondary)">{guidance}</p>
       {linkHref && (
-        <a href={linkHref} class="text-xs text-blue-600 hover:text-blue-800 font-medium mt-1 inline-block">
+        <a href={linkHref} class="text-xs font-medium mt-1 inline-block" style="color: var(--accent);">
           {linkLabel || 'View'} &rarr;
         </a>
       )}
@@ -255,25 +255,26 @@ function JourneyProgress({ maturity, shadowStage }) {
   const activeIdx = PHASES.indexOf(phase);
 
   return (
-    <section class="bg-white rounded-md shadow-sm p-4 animate-fade-in-up">
-      <h2 class="text-sm font-semibold text-gray-900 mb-3">System Maturity</h2>
+    <section class="t-card p-4 animate-fade-in-up">
+      <h2 class="text-sm font-semibold mb-3" style="color: var(--text-primary)">System Maturity</h2>
       <div class="flex items-center gap-1 mb-2">
         {PHASES.map((p, i) => {
-          let bg = 'bg-gray-200';
-          if (i < activeIdx) bg = 'bg-green-500';
-          else if (i === activeIdx) bg = 'bg-blue-500';
-          return <div key={p} class={`h-2 flex-1 rounded-full ${bg}`} />;
+          let bg = 'var(--bg-inset)';
+          if (i < activeIdx) bg = 'var(--status-healthy)';
+          else if (i === activeIdx) bg = 'var(--accent)';
+          return <div key={p} class="h-2 flex-1" style={`border-radius: var(--radius); background: ${bg};`} />;
         })}
       </div>
       <div class="flex justify-between text-xs">
         {PHASES.map((p, i) => {
-          let color = 'text-gray-400';
-          if (i < activeIdx) color = 'text-green-600';
-          else if (i === activeIdx) color = 'text-blue-600 font-medium';
-          return <span key={p} class={color}>{PHASE_LABELS[i]}</span>;
+          let color = 'var(--text-tertiary)';
+          let weight = 'normal';
+          if (i < activeIdx) color = 'var(--status-healthy)';
+          else if (i === activeIdx) { color = 'var(--accent)'; weight = '500'; }
+          return <span key={p} style={`color: ${color}; font-weight: ${weight};`}>{PHASE_LABELS[i]}</span>;
         })}
       </div>
-      <p class="text-xs text-gray-500 mt-2">
+      <p class="text-xs mt-2" style="color: var(--text-tertiary)">
         {activeIdx >= 0 && activeIdx < PHASE_MILESTONES.length ? PHASE_MILESTONES[activeIdx] : ''}
         {shadowStage ? ` \u2014 Pipeline: ${shadowStage}` : ''}
       </p>
@@ -299,28 +300,28 @@ function RightNowStrip({ activity, intraday }) {
   const powerW = latest ? (latest.power_watts ?? null) : null;
 
   return (
-    <section class="bg-white rounded-md shadow-sm p-3 animate-fade-in-up delay-100">
+    <section class="t-card p-3 animate-fade-in-up delay-100">
       <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         <div class="flex items-center gap-1.5">
-          <span class="text-gray-500">Occupancy</span>
-          <span class="font-medium text-gray-900">{occ && occ.anyone_home ? 'Home' : occ ? 'Away' : '\u2014'}</span>
+          <span style="color: var(--text-tertiary)">Occupancy</span>
+          <span class="font-medium" style="color: var(--text-primary)">{occ && occ.anyone_home ? 'Home' : occ ? 'Away' : '\u2014'}</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="text-gray-500">Events</span>
-          <span class="font-medium text-gray-900">{evRate != null ? `${evRate}/min` : '\u2014'}</span>
+          <span style="color: var(--text-tertiary)">Events</span>
+          <span class="data-mono font-medium" style="color: var(--text-primary)">{evRate != null ? `${evRate}/min` : '\u2014'}</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="text-gray-500">Lights</span>
-          <span class="font-medium text-gray-900">{lightsOn != null ? `${lightsOn} on` : '\u2014'}</span>
+          <span style="color: var(--text-tertiary)">Lights</span>
+          <span class="data-mono font-medium" style="color: var(--text-primary)">{lightsOn != null ? `${lightsOn} on` : '\u2014'}</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class="text-gray-500">Power</span>
-          <span class="font-medium text-gray-900">{powerW != null ? `${Math.round(powerW)} W` : '\u2014'}</span>
+          <span style="color: var(--text-tertiary)">Power</span>
+          <span class="data-mono font-medium" style="color: var(--text-primary)">{powerW != null ? `${Math.round(powerW)} W` : '\u2014'}</span>
         </div>
         <div class="flex items-center gap-1.5">
-          <span class={`w-2 h-2 rounded-full ${ws && ws.connected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span class="text-gray-500">WebSocket</span>
-          <span class="font-medium text-gray-900">{ws && ws.connected ? 'Connected' : ws === null ? '\u2014' : 'Disconnected'}</span>
+          <span class="w-2 h-2 rounded-full" style={`background: ${ws && ws.connected ? 'var(--status-healthy)' : 'var(--status-error)'};`} />
+          <span style="color: var(--text-tertiary)">WebSocket</span>
+          <span class="font-medium" style="color: var(--text-primary)">{ws && ws.connected ? 'Connected' : ws === null ? '\u2014' : 'Disconnected'}</span>
         </div>
       </div>
     </section>
@@ -488,8 +489,8 @@ export default function Home() {
     return (
       <div class="space-y-6">
         <div>
-          <AriaLogo className="w-24 mb-1" color="#1f2937" />
-          <p class="text-sm text-gray-500">Live system overview — data flow, module health, and your next steps.</p>
+          <AriaLogo className="w-24 mb-1" color="var(--text-primary)" />
+          <p class="text-sm" style="color: var(--text-tertiary)">Live system overview — data flow, module health, and your next steps.</p>
         </div>
         <LoadingState type="full" />
       </div>
@@ -500,8 +501,8 @@ export default function Home() {
     return (
       <div class="space-y-6">
         <div>
-          <AriaLogo className="w-24 mb-1" color="#1f2937" />
-          <p class="text-sm text-gray-500">Live system overview — data flow, module health, and your next steps.</p>
+          <AriaLogo className="w-24 mb-1" color="var(--text-primary)" />
+          <p class="text-sm" style="color: var(--text-tertiary)">Live system overview — data flow, module health, and your next steps.</p>
         </div>
         <ErrorState
           error={cacheError}
@@ -515,8 +516,8 @@ export default function Home() {
     return (
       <div class="space-y-6">
         <div>
-          <AriaLogo className="w-24 mb-1" color="#1f2937" />
-          <p class="text-sm text-gray-500">Live system overview — data flow, module health, and your next steps.</p>
+          <AriaLogo className="w-24 mb-1" color="var(--text-primary)" />
+          <p class="text-sm" style="color: var(--text-tertiary)">Live system overview — data flow, module health, and your next steps.</p>
         </div>
         <ErrorState error={fetchError} />
       </div>
@@ -526,8 +527,8 @@ export default function Home() {
   return (
     <div class="space-y-6">
       <div>
-        <AriaLogo className="w-24 mb-1" color="#1f2937" />
-        <p class="text-sm text-gray-500">Live system overview — data flow, module health, and your next steps.</p>
+        <AriaLogo className="w-24 mb-1" color="var(--text-primary)" />
+        <p class="text-sm" style="color: var(--text-tertiary)">Live system overview — data flow, module health, and your next steps.</p>
       </div>
 
       <JourneyProgress maturity={maturity} shadowStage={shadowStage} />
