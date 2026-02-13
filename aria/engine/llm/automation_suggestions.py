@@ -54,7 +54,7 @@ Example:
 
 def _validate_yaml_structure(yaml_str: str) -> bool:
     """Basic validation that the YAML has required automation keys."""
-    required = ["trigger", "action"]
+    required = ["trigger", "action", "alias"]
     yaml_lower = yaml_str.lower()
     return all(key in yaml_lower for key in required)
 
@@ -100,6 +100,10 @@ def parse_automation_suggestions(llm_response: str) -> list:
                 continue
             if not all(k in s for k in ("description", "yaml")):
                 continue
+            # Inject default alias if LLM omitted it
+            if "alias" not in s["yaml"].lower():
+                entity = s.get("trigger_entity", "unknown")
+                s["yaml"] = f"alias: 'ARIA Suggestion: {entity}'\n" + s["yaml"]
             if not _validate_yaml_structure(s["yaml"]):
                 continue
             valid.append(s)

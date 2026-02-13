@@ -782,11 +782,15 @@ class ActivityMonitor(Module):
         window_start = first_dt.replace(minute=minute_slot, second=0, microsecond=0)
         window_end = window_start + timedelta(minutes=15) - timedelta(seconds=1)
 
-        # Group events by domain
+        # Group events by domain and entity
         by_domain: Dict[str, int] = defaultdict(int)
+        by_entity: Dict[str, int] = defaultdict(int)
         notable: List[Dict[str, Any]] = []
         for evt in self._activity_buffer:
             by_domain[evt["domain"]] += 1
+            entity_id = evt.get("entity_id", "")
+            if entity_id:
+                by_entity[entity_id] += 1
             # Notable = non-binary_sensor events, or lock/door events
             domain = evt["domain"]
             if domain in ("lock", "cover", "media_player", "climate", "vacuum"):
@@ -802,6 +806,7 @@ class ActivityMonitor(Module):
             "window_end": window_end.isoformat(),
             "event_count": len(self._activity_buffer),
             "by_domain": dict(by_domain),
+            "by_entity": dict(by_entity),
             "notable_changes": notable[-10:],  # cap at 10
             "occupancy": self._occupancy_state,
         }

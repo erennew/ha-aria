@@ -68,8 +68,9 @@ for entry in existing + new:
 # Sort by timestamp
 merged.sort(key=lambda x: x.get('when', ''))
 # Keep last 24h only
-if merged:
-    cutoff = merged[-1].get('when', '')[:10]  # rough cutoff
+from datetime import datetime, timedelta, timezone
+cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+merged = [e for e in merged if e.get('when', '') >= cutoff]
 json.dump(merged[-50000:], open('$CURRENT', 'w'))
 " 2>/dev/null || cp "$TEMP" "$CURRENT"
         else

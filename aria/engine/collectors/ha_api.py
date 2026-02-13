@@ -1,12 +1,15 @@
 """HTTP API functions for fetching data from Home Assistant and external services."""
 
 import json
+import logging
 import re
 import subprocess
 import urllib.request
 import urllib.error
 
 from aria.engine.config import HAConfig, WeatherConfig
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_ha_states(ha_config: HAConfig) -> list[dict]:
@@ -20,7 +23,8 @@ def fetch_ha_states(ha_config: HAConfig) -> list[dict]:
         )
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read())
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to fetch HA states from %s: %s", ha_config.url, e)
         return []
 
 
@@ -31,7 +35,8 @@ def fetch_weather(weather_config: WeatherConfig) -> str:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.read().decode("utf-8", errors="replace").strip()
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to fetch weather from wttr.in: %s", e)
         return ""
 
 
@@ -63,6 +68,7 @@ def fetch_calendar_events() -> list:
             capture_output=True, text=True, timeout=15,
         )
         if result.returncode != 0:
+            logger.warning("Calendar fetch failed (exit %d): %s", result.returncode, result.stderr[:200])
             return []
         lines = result.stdout.strip().split("\n")
         if len(lines) <= 1:
@@ -75,5 +81,6 @@ def fetch_calendar_events() -> list:
             elif len(parts) >= 5:
                 events.append({"start": parts[2], "end": parts[3], "summary": parts[4]})
         return events
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to fetch calendar events: %s", e)
         return []

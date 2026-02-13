@@ -11,7 +11,7 @@ from aria.engine.llm.automation_suggestions import (
 
 class TestYAMLValidation(unittest.TestCase):
     def test_valid_yaml_has_trigger_and_action(self):
-        yaml = "trigger:\n  - platform: state\naction:\n  - service: light.turn_on"
+        yaml = "alias: Test automation\ntrigger:\n  - platform: state\naction:\n  - service: light.turn_on"
         self.assertTrue(_validate_yaml_structure(yaml))
 
     def test_missing_trigger_fails(self):
