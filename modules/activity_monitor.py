@@ -13,7 +13,7 @@ import sys
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import aiohttp
 
@@ -87,6 +87,11 @@ class ActivityMonitor(Module):
         self._ws_total_disconnect_s = 0.0
         self._ws_last_disconnect_at: Optional[datetime] = None
 
+        # Entity curation state (loaded from SQLite, falls back to domain filter)
+        self._included_entities: Set[str] = set()
+        self._excluded_entities: Set[str] = set()
+        self._curation_loaded: bool = False
+
         # Path to ha-intelligence CLI
         self._ha_intelligence = Path.home() / ".local" / "bin" / "ha-intelligence"
 
@@ -126,10 +131,56 @@ class ActivityMonitor(Module):
             run_immediately=False,
         )
 
+        # Load entity curation rules (non-fatal — falls back to domain filter)
+        try:
+            await self._load_curation_rules()
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to load curation rules, using domain fallback: {e}"
+            )
+
         self.logger.info("Activity monitor started")
 
     async def on_event(self, event_type: str, data: Dict[str, Any]):
-        pass
+        if event_type == "curation_updated":
+            try:
+                await self._load_curation_rules()
+            except Exception as e:
+                self.logger.warning(f"Failed to reload curation rules: {e}")
+
+    # ------------------------------------------------------------------
+    # Entity curation
+    # ------------------------------------------------------------------
+
+    async def _load_curation_rules(self):
+        """Load entity curation rules from SQLite via the hub's cache manager.
+
+        Populates _included_entities (status in 'included', 'promoted') and
+        _excluded_entities (status in 'excluded', 'auto_excluded').
+
+        If the curation table is empty, leaves _curation_loaded False so the
+        domain-based fallback continues to work.
+        """
+        included = await self.hub.cache.get_included_entity_ids()
+        all_curation = await self.hub.cache.get_all_curation()
+
+        excluded = {
+            row["entity_id"]
+            for row in all_curation
+            if row["status"] in ("excluded", "auto_excluded")
+        }
+
+        if not included and not excluded:
+            self.logger.info("Curation table empty — using domain fallback")
+            self._curation_loaded = False
+            return
+
+        self._included_entities = included
+        self._excluded_entities = excluded
+        self._curation_loaded = True
+        self.logger.info(
+            f"Loaded curation rules: {len(included)} included, {len(excluded)} excluded"
+        )
 
     # ------------------------------------------------------------------
     # WebSocket listener (follows discovery.py pattern)
@@ -224,15 +275,28 @@ class ActivityMonitor(Module):
 
         domain = entity_id.split(".")[0] if "." in entity_id else ""
 
-        # Domain filter
-        if domain not in TRACKED_DOMAINS and domain not in CONDITIONAL_DOMAINS:
-            return
-
-        # Conditional: sensor only if device_class == power
-        if domain in CONDITIONAL_DOMAINS:
-            device_class = new_state.get("attributes", {}).get("device_class", "")
-            if device_class != "power":
+        # Note: _included_entities/_excluded_entities are replaced atomically by
+        # _load_curation_rules(). CPython's GIL ensures set reads are safe without
+        # locks. Worst case during reload: a few events use stale curation data.
+        if self._curation_loaded:
+            if entity_id in self._excluded_entities:
                 return
+            if entity_id not in self._included_entities:
+                # Unknown entity — fall back to domain-level filtering
+                if domain not in TRACKED_DOMAINS and domain not in CONDITIONAL_DOMAINS:
+                    return
+                if domain in CONDITIONAL_DOMAINS:
+                    device_class = new_state.get("attributes", {}).get("device_class", "")
+                    if device_class != "power":
+                        return
+        else:
+            # Curation not loaded — use domain-based filtering (first boot / fallback)
+            if domain not in TRACKED_DOMAINS and domain not in CONDITIONAL_DOMAINS:
+                return
+            if domain in CONDITIONAL_DOMAINS:
+                device_class = new_state.get("attributes", {}).get("device_class", "")
+                if device_class != "power":
+                    return
 
         from_state = old_state.get("state", "")
         to_state = new_state.get("state", "")

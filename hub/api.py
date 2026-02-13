@@ -464,6 +464,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             result = await hub.cache.upsert_curation(
                 entity_id, status=status, decided_by=decided_by, human_override=True
             )
+            await hub.publish("curation_updated", {"entity_id": entity_id, "status": status})
             return result
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -482,6 +483,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             count = await hub.cache.bulk_update_curation(
                 entity_ids, status=status, decided_by=decided_by
             )
+            await hub.publish("curation_updated", {"count": count, "status": status})
             return {"updated": count}
         except Exception as e:
             logger.error(f"Error bulk updating curation: {e}")

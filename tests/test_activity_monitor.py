@@ -37,6 +37,25 @@ from modules.activity_monitor import (
 # ============================================================================
 
 
+class MockCacheManager:
+    """Mock cache manager with entity curation methods."""
+
+    def __init__(self):
+        self._included: set = set()
+        self._all_curation: List[Dict[str, Any]] = []
+        self._should_raise: bool = False
+
+    async def get_included_entity_ids(self) -> set:
+        if self._should_raise:
+            raise RuntimeError("Simulated cache failure")
+        return set(self._included)
+
+    async def get_all_curation(self) -> List[Dict[str, Any]]:
+        if self._should_raise:
+            raise RuntimeError("Simulated cache failure")
+        return list(self._all_curation)
+
+
 class MockHub:
     """Lightweight hub mock that provides set_cache/get_cache without SQLite."""
 
@@ -44,6 +63,7 @@ class MockHub:
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._running = True
         self._scheduled_tasks: List[Dict[str, Any]] = []
+        self.cache = MockCacheManager()
 
     async def set_cache(self, category: str, data: Any, metadata: Optional[Dict] = None):
         self._cache[category] = {"data": data, "metadata": metadata}
@@ -624,3 +644,156 @@ class TestSummaryCache:
         assert occ["anyone_home"] is True
         assert occ["people"] == ["Justin", "Sarah"]
         assert occ["since"] == "2025-01-01T10:00:00"
+
+
+# ============================================================================
+# Entity Curation Tests
+# ============================================================================
+
+
+class TestEntityCuration:
+    """Test curation-based entity filtering in _handle_state_changed."""
+
+    @pytest.mark.asyncio
+    async def test_curation_included_entity_passes(self, monitor, hub):
+        """Entity in the included set passes filter regardless of domain."""
+        # Set up curation with an automation entity (normally excluded by domain)
+        hub.cache._included = {"automation.morning_lights"}
+        hub.cache._all_curation = [
+            {"entity_id": "automation.morning_lights", "status": "promoted"},
+        ]
+        await monitor._load_curation_rules()
+        assert monitor._curation_loaded is True
+
+        data = {
+            "entity_id": "automation.morning_lights",
+            "old_state": {"state": "off"},
+            "new_state": {"state": "on", "attributes": {"friendly_name": "Morning Lights"}},
+        }
+        monitor._handle_state_changed(data)
+        assert len(monitor._activity_buffer) == 1
+        assert monitor._activity_buffer[0]["entity_id"] == "automation.morning_lights"
+
+    @pytest.mark.asyncio
+    async def test_curation_excluded_entity_blocked(self, monitor, hub):
+        """Entity in the excluded set is blocked even if domain is tracked."""
+        hub.cache._included = {"light.other"}
+        hub.cache._all_curation = [
+            {"entity_id": "light.other", "status": "included"},
+            {"entity_id": "light.kitchen", "status": "excluded"},
+        ]
+        await monitor._load_curation_rules()
+        assert monitor._curation_loaded is True
+
+        data = {
+            "entity_id": "light.kitchen",
+            "old_state": {"state": "off"},
+            "new_state": {"state": "on", "attributes": {"friendly_name": "Kitchen"}},
+        }
+        monitor._handle_state_changed(data)
+        assert len(monitor._activity_buffer) == 0
+
+    @pytest.mark.asyncio
+    async def test_curation_unknown_entity_falls_back_to_domain(self, monitor, hub):
+        """Entity not in either curation set falls back to domain filtering."""
+        hub.cache._included = {"light.bedroom"}
+        hub.cache._all_curation = [
+            {"entity_id": "light.bedroom", "status": "included"},
+            {"entity_id": "sensor.noisy", "status": "excluded"},
+        ]
+        await monitor._load_curation_rules()
+        assert monitor._curation_loaded is True
+
+        # Unknown light entity — domain is tracked, should pass
+        data = {
+            "entity_id": "light.living_room",
+            "old_state": {"state": "off"},
+            "new_state": {"state": "on", "attributes": {"friendly_name": "Living Room"}},
+        }
+        monitor._handle_state_changed(data)
+        assert len(monitor._activity_buffer) == 1
+
+        # Unknown automation entity — domain not tracked, should be blocked
+        data2 = {
+            "entity_id": "automation.test",
+            "old_state": {"state": "off"},
+            "new_state": {"state": "on", "attributes": {}},
+        }
+        monitor._handle_state_changed(data2)
+        assert len(monitor._activity_buffer) == 1  # still 1
+
+    def test_curation_not_loaded_uses_domain_filter(self, monitor):
+        """Before curation loads, domain-based filtering works as before."""
+        assert monitor._curation_loaded is False
+
+        # Tracked domain passes
+        data = {
+            "entity_id": "light.kitchen",
+            "old_state": {"state": "off"},
+            "new_state": {"state": "on", "attributes": {"friendly_name": "Kitchen"}},
+        }
+        monitor._handle_state_changed(data)
+        assert len(monitor._activity_buffer) == 1
+
+        # Untracked domain blocked
+        data2 = {
+            "entity_id": "automation.test",
+            "old_state": {"state": "off"},
+            "new_state": {"state": "on", "attributes": {}},
+        }
+        monitor._handle_state_changed(data2)
+        assert len(monitor._activity_buffer) == 1
+
+    @pytest.mark.asyncio
+    async def test_curation_reload_on_event(self, monitor, hub):
+        """on_event('curation_updated') triggers reload of curation rules."""
+        # Initially not loaded
+        assert monitor._curation_loaded is False
+
+        # Populate curation data
+        hub.cache._included = {"light.kitchen", "switch.garage"}
+        hub.cache._all_curation = [
+            {"entity_id": "light.kitchen", "status": "included"},
+            {"entity_id": "switch.garage", "status": "promoted"},
+            {"entity_id": "sensor.noisy", "status": "auto_excluded"},
+        ]
+
+        # Fire the curation_updated event
+        await monitor.on_event("curation_updated", {})
+
+        assert monitor._curation_loaded is True
+        assert "light.kitchen" in monitor._included_entities
+        assert "switch.garage" in monitor._included_entities
+        assert "sensor.noisy" in monitor._excluded_entities
+
+    @pytest.mark.asyncio
+    async def test_curation_load_failure_nonfatal(self, monitor, hub):
+        """If cache methods fail, domain-based filtering continues to work."""
+        hub.cache._should_raise = True
+
+        # Loading should fail silently (logged warning)
+        try:
+            await monitor._load_curation_rules()
+        except RuntimeError:
+            pass  # Expected — initialize() wraps this in try/except
+
+        # Curation should NOT be loaded
+        assert monitor._curation_loaded is False
+
+        # Domain filter still works
+        data = {
+            "entity_id": "light.kitchen",
+            "old_state": {"state": "off"},
+            "new_state": {"state": "on", "attributes": {"friendly_name": "Kitchen"}},
+        }
+        monitor._handle_state_changed(data)
+        assert len(monitor._activity_buffer) == 1
+
+        # Untracked domain still blocked
+        data2 = {
+            "entity_id": "automation.test",
+            "old_state": {"state": "off"},
+            "new_state": {"state": "on", "attributes": {}},
+        }
+        monitor._handle_state_changed(data2)
+        assert len(monitor._activity_buffer) == 1
