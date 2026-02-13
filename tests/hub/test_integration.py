@@ -312,8 +312,7 @@ async def test_error_recovery_discovery_failure(initialized_hub):
 
         # Hub should still be functional
         health = await initialized_hub.health_check()
-        assert "hub" in health
-        assert health["hub"]["running"] is True
+        assert health["status"] == "ok"
 
 
 @pytest.mark.asyncio
@@ -380,16 +379,17 @@ async def test_module_initialization_order(initialized_hub, temp_dirs):
 @pytest.mark.asyncio
 async def test_event_logging(initialized_hub):
     """Test events are logged to cache."""
-    # Trigger an event
-    await initialized_hub.cache.set("test_category", {"test": "data"})
+    # Use hub.set_cache (not cache.set directly) — the hub layer
+    # routes through publish() which calls cache.log_event().
+    await initialized_hub.set_cache("test_category", {"test": "data"})
 
     # Get recent events
     events = await initialized_hub.cache.get_events(limit=10)
 
     # Verify event was logged
     assert len(events) > 0
-    # Check for cache_update event (note: "update" not "updated")
-    cache_events = [e for e in events if e.get("event_type") == "cache_update"]
+    # publish() logs with event_type="cache_updated"
+    cache_events = [e for e in events if e.get("event_type") == "cache_updated"]
     assert len(cache_events) > 0
 
 

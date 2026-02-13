@@ -24,8 +24,11 @@ def hub():
     mock_hub = MagicMock(spec=IntelligenceHub)
     mock_hub.cache = MagicMock()
     mock_hub.modules = {}
+    mock_hub.module_status = {}
     mock_hub.subscribers = {}
     mock_hub.subscribe = MagicMock()
+    mock_hub._request_count = 0
+    mock_hub.get_uptime_seconds = MagicMock(return_value=0)
     return mock_hub
 
 

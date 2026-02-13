@@ -48,9 +48,12 @@ class IntelligenceHub:
         """
         self.cache = CacheManager(cache_path)
         self.modules: Dict[str, Module] = {}
+        self.module_status: Dict[str, str] = {}  # module_id -> "running" | "failed"
         self.subscribers: Dict[str, Set[Callable]] = {}
         self.tasks: Set[asyncio.Task] = set()
         self._running = False
+        self._start_time: Optional[datetime] = None
+        self._request_count: int = 0
         self.logger = logging.getLogger("hub")
 
     async def initialize(self):
@@ -58,6 +61,16 @@ class IntelligenceHub:
         self.logger.info("Initializing Intelligence Hub...")
         await self.cache.initialize()
         self._running = True
+
+        # Schedule daily retention pruning
+        await self.schedule_task(
+            "prune_events",
+            self._prune_stale_data,
+            interval=timedelta(hours=24),
+            run_immediately=True,
+        )
+
+        self._start_time = datetime.now()
         self.logger.info("Hub initialized successfully")
 
     async def shutdown(self):
@@ -96,6 +109,7 @@ class IntelligenceHub:
             raise ValueError(f"Module {module.module_id} already registered")
 
         self.modules[module.module_id] = module
+        self.module_status[module.module_id] = "registered"
         self.logger.info(f"Registered module: {module.module_id}")
 
         # Log event
@@ -228,6 +242,16 @@ class IntelligenceHub:
             + (f" (interval: {interval})" if interval else " (one-time)")
         )
 
+    async def _prune_stale_data(self):
+        """Prune old events and resolved predictions."""
+        events_deleted = await self.cache.prune_events(retention_days=7)
+        preds_deleted = await self.cache.prune_predictions(retention_days=30)
+        if events_deleted or preds_deleted:
+            self.logger.info(
+                f"Retention pruning: {events_deleted} events, "
+                f"{preds_deleted} predictions deleted"
+            )
+
     async def get_cache(self, category: str) -> Optional[Dict[str, Any]]:
         """Get data from cache.
 
@@ -323,6 +347,20 @@ class IntelligenceHub:
         """
         return self._running
 
+    def mark_module_running(self, module_id: str):
+        """Mark a module as successfully initialized."""
+        self.module_status[module_id] = "running"
+
+    def mark_module_failed(self, module_id: str):
+        """Mark a module as failed to initialize."""
+        self.module_status[module_id] = "failed"
+
+    def get_uptime_seconds(self) -> float:
+        """Get hub uptime in seconds."""
+        if self._start_time is None:
+            return 0.0
+        return (datetime.now() - self._start_time).total_seconds()
+
     async def health_check(self) -> Dict[str, Any]:
         """Perform health check on hub and modules.
 
@@ -330,16 +368,10 @@ class IntelligenceHub:
             Health check results
         """
         return {
-            "hub": {
-                "running": self._running,
-                "modules_count": len(self.modules),
-                "tasks_count": len(self.tasks),
-                "subscribers_count": sum(len(subs) for subs in self.subscribers.values())
-            },
+            "status": "ok" if self._running else "stopped",
+            "uptime_seconds": round(self.get_uptime_seconds()),
             "modules": {
-                module_id: {
-                    "registered": True
-                }
+                module_id: self.module_status.get(module_id, "unknown")
                 for module_id in self.modules.keys()
             },
             "cache": {
