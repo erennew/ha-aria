@@ -6,6 +6,7 @@ import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import AriaLogo from '../components/AriaLogo.jsx';
 import HeroCard from '../components/HeroCard.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -522,12 +523,7 @@ export default function Home() {
   if (fetchError) {
     return (
       <div class="space-y-6">
-        <div class="t-frame" data-label="aria">
-          <AriaLogo className="w-24 mb-1" color="var(--text-primary)" />
-          <p class="text-sm" style="color: var(--text-tertiary); font-family: var(--font-mono);">
-            Live system overview — data flow, module health, and your next steps.
-          </p>
-        </div>
+        <PageBanner page="HOME" subtitle="Live system overview — data flow, module health, and your next steps." />
         <ErrorState error={fetchError} />
       </div>
     );
@@ -535,12 +531,7 @@ export default function Home() {
 
   return (
     <div class="space-y-6 animate-page-enter">
-      <div class="t-frame" data-label="aria">
-        <AriaLogo className="w-24 mb-1" color="var(--text-primary)" />
-        <p class="text-sm" style="color: var(--text-tertiary); font-family: var(--font-mono);">
-          Live system overview — data flow, module health, and your next steps.
-        </p>
-      </div>
+      <PageBanner page="HOME" subtitle="Live system overview — data flow, module health, and your next steps." />
 
       <HeroCard
         value={pipeline ? pipeline.current_stage : 'starting'}

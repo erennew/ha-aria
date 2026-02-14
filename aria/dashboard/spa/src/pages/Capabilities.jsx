@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import useCache from '../hooks/useCache.js';
 import useComputed from '../hooks/useComputed.js';
 import HeroCard from '../components/HeroCard.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 
@@ -118,10 +119,7 @@ export default function Capabilities() {
 
   return (
     <div class="space-y-6 animate-page-enter">
-      <div class="t-section-header" style="padding-bottom: 8px;">
-        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Capabilities</h1>
-        <p class="text-sm" style="color: var(--text-tertiary)">{pageSubtitle}</p>
-      </div>
+      <PageBanner page="CAPABILITIES" subtitle="Detected home capabilities and features." />
 
       {/* Hero — what ARIA can measure */}
       <HeroCard

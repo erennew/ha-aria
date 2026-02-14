@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { fetchJson, putJson, postJson } from '../api.js';
+import PageBanner from '../components/PageBanner.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 
@@ -197,13 +198,7 @@ export default function Settings() {
 
   return (
     <div class="space-y-6 animate-page-enter">
-      <div class="t-section-header" style="padding-bottom: 8px;">
-        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Settings</h1>
-        <p class="text-sm" style="color: var(--text-tertiary)">
-          {configs.length} parameters across {Object.keys(groups).length} categories.
-          {modified > 0 && <span style="color: var(--accent)"> {modified} modified from defaults.</span>}
-        </p>
-      </div>
+      <PageBanner page="SETTINGS" subtitle={`${configs.length} parameters across ${Object.keys(groups).length} categories.${modified > 0 ? ` ${modified} modified from defaults.` : ''}`} />
 
       <div class="space-y-4">
         {Object.entries(groups).map(([cat, items]) => (

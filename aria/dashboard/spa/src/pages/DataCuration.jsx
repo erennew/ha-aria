@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import { fetchJson, putJson, postJson } from '../api.js';
 import HeroCard from '../components/HeroCard.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 
@@ -253,10 +254,7 @@ export default function DataCuration() {
   if (curations.length === 0) {
     return (
       <div class="space-y-6">
-        <div>
-          <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Data Curation</h1>
-          <p class="text-sm" style="color: var(--text-tertiary)">Classify entities into include/exclude tiers for the shadow engine.</p>
-        </div>
+        <PageBanner page="CURATION" subtitle="Entity-level noise control and classification." />
         <div class="t-callout" style="padding: 1rem;">
           <span class="text-sm" style="color: var(--text-secondary)">No entity classifications yet. The data quality module will classify entities after discovery runs.</span>
         </div>
@@ -266,10 +264,7 @@ export default function DataCuration() {
 
   return (
     <div class="space-y-6 animate-page-enter">
-      <div class="t-section-header" style="padding-bottom: 8px;">
-        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Data Curation</h1>
-        <p class="text-sm" style="color: var(--text-tertiary)">Classify entities into include/exclude tiers for the shadow engine.</p>
-      </div>
+      <PageBanner page="CURATION" subtitle="Entity-level noise control and classification." />
 
       {/* Hero — what feeds the pipeline */}
       <HeroCard

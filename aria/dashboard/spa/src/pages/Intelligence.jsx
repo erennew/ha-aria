@@ -5,6 +5,7 @@ import { fetchJson } from '../api.js';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import HeroCard from '../components/HeroCard.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 import { Callout, Section } from './intelligence/utils.jsx';
 import { LearningProgress } from './intelligence/LearningProgress.jsx';
 import { HomeRightNow } from './intelligence/HomeRightNow.jsx';
@@ -159,10 +160,7 @@ export default function Intelligence() {
 
   return (
     <div class="space-y-8 animate-page-enter">
-      <div class="t-section-header" style="padding-bottom: 8px;">
-        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Intelligence</h1>
-        <p class="text-sm" style="color: var(--text-tertiary)">Your home's learning engine — data maturity, real-time activity, baselines, and ML insights.</p>
-      </div>
+      <PageBanner page="INTELLIGENCE" subtitle="Your home's learning engine — baselines, trends, correlations, and insights." />
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Row 1: HeroCard (full width) */}

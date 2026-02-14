@@ -1,4 +1,5 @@
 import AriaLogo from '../components/AriaLogo.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 
 // ---------------------------------------------------------------------------
 // Data
@@ -93,10 +94,7 @@ function HeroSection() {
       </div>
 
       <div class="relative">
-        <AriaLogo className="w-36 mb-3 animate-fade-in" color="var(--accent)" />
-        <p class="text-xs font-medium mb-4 animate-fade-in delay-100" style="color: var(--accent-dim); letter-spacing: 0.08em;">
-          ADAPTIVE RESIDENCE INTELLIGENCE ARCHITECTURE<span class="animate-blink" style="color: var(--accent);">_</span>
-        </p>
+        <PageBanner page="GUIDE" subtitle="How ARIA learns and what each page does." />
         <p class="text-lg font-semibold leading-snug mb-3 animate-fade-in delay-200" style="color: var(--text-primary);">
           Your home generates 22,000+ events every day.{' '}
           <span style="color: var(--accent);">ARIA learns what they mean.</span>

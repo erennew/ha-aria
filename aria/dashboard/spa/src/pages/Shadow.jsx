@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'preact/hooks';
 import { fetchJson, baseUrl } from '../api.js';
 import { relativeTime } from './intelligence/utils.jsx';
 import HeroCard from '../components/HeroCard.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import TimeChart from '../components/TimeChart.jsx';
@@ -413,10 +414,7 @@ export default function Shadow() {
 
   return (
     <div class="space-y-8 animate-page-enter">
-      <div class="t-section-header" style="padding-bottom: 8px;">
-        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Shadow Mode</h1>
-        <p class="text-sm" style="color: var(--text-tertiary)">Prediction accuracy, pipeline progress, and learning insights.</p>
-      </div>
+      <PageBanner page="SHADOW" subtitle="Predict-compare-score validation loop." />
 
       {/* Hero — learning by watching */}
       <HeroCard

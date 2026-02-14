@@ -2,6 +2,7 @@ import { useState, useMemo } from 'preact/hooks';
 import useCache from '../hooks/useCache.js';
 import useComputed from '../hooks/useComputed.js';
 import HeroCard from '../components/HeroCard.jsx';
+import PageBanner from '../components/PageBanner.jsx';
 import StatsGrid from '../components/StatsGrid.jsx';
 import DataTable from '../components/DataTable.jsx';
 import DomainChart from '../components/DomainChart.jsx';
@@ -291,10 +292,7 @@ export default function Discovery() {
 
   return (
     <div class="space-y-6 animate-page-enter">
-      <div class="t-section-header" style="padding-bottom: 8px;">
-        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Discovery</h1>
-        <p class="text-sm" style="color: var(--text-tertiary)">{pageSubtitle}</p>
-      </div>
+      <PageBanner page="DISCOVERY" subtitle="Every entity, device, and area in your home." />
 
       {/* Hero — what ARIA sees */}
       <HeroCard
