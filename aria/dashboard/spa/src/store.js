@@ -160,7 +160,8 @@ function connectWebSocket() {
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws`;
+  const pathPrefix = window.location.pathname.replace(/\/ui(\/.*)?$/, '');
+  const wsUrl = `${protocol}//${window.location.host}${pathPrefix}/ws`;
 
   ws = new WebSocket(wsUrl);
 

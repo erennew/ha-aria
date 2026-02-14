@@ -357,7 +357,7 @@ def cmd_check_drift():
             print(f"  {metric}: MAE={current} (rolling median={mae}, threshold={threshold})")
 
     # Persist drift status for intelligence module / dashboard
-    drift_path = config.paths.intelligence_dir / "drift_status.json"
+    drift_path = config.paths.data_dir / "drift_status.json"
     try:
         drift_path.write_text(json.dumps(result, default=str))
     except Exception as e:

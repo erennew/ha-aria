@@ -6,7 +6,11 @@
  * - Request deduplication: concurrent fetches to the same path share one promise
  */
 
-const baseUrl = window.location.origin;
+// Derive base URL from pathname to support both direct (:8001) and proxied (/aria) access.
+// At :8001/ui/  → pathname '/ui/'  → prefix '' → baseUrl 'https://host:8001'
+// At /aria/ui/  → pathname '/aria/ui/' → prefix '/aria' → baseUrl 'https://host/aria'
+const pathPrefix = window.location.pathname.replace(/\/ui(\/.*)?$/, '');
+const baseUrl = window.location.origin + pathPrefix;
 
 /** In-flight request map for deduplication. Key = path, value = pending Promise. */
 const inflight = new Map();
