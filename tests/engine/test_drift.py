@@ -2,7 +2,7 @@
 
 import unittest
 
-from aria.engine.analysis.drift import DriftDetector
+from aria.engine.analysis.drift import ADWINDetector, DriftDetector
 
 
 class TestDriftDetector(unittest.TestCase):
@@ -96,6 +96,69 @@ class TestDriftDetector(unittest.TestCase):
         history = self._make_history(scores)
         result = detector.check(history)
         self.assertTrue(result["needs_retrain"])
+
+
+class TestADWINDetector(unittest.TestCase):
+    def test_detects_sudden_drift(self):
+        """Stable period then sudden shift should detect drift."""
+        detector = ADWINDetector(delta=0.002)
+        stable = [0.05] * 100
+        shifted = [0.95] * 50
+        result = detector.check_series("error_rate", stable + shifted)
+        self.assertTrue(result["drift_detected"])
+        self.assertIsNotNone(result["drift_point"])
+        self.assertEqual(result["observations"], 150)
+
+    def test_no_false_alarm_on_stable(self):
+        """100 identical values should produce zero alarms."""
+        detector = ADWINDetector(delta=0.002)
+        values = [0.5] * 100
+        result = detector.check_series("stable_metric", values)
+        self.assertFalse(result["drift_detected"])
+        self.assertIsNone(result["drift_point"])
+
+    def test_per_metric_independence(self):
+        """Two different metrics should be tracked independently."""
+        detector = ADWINDetector(delta=0.002)
+        detector.update("metric_a", 0.1)
+        detector.update("metric_a", 0.2)
+        detector.update("metric_b", 0.9)
+        detector.update("metric_b", 0.8)
+        stats = detector.get_stats()
+        self.assertIn("metric_a", stats)
+        self.assertIn("metric_b", stats)
+        # Each should have independent state
+        self.assertNotEqual(stats["metric_a"], stats["metric_b"])
+
+
+class TestEnsembleDrift(unittest.TestCase):
+    def _make_history(self, scores):
+        """Build accuracy_history from a list of (date, overall, power_error) tuples."""
+        return {
+            "scores": [
+                {
+                    "date": date,
+                    "overall": overall,
+                    "metrics": {
+                        "power_watts": {"error": power_error, "accuracy": overall},
+                        "lights_on": {"error": power_error * 0.1, "accuracy": overall},
+                    },
+                }
+                for date, overall, power_error in scores
+            ]
+        }
+
+    def test_ensemble_includes_adwin_results(self):
+        """DriftDetector with use_adwin=True should include 'adwin' key in result."""
+        detector = DriftDetector(window_days=7, threshold_multiplier=2.0, use_adwin=True)
+        # Stable errors — enough data points for analysis
+        history = self._make_history(
+            [(f"2026-02-{d:02d}", 85, 10 + (d % 3)) for d in range(5, 13)]
+        )
+        result = detector.check(history)
+        self.assertIn("adwin", result)
+        # ADWIN results should be a dict with per-metric entries
+        self.assertIsInstance(result["adwin"], dict)
 
 
 if __name__ == "__main__":
