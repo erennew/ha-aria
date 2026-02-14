@@ -1,5 +1,93 @@
 import { Section, Callout, durationSince, describeEvent, EVENT_ICONS, DOMAIN_LABELS } from './utils.jsx';
 
+const DOMAIN_COLORS = {
+  light: 'var(--accent-warm)',
+  switch: 'var(--accent)',
+  binary_sensor: 'var(--accent-purple)',
+  person: 'var(--status-healthy)',
+  device_tracker: 'var(--status-healthy)',
+};
+
+function SwimLaneTimeline({ events }) {
+  if (!events || events.length === 0) return null;
+
+  const now = new Date();
+  const startTime = new Date(now - 60 * 60 * 1000);
+
+  // Parse event times and filter to last 60 minutes
+  const parsed = events.map(evt => {
+    const [h, m] = (evt.time || '').split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    // Handle midnight wraparound: if parsed time is in the future, it was yesterday
+    if (d > now) d.setDate(d.getDate() - 1);
+    return { ...evt, _date: d };
+  }).filter(evt => evt._date >= startTime && evt._date <= now);
+
+  if (parsed.length === 0) return null;
+
+  // Group by domain
+  const byDomain = {};
+  parsed.forEach(evt => {
+    const domain = evt.domain || 'unknown';
+    if (!byDomain[domain]) byDomain[domain] = [];
+    byDomain[domain].push(evt);
+  });
+
+  const domainKeys = Object.keys(byDomain);
+  if (domainKeys.length === 0) return null;
+
+  const rangeMs = now - startTime;
+  const startLabel = startTime.toTimeString().slice(0, 5);
+  const nowLabel = now.toTimeString().slice(0, 5);
+
+  return (
+    <div class="t-frame p-4" data-label="swim lanes">
+      <div style="display: grid; grid-template-columns: 60px 1fr; gap: 0;">
+        {domainKeys.map(domain => (
+          <div key={domain} style="display: contents;">
+            {/* Domain label */}
+            <div style="height: 20px; margin-bottom: 2px; display: flex; align-items: center; font-size: 10px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              {DOMAIN_LABELS[domain] || domain}
+            </div>
+            {/* Lane */}
+            <div style="height: 20px; margin-bottom: 2px; position: relative; background: var(--bg-inset); border-radius: 2px;">
+              {byDomain[domain].map((evt, i) => {
+                const pct = ((evt._date - startTime) / rangeMs) * 100;
+                const color = DOMAIN_COLORS[domain] || 'var(--text-tertiary)';
+                return (
+                  <div
+                    key={i}
+                    title={`${evt.friendly_name || evt.entity} — ${evt.state} at ${evt.time}`}
+                    style={{
+                      position: 'absolute',
+                      left: `${pct}%`,
+                      top: '6px',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: color,
+                      transform: 'translateX(-4px)',
+                    }}
+                  />
+                );
+              })}
+              {/* "Now" dashed line */}
+              <div style="position: absolute; right: 0; top: 0; bottom: 0; border-right: 2px dashed var(--text-tertiary); opacity: 0.5;" />
+            </div>
+          </div>
+        ))}
+        {/* Time labels row */}
+        <div style="height: 14px;" />
+        <div style="height: 14px; position: relative; display: flex; justify-content: space-between; font-size: 10px; color: var(--text-tertiary);">
+          <span>{startLabel}</span>
+          <span>now</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ActivityTimeline({ windows }) {
   if (!windows || windows.length === 0) return null;
 
@@ -217,10 +305,11 @@ export function ActivitySection({ activity }) {
           {/* Recent Activity -- 2/3 width */}
           <div class="lg:col-span-2 t-frame p-4" data-label="recent">
             <div class="text-xs font-bold uppercase mb-2" style="color: var(--text-tertiary)">What Just Happened</div>
+            <SwimLaneTimeline events={recentEvents} />
             {recentEvents.length === 0 ? (
               <p class="text-sm" style="color: var(--text-tertiary)">Waiting for state changes...</p>
             ) : (
-              <div class="space-y-0.5 max-h-64 overflow-y-auto">
+              <div class="sr-only space-y-0.5 max-h-64 overflow-y-auto">
                 {recentEvents.map((evt, i) => {
                   const desc = describeEvent(evt);
                   const icon = EVENT_ICONS[desc.icon] || '\u00B7';
