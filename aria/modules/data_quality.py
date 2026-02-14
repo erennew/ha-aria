@@ -28,6 +28,9 @@ DEFAULT_NOISE_EVENT_THRESHOLD = 1000
 CONFIG_STALE_DAYS_THRESHOLD = "curation.stale_days_threshold"
 DEFAULT_STALE_DAYS_THRESHOLD = 30
 
+CONFIG_UNAVAILABLE_GRACE_HOURS = "curation.unavailable_grace_hours"
+DEFAULT_UNAVAILABLE_GRACE_HOURS = 0
+
 CONFIG_VEHICLE_PATTERNS = "curation.vehicle_patterns"
 DEFAULT_VEHICLE_PATTERNS = "tesla,luda,tessy,vehicle,car_"
 
@@ -91,11 +94,16 @@ class DataQualityModule(Module):
         vehicle_patterns_str = await self.hub.cache.get_config_value(CONFIG_VEHICLE_PATTERNS, DEFAULT_VEHICLE_PATTERNS)
         vehicle_patterns = [p.strip().lower() for p in vehicle_patterns_str.split(",")]
 
+        unavailable_grace_hours = await self.hub.cache.get_config_value(
+            CONFIG_UNAVAILABLE_GRACE_HOURS, DEFAULT_UNAVAILABLE_GRACE_HOURS
+        )
+
         config_thresholds = {
             "auto_exclude_domains": auto_exclude_domains,
             "noise_event_threshold": noise_threshold,
             "stale_days_threshold": stale_days,
             "vehicle_patterns": vehicle_patterns,
+            "unavailable_grace_hours": unavailable_grace_hours,
         }
 
         # Build vehicle entity set for group detection
@@ -208,10 +216,16 @@ class DataQualityModule(Module):
             except (ValueError, TypeError):
                 pass
 
+        # Compute hours unavailable (only when current state is "unavailable")
+        unavailable_since_hours = None
+        if entity_data.get("state") == "unavailable" and last_changed_days_ago is not None:
+            unavailable_since_hours = round(last_changed_days_ago * 24, 1)
+
         return {
             "event_rate_day": round(event_rate_day, 1),
             "unique_states": len(unique_states),
             "last_changed_days_ago": round(last_changed_days_ago, 1) if last_changed_days_ago is not None else None,
+            "unavailable_since_hours": unavailable_since_hours,
             "domain": domain,
             "area_id": area_id,
             "device_class": device_class,
@@ -240,6 +254,7 @@ class DataQualityModule(Module):
         noise_threshold = config_thresholds["noise_event_threshold"]
         stale_threshold = config_thresholds["stale_days_threshold"]
         vehicle_patterns = config_thresholds["vehicle_patterns"]
+        unavailable_grace_hours = config_thresholds.get("unavailable_grace_hours", 0)
 
         # --- Tier 1: auto-excluded ---
 
@@ -250,6 +265,11 @@ class DataQualityModule(Module):
         # No changes in stale_days_threshold
         if stale_days is not None and stale_days > stale_threshold:
             return (1, "auto_excluded", f"No state changes in {int(stale_days)} days", "")
+
+        # Unavailable beyond grace period
+        unavailable_hours = metrics.get("unavailable_since_hours")
+        if unavailable_grace_hours and unavailable_hours is not None and unavailable_hours > unavailable_grace_hours:
+            return (1, "auto_excluded", f"Unavailable for {int(unavailable_hours)}h (grace: {unavailable_grace_hours}h)", "")
 
         # Polling noise: high rate + very few unique states
         if event_rate > noise_threshold and unique_states < 3:

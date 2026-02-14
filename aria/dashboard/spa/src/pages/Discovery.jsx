@@ -13,6 +13,16 @@ import ErrorState from '../components/ErrorState.jsx';
 // Stable empty-object references to avoid useMemo recomputation during loading
 const EMPTY_OBJ = {};
 
+/** Resolve effective area: entity's own area_id, or its parent device's area_id */
+function getEffectiveArea(entity, devicesDict) {
+  if (entity.area_id) return entity.area_id;
+  if (entity.device_id) {
+    const device = devicesDict[entity.device_id];
+    if (device && device.area_id) return device.area_id;
+  }
+  return null;
+}
+
 export default function Discovery() {
   const entities = useCache('entities');
   const devices = useCache('devices');
@@ -39,11 +49,20 @@ export default function Discovery() {
     [entitiesDict]
   );
 
-  // Unavailable count
-  const unavailableCount = useComputed(
-    () => entityArray.filter((e) => e.state === 'unavailable').length,
-    [entityArray]
-  );
+  // Unavailable counts (total + long-unavailable for context)
+  const unavailableCounts = useComputed(() => {
+    const unavailable = entityArray.filter((e) => e.state === 'unavailable');
+    const total = unavailable.length;
+    // Count entities unavailable > 24h (using last_changed)
+    const now = Date.now();
+    const longUnavailable = unavailable.filter((e) => {
+      if (!e.last_changed) return false;
+      const changedMs = new Date(e.last_changed).getTime();
+      return (now - changedMs) > 24 * 60 * 60 * 1000;
+    }).length;
+    return { total, longUnavailable };
+  }, [entityArray]);
+  const unavailableCount = unavailableCounts.total;
 
   // Stats
   const stats = useComputed(() => {
@@ -53,9 +72,14 @@ export default function Discovery() {
       { label: 'Devices', value: Object.keys(devicesDict).length.toLocaleString() },
       { label: 'Areas', value: Object.keys(areasDict).length.toLocaleString() },
       { label: 'Capabilities', value: Object.keys(capsDict).length.toLocaleString() },
-      { label: 'Unavailable', value: unavailableCount, warning: unavailableCount > 100 },
+      {
+        label: 'Unavailable',
+        value: unavailableCount,
+        subtitle: unavailableCounts.longUnavailable > 0 ? `${unavailableCounts.longUnavailable} > 24h` : undefined,
+        warning: unavailableCount > 100,
+      },
     ];
-  }, [entities.data, entityArray, devicesDict, areasDict, capsDict, unavailableCount]);
+  }, [entities.data, entityArray, devicesDict, areasDict, capsDict, unavailableCount, unavailableCounts]);
 
   // Domain breakdown for chart
   const domainBreakdown = useComputed(() => {
@@ -69,12 +93,13 @@ export default function Discovery() {
       .sort((a, b) => b.count - a.count);
   }, [entityArray]);
 
-  // Area entity counts
+  // Area entity counts (resolves through device when entity has no direct area)
   const areaCounts = useComputed(() => {
     const counts = {};
     for (const e of entityArray) {
-      if (e.area_id) {
-        counts[e.area_id] = (counts[e.area_id] || 0) + 1;
+      const area = getEffectiveArea(e, devicesDict);
+      if (area) {
+        counts[area] = (counts[area] || 0) + 1;
       }
     }
     return Object.entries(areasDict).map(([id, a]) => ({
@@ -82,7 +107,7 @@ export default function Discovery() {
       name: a.name || id,
       count: counts[id] || 0,
     })).sort((a, b) => b.count - a.count);
-  }, [entityArray, areasDict]);
+  }, [entityArray, areasDict, devicesDict]);
 
   // Unique domains/states/areas for filter dropdowns
   const uniqueDomains = useComputed(() => {
@@ -111,10 +136,10 @@ export default function Discovery() {
       arr = arr.filter((e) => e.state === stateFilter);
     }
     if (areaFilter) {
-      arr = arr.filter((e) => e.area_id === areaFilter);
+      arr = arr.filter((e) => getEffectiveArea(e, devicesDict) === areaFilter);
     }
     return arr;
-  }, [entityArray, domainFilter, stateFilter, areaFilter]);
+  }, [entityArray, domainFilter, stateFilter, areaFilter, devicesDict]);
 
   // Entity table columns
   const entityColumns = [
@@ -165,10 +190,11 @@ export default function Discovery() {
       key: 'area_id',
       label: 'Area',
       sortable: true,
-      render: (val) => {
-        if (!val) return '\u2014';
-        const area = areasDict[val];
-        return area ? area.name : val;
+      render: (val, row) => {
+        const effectiveArea = getEffectiveArea(row, devicesDict);
+        if (!effectiveArea) return '\u2014';
+        const area = areasDict[effectiveArea];
+        return area ? area.name : effectiveArea;
       },
     },
     {

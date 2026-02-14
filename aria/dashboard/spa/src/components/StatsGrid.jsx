@@ -25,6 +25,9 @@ export default function StatsGrid({ items }) {
           >
             {item.label}
           </div>
+          {item.subtitle && (
+            <div class="text-xs" style="color: var(--text-tertiary); margin-top: 2px;">{item.subtitle}</div>
+          )}
         </div>
       ))}
     </div>

@@ -551,11 +551,22 @@ def discover_all():
             "via_device_id": device.get("via_device_id")
         }
 
+    # Backfill entity area_id from parent device when entity has no direct area
+    log("Resolving entity areas from devices...")
+    backfilled = 0
+    for eid, entity in discovery["entities"].items():
+        if not entity.get("area_id") and entity.get("device_id"):
+            device = discovery["devices"].get(entity["device_id"])
+            if device and device.get("area_id"):
+                entity["area_id"] = device["area_id"]
+                backfilled += 1
+    log(f"Backfilled area_id for {backfilled} entities from their parent devices")
+
     # Process areas
     log("Processing areas...")
     for area in area_registry:
         area_id = area["area_id"]
-        # Count entities in this area
+        # Count entities in this area (includes device-inherited areas)
         entities_in_area = [
             eid for eid, e in discovery["entities"].items()
             if e.get("area_id") == area_id

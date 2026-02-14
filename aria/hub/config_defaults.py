@@ -185,6 +185,17 @@ CONFIG_DEFAULTS: List[Dict[str, Any]] = [
         "step": 1,
     },
     {
+        "key": "curation.unavailable_grace_hours",
+        "default_value": "0",
+        "value_type": "number",
+        "label": "Unavailable Grace Hours",
+        "description": "Entities unavailable longer than this are auto-excluded. 0 = disabled.",
+        "category": "Data Quality",
+        "min_value": 0,
+        "max_value": 168,
+        "step": 1,
+    },
+    {
         "key": "curation.vehicle_patterns",
         "default_value": "tesla,luda,tessy,vehicle,car_",
         "value_type": "string",
