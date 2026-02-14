@@ -213,7 +213,7 @@ function PipelineNode({ nodeId, status, stat, link }) {
 
   const isHealthy = status === STATUS.HEALTHY;
   const inner = (
-    <div class={`t-card p-3${isHealthy ? ' animate-pulse-cyan' : ''}`}>
+    <div class={`t-card p-3${isHealthy ? ' t1-pulse-ring' : ''}`}>
       <div class="flex items-center gap-2 mb-1">
         <span style="color: var(--text-tertiary)">{typeof meta.icon === 'function' ? <meta.icon /> : meta.icon}</span>
         <span class="text-sm font-medium" style="color: var(--text-primary)">{meta.label}</span>

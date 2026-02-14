@@ -89,7 +89,7 @@ function HeroSection() {
   return (
     <div class="relative overflow-hidden px-6 py-8 mb-6" style="background: var(--bg-surface); border-radius: var(--radius);">
       <div class="absolute inset-0 pointer-events-none" style="opacity: 0.04">
-        <div class="animate-scan-line" style="width: 100%; height: 2px; background: var(--accent);" />
+        <div class="t1-scan-line" style="width: 100%; height: 2px; background: var(--accent);" />
       </div>
 
       <div class="relative">
