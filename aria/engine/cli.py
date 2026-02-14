@@ -425,18 +425,39 @@ def cmd_suggest_automations():
 
 
 def cmd_train_prophet():
-    """Train Prophet seasonal forecasters on daily snapshot time series."""
+    """Train seasonal forecasters on daily snapshot time series.
+
+    Prefers NeuralProphet (deep learning + autoregression) when available,
+    falls back to Facebook Prophet for classic decomposition.
+    """
     config, store = _init()
 
-    from aria.engine.models.prophet_forecaster import (
-        train_prophet_models,
-        predict_with_prophet,
-        HAS_PROPHET,
-    )
+    # Try NeuralProphet first, fall back to Prophet
+    use_neuralprophet = False
+    try:
+        from aria.engine.models.neural_prophet_forecaster import (
+            train_neuralprophet_models,
+            predict_with_neuralprophet,
+            HAS_NEURAL_PROPHET,
+        )
 
-    if not HAS_PROPHET:
-        print("Prophet not installed. Install with: python3 -m pip install prophet")
-        return None
+        if HAS_NEURAL_PROPHET:
+            use_neuralprophet = True
+    except ImportError:
+        pass
+
+    if not use_neuralprophet:
+        from aria.engine.models.prophet_forecaster import (
+            train_prophet_models,
+            predict_with_prophet,
+            HAS_PROPHET,
+        )
+
+        if not HAS_PROPHET:
+            print("Neither NeuralProphet nor Prophet installed.")
+            print("  Install with: python3 -m pip install neuralprophet")
+            print("  Or fallback:  python3 -m pip install prophet")
+            return None
 
     # Load daily snapshots as (date_str, snapshot) tuples
     daily_dir = config.paths.daily_dir
@@ -456,18 +477,29 @@ def cmd_train_prophet():
             snapshots.append((date_str, snap))
 
     if len(snapshots) < 14:
-        print(f"Insufficient data for Prophet ({len(snapshots)} days, need 14+)")
+        print(f"Insufficient data for forecasting ({len(snapshots)} days, need 14+)")
         return None
 
-    print(f"Training Prophet on {len(snapshots)} daily snapshots...")
-    results = train_prophet_models(snapshots, str(config.paths.models_dir))
+    models_dir = str(config.paths.models_dir)
 
-    # Generate next-day forecasts
-    forecasts = predict_with_prophet(str(config.paths.models_dir))
-    if forecasts:
-        print("Prophet forecasts for tomorrow:")
-        for metric, value in forecasts.items():
-            print(f"  {metric}: {value}")
+    if use_neuralprophet:
+        print(f"Training NeuralProphet on {len(snapshots)} daily snapshots...")
+        results = train_neuralprophet_models(snapshots, models_dir)
+
+        forecasts = predict_with_neuralprophet(models_dir)
+        if forecasts:
+            print("NeuralProphet forecasts for tomorrow:")
+            for metric, value in forecasts.items():
+                print(f"  {metric}: {value}")
+    else:
+        print(f"Training Prophet (fallback) on {len(snapshots)} daily snapshots...")
+        results = train_prophet_models(snapshots, models_dir)
+
+        forecasts = predict_with_prophet(models_dir)
+        if forecasts:
+            print("Prophet forecasts for tomorrow:")
+            for metric, value in forecasts.items():
+                print(f"  {metric}: {value}")
 
     return results
 
