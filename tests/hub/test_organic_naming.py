@@ -1,6 +1,7 @@
-"""Tests for organic discovery heuristic naming."""
+"""Tests for organic discovery naming (heuristic + Ollama LLM)."""
 
 import pytest
+from unittest.mock import patch, AsyncMock
 
 from aria.modules.organic_discovery.naming import heuristic_name, heuristic_description
 
@@ -220,3 +221,111 @@ class TestHeuristicDescription:
         )
         results = {heuristic_description(info) for _ in range(20)}
         assert len(results) == 1
+
+
+# --- Ollama LLM naming tests ---
+
+# Shared cluster fixture for Ollama tests
+CLUSTER_MIXED_ROOM = _cluster(
+    entity_ids=["light.office_desk", "switch.office_fan", "sensor.office_temp"],
+    domains={"light": 1, "switch": 1, "sensor": 1},
+    areas={"office": 3},
+    temporal_pattern={"peak_hours": [8, 9, 10], "weekday_bias": 0.8},
+)
+
+
+class TestOllamaName:
+    @pytest.mark.asyncio
+    async def test_ollama_name_returns_string(self):
+        with patch(
+            "aria.modules.organic_discovery.naming._call_ollama",
+            new_callable=AsyncMock,
+        ) as mock:
+            mock.return_value = "Morning kitchen routine"
+            from aria.modules.organic_discovery.naming import ollama_name
+
+            result = await ollama_name(CLUSTER_MIXED_ROOM)
+            assert isinstance(result, str)
+            assert len(result) > 0
+
+    @pytest.mark.asyncio
+    async def test_ollama_name_fallback_on_error(self):
+        with patch(
+            "aria.modules.organic_discovery.naming._call_ollama",
+            new_callable=AsyncMock,
+        ) as mock:
+            mock.side_effect = Exception("Ollama down")
+            from aria.modules.organic_discovery.naming import ollama_name
+
+            result = await ollama_name(CLUSTER_MIXED_ROOM)
+            assert isinstance(result, str)
+            assert len(result) > 0  # Should fall back to heuristic
+
+    @pytest.mark.asyncio
+    async def test_ollama_name_cleans_response(self):
+        with patch(
+            "aria.modules.organic_discovery.naming._call_ollama",
+            new_callable=AsyncMock,
+        ) as mock:
+            mock.return_value = "  Morning Kitchen Routine!  "
+            from aria.modules.organic_discovery.naming import ollama_name
+
+            result = await ollama_name(CLUSTER_MIXED_ROOM)
+            assert " " not in result  # Should be snake_case
+            assert result == result.lower()
+
+    @pytest.mark.asyncio
+    async def test_ollama_name_fallback_on_short_result(self):
+        """LLM returning a too-short name falls back to heuristic."""
+        with patch(
+            "aria.modules.organic_discovery.naming._call_ollama",
+            new_callable=AsyncMock,
+        ) as mock:
+            mock.return_value = "ab"  # Only 2 chars after cleaning
+            from aria.modules.organic_discovery.naming import ollama_name
+
+            result = await ollama_name(CLUSTER_MIXED_ROOM)
+            # Should fall back to heuristic, which produces a real name
+            assert isinstance(result, str)
+            assert len(result) > 2
+
+
+class TestOllamaDescription:
+    @pytest.mark.asyncio
+    async def test_ollama_description_returns_string(self):
+        with patch(
+            "aria.modules.organic_discovery.naming._call_ollama",
+            new_callable=AsyncMock,
+        ) as mock:
+            mock.return_value = "These are all lighting entities in the office area."
+            from aria.modules.organic_discovery.naming import ollama_description
+
+            result = await ollama_description(CLUSTER_MIXED_ROOM)
+            assert isinstance(result, str)
+            assert len(result) > 10
+
+    @pytest.mark.asyncio
+    async def test_ollama_description_fallback_on_error(self):
+        with patch(
+            "aria.modules.organic_discovery.naming._call_ollama",
+            new_callable=AsyncMock,
+        ) as mock:
+            mock.side_effect = Exception("Ollama down")
+            from aria.modules.organic_discovery.naming import ollama_description
+
+            result = await ollama_description(CLUSTER_MIXED_ROOM)
+            assert isinstance(result, str)
+            assert len(result) > 10  # Heuristic always produces >10 chars
+
+    @pytest.mark.asyncio
+    async def test_ollama_description_truncated_to_200(self):
+        """Long LLM responses are capped at 200 characters."""
+        with patch(
+            "aria.modules.organic_discovery.naming._call_ollama",
+            new_callable=AsyncMock,
+        ) as mock:
+            mock.return_value = "A" * 300
+            from aria.modules.organic_discovery.naming import ollama_description
+
+            result = await ollama_description(CLUSTER_MIXED_ROOM)
+            assert len(result) <= 200

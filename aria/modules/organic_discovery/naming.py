@@ -1,12 +1,16 @@
-"""Heuristic naming for discovered entity clusters.
+"""Naming backends for discovered entity clusters.
 
-Pure rule-based — generates snake_case names and human-readable descriptions
-from cluster metadata without any LLM dependency.
+Provides both rule-based heuristic naming and LLM-powered naming via local
+Ollama. The LLM backend falls back to heuristic on any failure.
 """
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 
 def _classify_time(peak_hours: list[int]) -> str | None:
@@ -144,3 +148,77 @@ def heuristic_description(cluster_info: dict) -> str:
         sentences.append("peak hours: " + ", ".join(hour_strs))
 
     return ". ".join(sentences) + "."
+
+
+# ---------------------------------------------------------------------------
+# LLM naming via local Ollama
+# ---------------------------------------------------------------------------
+
+
+async def _call_ollama(prompt: str, model: str = "deepseek-r1:8b") -> str:
+    """Call local Ollama API."""
+    import aiohttp
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            "http://localhost:11434/api/generate",
+            json={"model": model, "prompt": prompt, "stream": False},
+            timeout=aiohttp.ClientTimeout(total=120),
+        ) as resp:
+            data = await resp.json()
+            return data.get("response", "").strip()
+
+
+async def ollama_name(cluster_info: dict) -> str:
+    """Generate a cluster name using local Ollama LLM. Falls back to heuristic."""
+    entities = cluster_info.get("entity_ids", [])[:10]
+    domains = cluster_info.get("domains", {})
+    areas = cluster_info.get("areas", {})
+    temporal = cluster_info.get("temporal_pattern", {})
+
+    prompt = (
+        "Name this group of Home Assistant entities in 2-4 words. "
+        "Return ONLY the name in snake_case, nothing else.\n\n"
+        f"Entities: {', '.join(entities)}\n"
+        f"Domains: {json.dumps(domains)}\n"
+        f"Areas: {json.dumps(areas)}\n"
+        f"Temporal: {json.dumps(temporal)}\n"
+    )
+
+    try:
+        result = await _call_ollama(prompt)
+        name = result.strip().lower().replace(" ", "_").replace("-", "_")
+        # Remove any non-alphanumeric/underscore chars
+        name = "".join(c for c in name if c.isalnum() or c == "_")
+        # Strip leading/trailing underscores
+        name = name.strip("_")
+        if name and len(name) > 2:
+            return name
+    except Exception as e:
+        logger.warning(f"Ollama naming failed, falling back to heuristic: {e}")
+
+    return heuristic_name(cluster_info)
+
+
+async def ollama_description(cluster_info: dict) -> str:
+    """Generate a description using local Ollama LLM. Falls back to heuristic."""
+    entities = cluster_info.get("entity_ids", [])[:10]
+    domains = cluster_info.get("domains", {})
+    areas = cluster_info.get("areas", {})
+
+    prompt = (
+        "Describe this group of Home Assistant entities in one sentence. "
+        "Explain what they have in common and why they might be grouped.\n\n"
+        f"Entities: {', '.join(entities)}\n"
+        f"Domains: {json.dumps(domains)}\n"
+        f"Areas: {json.dumps(areas)}\n"
+    )
+
+    try:
+        result = await _call_ollama(prompt)
+        if result and len(result) > 10:
+            return result[:200]
+    except Exception as e:
+        logger.warning(f"Ollama description failed: {e}")
+
+    return heuristic_description(cluster_info)

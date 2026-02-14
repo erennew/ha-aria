@@ -26,7 +26,11 @@ def mock_hub():
 
 @pytest.fixture
 def module(mock_hub):
-    return OrganicDiscoveryModule(mock_hub)
+    mod = OrganicDiscoveryModule(mock_hub)
+    # Default: no logbook data so behavioral layer is a no-op.
+    # Behavioral tests override via patch.object.
+    mod._load_logbook = AsyncMock(return_value=[])
+    return mod
 
 
 def _make_cache_entry(data, metadata=None):
@@ -413,6 +417,123 @@ class TestAutonomyModes:
         }
         promoted = [c for c in organic_caps.values() if c["status"] == "promoted"]
         assert len(promoted) >= 1
+
+
+# ---------------------------------------------------------------------------
+# on_event
+# ---------------------------------------------------------------------------
+
+
+class TestBehavioralDiscovery:
+    async def test_module_discovers_behavioral_capabilities(self, mock_hub, module):
+        """Layer 2 should process logbook data and produce behavioral capabilities."""
+        mock_logbook = [
+            {"entity_id": f"light.room_{i}", "state": "on", "when": f"2026-02-{d:02d}T19:{i:02d}:00"}
+            for d in range(1, 15)
+            for i in range(6)
+        ]
+
+        mock_hub.get_cache.side_effect = lambda key: {
+            "entities": _make_cache_entry(_entity_list()),
+            "devices": _make_cache_entry(_device_dict()),
+            "capabilities": _make_cache_entry(_seed_capabilities()),
+            "activity_summary": _make_cache_entry(_activity_data()),
+            "discovery_settings": None,
+            "discovery_history": None,
+        }.get(key)
+
+        with patch(
+            "aria.modules.organic_discovery.module.cluster_entities",
+            return_value=[],
+        ), patch(
+            "aria.modules.organic_discovery.module.build_feature_matrix",
+            return_value=(
+                __import__("numpy").zeros((3, 5)),
+                ["light.living_room", "light.bedroom", "switch.fan"],
+                ["f1", "f2", "f3", "f4", "f5"],
+            ),
+        ), patch.object(module, '_load_logbook', return_value=mock_logbook):
+            await module.initialize()
+            result = await module.run_discovery()
+
+        # Should have written capabilities to cache
+        cap_calls = [
+            c for c in mock_hub.set_cache.call_args_list
+            if c[0][0] == "capabilities"
+        ]
+        assert len(cap_calls) >= 1
+
+    async def test_behavioral_skipped_when_no_logbook(self, mock_hub, module):
+        """When logbook returns empty, behavioral layer should be a no-op."""
+        mock_hub.get_cache.side_effect = lambda key: {
+            "entities": _make_cache_entry([]),
+            "devices": _make_cache_entry({}),
+            "capabilities": _make_cache_entry({}),
+            "activity_summary": _make_cache_entry({"entity_activity": {}}),
+            "discovery_settings": None,
+            "discovery_history": None,
+        }.get(key)
+
+        with patch.object(module, '_load_logbook', return_value=[]):
+            await module.initialize()
+            result = await module.run_discovery()
+
+        # Should complete without error
+        assert result is not None
+
+    async def test_behavioral_caps_have_layer_behavioral(self, mock_hub, module):
+        """Behavioral capabilities should have layer='behavioral'."""
+        # Create enough distinct entities to form a cluster (min_cluster_size=3)
+        mock_logbook = [
+            {"entity_id": f"light.room_{i}", "state": "on", "when": f"2026-02-{d:02d}T19:{i:02d}:00"}
+            for d in range(1, 15)
+            for i in range(6)
+        ]
+
+        mock_hub.get_cache.side_effect = lambda key: {
+            "entities": _make_cache_entry(_entity_list()),
+            "devices": _make_cache_entry(_device_dict()),
+            "capabilities": _make_cache_entry({}),
+            "activity_summary": _make_cache_entry(_activity_data()),
+            "discovery_settings": None,
+            "discovery_history": None,
+        }.get(key)
+
+        # Patch domain clustering to return nothing so only behavioral caps appear
+        with patch(
+            "aria.modules.organic_discovery.module.cluster_entities",
+            return_value=[],
+        ), patch(
+            "aria.modules.organic_discovery.module.build_feature_matrix",
+            return_value=(
+                __import__("numpy").zeros((3, 5)),
+                ["light.living_room", "light.bedroom", "switch.fan"],
+                ["f1", "f2", "f3", "f4", "f5"],
+            ),
+        ), patch(
+            "aria.modules.organic_discovery.module.cluster_behavioral",
+            return_value=[{
+                "cluster_id": 0,
+                "entity_ids": ["light.room_0", "light.room_1", "light.room_2"],
+                "silhouette": 0.6,
+                "temporal_pattern": {"peak_hours": [19], "weekday_bias": 0.7},
+            }],
+        ), patch.object(module, '_load_logbook', return_value=mock_logbook):
+            result = await module.run_discovery()
+
+        cap_calls = [
+            c for c in mock_hub.set_cache.call_args_list
+            if c[0][0] == "capabilities"
+        ]
+        written_caps = cap_calls[-1][0][1]
+        behavioral_caps = {
+            k: v for k, v in written_caps.items()
+            if v.get("layer") == "behavioral"
+        }
+        assert len(behavioral_caps) >= 1
+        for cap in behavioral_caps.values():
+            assert "temporal_pattern" in cap
+            assert cap["source"] == "organic"
 
 
 # ---------------------------------------------------------------------------

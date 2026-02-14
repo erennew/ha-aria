@@ -14,6 +14,7 @@ from aria.modules.organic_discovery.clustering import cluster_entities
 from aria.modules.organic_discovery.seed_validation import validate_seeds
 from aria.modules.organic_discovery.naming import heuristic_name, heuristic_description
 from aria.modules.organic_discovery.scoring import compute_usefulness, UsefulnessComponents
+from aria.modules.organic_discovery.behavioral import cluster_behavioral
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,25 @@ class OrganicDiscoveryModule(Module):
     async def on_event(self, event_type: str, data: Dict[str, Any]):
         """Handle hub events (no-op for now)."""
         pass
+
+    # ------------------------------------------------------------------
+    # Naming
+    # ------------------------------------------------------------------
+
+    async def _name_cluster(self, cluster_info: dict) -> tuple[str, str]:
+        """Name and describe a cluster using the configured backend."""
+        backend = self.settings["naming_backend"]
+
+        if backend == "ollama":
+            from aria.modules.organic_discovery.naming import ollama_name, ollama_description
+            name = await ollama_name(cluster_info)
+            description = await ollama_description(cluster_info)
+        else:
+            # heuristic (default and fallback)
+            name = heuristic_name(cluster_info)
+            description = heuristic_description(cluster_info)
+
+        return name, description
 
     # ------------------------------------------------------------------
     # Discovery pipeline
@@ -163,8 +183,7 @@ class OrganicDiscoveryModule(Module):
             cluster_info["entity_ids"] = member_ids
 
             # Name
-            name = heuristic_name(cluster_info)
-            description = heuristic_description(cluster_info)
+            name, description = await self._name_cluster(cluster_info)
 
             # Ensure unique names
             if name in organic_caps or name in seed_caps:
@@ -198,10 +217,63 @@ class OrganicDiscoveryModule(Module):
                 "status": "candidate",
                 "first_seen": today,
                 "promoted_at": None,
-                "naming_method": "heuristic",
+                "naming_method": self.settings["naming_backend"],
                 "description": description,
                 "stability_streak": self._count_streak(name),
             }
+
+        # Phase 2: Behavioral clustering
+        run_start = str(date.today())
+        logbook_entries = await self._load_logbook()
+        if logbook_entries:
+            behavioral_clusters = cluster_behavioral(logbook_entries)
+            for cluster in behavioral_clusters:
+                cluster_id = cluster["cluster_id"]
+                member_ids = cluster["entity_ids"]
+
+                cluster_info = self._build_cluster_info(member_ids, entities, devices)
+                cluster_info["entity_ids"] = member_ids
+                cluster_info["temporal_pattern"] = cluster.get("temporal_pattern", {})
+
+                name, description = await self._name_cluster(cluster_info)
+
+                # Avoid name collision with domain capabilities or seeds
+                if name in organic_caps or name in seed_caps:
+                    name = f"behavioral_{name}_{cluster_id}"
+
+                # Score
+                avg_activity = 0.0
+                if member_ids:
+                    rates = [activity_rates.get(eid, 0.0) for eid in member_ids]
+                    avg_activity = sum(rates) / len(rates)
+
+                silhouette = cluster.get("silhouette", 0.0)
+                components = UsefulnessComponents(
+                    predictability=0.0,
+                    stability=self._compute_stability(name),
+                    entity_coverage=len(member_ids) / total_entities,
+                    activity=min(avg_activity / 50.0, 1.0),
+                    cohesion=max(silhouette, 0.0),
+                )
+                usefulness = compute_usefulness(components)
+
+                organic_caps[name] = {
+                    "available": True,
+                    "entities": member_ids,
+                    "total_count": len(member_ids),
+                    "can_predict": False,
+                    "source": "organic",
+                    "usefulness": usefulness,
+                    "usefulness_components": components.to_dict(),
+                    "layer": "behavioral",
+                    "status": "candidate",
+                    "first_seen": run_start,
+                    "promoted_at": None,
+                    "naming_method": self.settings["naming_backend"],
+                    "description": description,
+                    "stability_streak": self._count_streak(name),
+                    "temporal_pattern": cluster.get("temporal_pattern", {}),
+                }
 
         # 7. Merge: seeds always preserved
         merged_caps: Dict[str, Dict[str, Any]] = {}
@@ -267,6 +339,30 @@ class OrganicDiscoveryModule(Module):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    async def _load_logbook(self, days: int = 14) -> list[dict]:
+        """Load recent logbook entries from ~/ha-logs/ JSON files."""
+        import json
+        from pathlib import Path
+
+        log_dir = Path.home() / "ha-logs"
+        entries = []
+        today = date.today()
+
+        for i in range(days):
+            day = today - timedelta(days=i)
+            log_file = log_dir / f"{day.isoformat()}.json"
+            if log_file.exists():
+                try:
+                    with open(log_file) as f:
+                        day_entries = json.load(f)
+                    if isinstance(day_entries, list):
+                        entries.extend(day_entries)
+                except (json.JSONDecodeError, OSError) as e:
+                    self.logger.warning(f"Failed to read {log_file}: {e}")
+
+        self.logger.info(f"Loaded {len(entries)} logbook entries from {days} days")
+        return entries
 
     async def _get_cache_data(self, key: str, default: Any = None) -> Any:
         """Get data from cache, returning default if not found."""
