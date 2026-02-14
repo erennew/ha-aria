@@ -172,8 +172,8 @@ cd aria/dashboard/spa && npx esbuild src/index.jsx --bundle --outfile=dist/bundl
 | Component | File | Purpose |
 |-----------|------|---------|
 | `CollapsibleSection` | `components/CollapsibleSection.jsx` | Expand/collapse with cursor-as-affordance (cursor-active/working/idle) |
-| `HeroCard` | `components/HeroCard.jsx` | Large monospace metric display in `.t-frame` with optional unit/delta |
-| `TimeChart` | `components/TimeChart.jsx` | uPlot wrapper — resolves CSS vars for canvas, `<figure>` semantic wrapper |
+| `HeroCard` | `components/HeroCard.jsx` | Large monospace KPI with optional sparkline (`sparkData`/`sparkColor` props) |
+| `TimeChart` | `components/TimeChart.jsx` | uPlot wrapper — full mode (`<figure>`) or `compact` sparkline mode (no axes) |
 | `StatsGrid` | `components/StatsGrid.jsx` | Grid of labeled values with `.t-bracket` labels |
 | `AriaLogo` | `components/AriaLogo.jsx` | SVG pixel-art logo |
 
@@ -190,12 +190,12 @@ Located in `aria/dashboard/spa/src/pages/intelligence/`:
 |-----------|---------------|
 | `LearningProgress` | Data maturity bar (collecting → baselines → ML training → ML active) |
 | `HomeRightNow` | Current intraday metrics vs baselines with color-coded deltas |
-| `ActivitySection` | Activity monitor: occupancy, event rates, timeline, patterns, anomalies, WS health |
-| `TrendsOverTime` | 30-day metric trends with uPlot canvas charts |
+| `ActivitySection` | Activity monitor: swim-lane timeline, occupancy, event rates, patterns, anomalies, WS health |
+| `TrendsOverTime` | 30-day small multiples (one chart per metric) + intraday charts |
 | `PredictionsVsActuals` | Predicted vs actual metric comparison |
-| `Baselines` | Hourly baselines per metric with confidence ranges |
+| `Baselines` | Day × metric heatmap grid with color intensity = value |
 | `DailyInsight` | LLM-generated daily insight text |
-| `Correlations` | Cross-metric correlation matrix |
+| `Correlations` | Diverging-color correlation matrix heatmap (positive=accent, negative=purple) |
 | `SystemStatus` | Run log, ML model scores (R2/MAE), meta-learning applied suggestions |
 | `Configuration` | Current intelligence engine config (deprecated — replaced by Settings page) |
 | `utils.jsx` | Shared helpers: Section, Callout, durationSince, describeEvent, EVENT_ICONS, DOMAIN_LABELS |

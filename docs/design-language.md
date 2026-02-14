@@ -8,6 +8,42 @@ Reference for creating and modifying UI components. Read this before touching an
 
 **Philosophy:** Each page tells its story within the ARIA pipeline (Data Collection → Learning → Actions). Components should reinforce where the user is in that flow.
 
+## Data Science Approach to Visualization
+
+ARIA's dashboard is designed with data science principles. Follow these when creating or modifying any data display.
+
+### Guiding Principles
+
+1. **Data-ink ratio (Tufte).** Maximize the share of ink used to present actual data. Remove chartjunk: unnecessary gridlines, decorative elements, redundant labels. Every pixel should earn its place.
+
+2. **Small multiples over overlays.** When metrics have different units or scales, NEVER overlay them on the same y-axis. Use stacked small multiples — one chart per metric sharing the x-axis. This prevents the "two y-axis" problem where readers can't tell which scale applies.
+
+3. **Pre-attentive attributes.** Use color intensity (not color hue alone) to encode magnitude. Human vision processes intensity differences pre-attentively (~200ms), while reading numbers is slow (~500ms+). Heatmaps exploit this.
+
+4. **Sparklines for context.** A number without trend is half a story. Edward Tufte's sparklines — tiny word-sized graphics — give trend context without taking space. Every HeroCard KPI should have a sparkline when historical data is available.
+
+5. **Diverging scales for correlation.** Correlation data needs a diverging color scale centered on zero. Use one hue for positive (moving together), another for negative (moving opposite), and neutral for near-zero. Filter out weak signals (|r| ≤ 0.3).
+
+6. **Temporal swim-lanes.** For event timelines, group by category (domain) and lay events along a shared time axis. This reveals temporal clustering and concurrent activity that flat lists hide.
+
+7. **Rolling averages over raw points.** Raw daily accuracy is noisy. A 7-day rolling average reveals the true trend. Show both when space allows — the rolling line for the story, the raw points for the detail.
+
+8. **Explain like I'm 5.** Every visualization MUST include a plain-English explanation and a legend. If a user needs domain expertise to interpret a chart, the chart has failed. The explanation goes between the section title and the visualization.
+
+### Choosing the Right Visualization
+
+| Data Shape | Recommended Viz | Component |
+|------------|----------------|-----------|
+| Single KPI with trend | HeroCard + sparkline | `HeroCard` with `sparkData` |
+| Time series (single metric) | Line chart, 80-140px | `TimeChart` |
+| Time series (multiple metrics, same unit) | Overlaid lines | `TimeChart` with multiple series |
+| Time series (multiple metrics, different units) | Small multiples (stacked) | Multiple `TimeChart`s in `space-y-2` |
+| Matrix (day × metric, value intensity) | Heatmap grid | CSS grid + opacity interpolation |
+| Pairwise relationships | Correlation matrix | CSS grid + `color-mix()` diverging scale |
+| Events over time by category | Swim-lane timeline | CSS grid + positioned dots |
+| Accuracy over time + volume | Dual-series chart (line + bars) | `TimeChart` with 2 series |
+| Single-value distribution | Not yet implemented | Consider box plot or histogram |
+
 ## Color System
 
 All colors are CSS custom properties in `index.css`. NEVER hardcode hex values in JSX.
@@ -118,11 +154,22 @@ Use `HeroCard` from `components/HeroCard.jsx` for prominent KPIs:
 
 ```jsx
 <HeroCard label="Power Draw" value="847" unit="W" delta="+12%" />
+
+// With sparkline trend (uPlot data format)
+<HeroCard
+  label="Shadow Accuracy"
+  value={65}
+  unit="%"
+  sparkData={[timestamps, values]}
+  sparkColor="var(--accent)"
+/>
 ```
 
 - Renders large monospace value (2.5rem) inside a `.t-frame`
-- Optional `delta` shows change (styled green/red automatically)
-- Optional `warning` shows orange alert text
+- Optional `delta` shows change text
+- Optional `warning` shows orange alert border + text
+- Optional `sparkData` renders an 80×32px inline sparkline next to the value
+- Optional `sparkColor` sets sparkline color (defaults to `--accent`)
 - One HeroCard per page at the top — the page's primary metric
 
 ### Charts: `TimeChart`
@@ -130,6 +177,7 @@ Use `HeroCard` from `components/HeroCard.jsx` for prominent KPIs:
 Use `TimeChart` from `components/TimeChart.jsx` for time-series:
 
 ```jsx
+// Full chart with axes, grid, cursor
 <TimeChart
   data={[timestamps, values1, values2]}
   series={[
@@ -138,10 +186,18 @@ Use `TimeChart` from `components/TimeChart.jsx` for time-series:
   ]}
   height={140}
 />
+
+// Compact sparkline mode (no axes, no grid, no cursor)
+<TimeChart
+  data={[timestamps, values]}
+  series={[{ label: 'trend', color: 'var(--accent)', width: 1.5 }]}
+  compact
+/>
 ```
 
 - CSS variables are resolved automatically via `getComputedStyle()`
-- Wrapped in semantic `<figure>` with `<figcaption class="sr-only">`
+- Full mode: wrapped in semantic `<figure>` with `<figcaption class="sr-only">`
+- Compact mode: bare `<div>` with `role="img"`, defaults to 32px height
 - Responds to container width via ResizeObserver
 - Theme changes require data update to re-render (known limitation)
 
@@ -153,14 +209,97 @@ Use `StatsGrid` from `components/StatsGrid.jsx` for labeled value grids:
 <StatsGrid items={[{ label: 'Entities', value: '3,058' }, ...]} />
 ```
 
+## Data Visualization Patterns
+
+### Small Multiples (TrendsOverTime)
+
+Show each metric in its own chart stacked vertically, sharing the x-axis but with independent y-axes. Better than overlaid series because each metric has its own scale.
+
+```jsx
+// One chart per metric, 80px each, stacked in space-y-2
+<MetricChart label="Power (W)" data={...} color="var(--accent)" height={80} />
+<MetricChart label="Lights On" data={...} color="var(--accent-warm)" height={80} />
+```
+
+### Heatmap Grid (Baselines)
+
+CSS grid with color intensity mapping. Rows = categories, columns = metrics. Each cell uses opacity interpolation against a base color.
+
+```jsx
+// Color intensity: opacity scales from 0.12 (low) to 0.67 (high)
+<div style={`background: var(--accent); opacity: ${0.12 + intensity * 0.55}`} />
+```
+
+- Positive metrics (Power, Lights, Devices): scale against `--accent`
+- Negative metrics (Unavailable): scale against `--status-error`
+- Always include a color scale legend below the heatmap
+
+### Correlation Matrix (Correlations)
+
+Diverging color heatmap for pairwise relationships. Uses `color-mix()` CSS function for dynamic opacity.
+
+```jsx
+// Positive correlation → accent, negative → accent-purple
+background: color-mix(in srgb, var(--accent) 70%, transparent)
+background: color-mix(in srgb, var(--accent-purple) 70%, transparent)
+```
+
+- Filter weak correlations (|r| ≤ 0.3) with gray
+- Sort entities by strongest average |correlation|
+- Rotate column headers 45° to save space
+- Always include a diverging legend (Negative / Weak / Positive)
+
+### Swim-Lane Timeline (ActivitySection)
+
+Horizontal lanes per domain, events as positioned dots along a 60-minute time axis.
+
+```jsx
+// Domain colors
+light → var(--accent-warm)
+switch → var(--accent)
+binary_sensor → var(--accent-purple)
+person/device_tracker → var(--status-healthy)
+other → var(--text-tertiary)
+```
+
+- Each lane: 20px tall, 2px gap
+- Domain labels on left (60px), timeline on right
+- Events: 8px circles at `((eventTime - startTime) / 60min) * 100%`
+- Vertical dashed "now" line at right edge
+- Hide domains with no events in the window
+- Always include a domain color legend
+
+### Dual-Axis Chart (Shadow DailyTrend)
+
+Rolling average line + volume bars sharing the same time axis. Use TimeChart with 2 series.
+
+```jsx
+// Series 1: 7-day rolling accuracy line
+{ label: '7-day Accuracy', color: 'var(--accent)', width: 2 }
+// Series 2: Daily prediction count bars
+{ label: 'Predictions', color: 'var(--text-tertiary)', width: 1 }
+```
+
+Include gate threshold annotation below the chart.
+
+### Visualization Rules
+
+1. **Every visualization MUST include:**
+   - A 1-2 sentence layman explanation (what it shows, why it matters)
+   - A color legend explaining all visual encodings
+2. **Prefer small multiples** over overlaid series when metrics have different scales
+3. **Use `color-mix()` in CSS** for dynamic opacity against CSS variable colors
+4. **Inline styles for dynamic values** — Tailwind can't handle computed colors/positions
+5. **Screen reader fallback:** When replacing text with graphics, keep the text in `sr-only`
+
 ## Cursor State System
 
 Cursors replace traditional expand/collapse chevrons. Three states:
 
 | Class | Symbol | Speed | Color | Meaning |
 |-------|--------|-------|-------|---------|
-| `.cursor-active` | Block (█) | 1s | `--accent` | Active, expanded, operational |
-| `.cursor-working` | Half (▊) | 0.5s | `--accent-warm` | Loading, processing |
+| `.cursor-active` | Block (█) | 1s | `--text-primary` | Active, expanded, operational |
+| `.cursor-working` | Half (▊) | 0.5s | `--text-primary` | Loading, processing |
 | `.cursor-idle` | Underscore (_) | 2s | `--text-tertiary` | Collapsed, waiting |
 
 On Home page pipeline nodes, cursor states map to node health:
