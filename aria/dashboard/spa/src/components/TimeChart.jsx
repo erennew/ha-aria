@@ -86,13 +86,16 @@ export default function TimeChart({ data, series, height = 120, className }) {
   }, [height]);
 
   return (
-    <div>
-      <div ref={containerRef} class={className || ''} />
+    <figure>
+      <div ref={containerRef} class={className || ''} role="img"
+        aria-label={data && data.length > 1
+          ? `Chart: ${series.map(s => s.label).join(', ')}`
+          : 'Chart loading'} />
       {data && data.length > 1 && (
-        <div class="sr-only">
-          Chart: {series.map(s => s.label).join(', ')} — {data[0].length} data points
-        </div>
+        <figcaption class="sr-only">
+          {series.map(s => s.label).join(', ')} — {data[0].length} data points
+        </figcaption>
       )}
-    </div>
+    </figure>
   );
 }

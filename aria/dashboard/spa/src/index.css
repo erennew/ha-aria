@@ -223,12 +223,6 @@ body {
   color: var(--text-primary);
   transition: border-color 0.2s ease;
 }
-.t-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-glow);
-}
-
 /* ── Focus ring (accessibility) ── */
 :focus-visible {
   outline: 2px solid var(--accent);
