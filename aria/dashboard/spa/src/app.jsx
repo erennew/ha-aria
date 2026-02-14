@@ -97,7 +97,7 @@ export default function App() {
       <Sidebar />
 
       {/* Content area: offset for sidebar on desktop, bottom padding for tab bar on mobile */}
-      <main class="md:ml-60 pb-16 md:pb-0 min-h-screen">
+      <main class="lg:ml-60 sm:ml-14 pb-16 sm:pb-0 min-h-screen">
         <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
           <ErrorBoundary>
             <Router history={hashHistory}>
