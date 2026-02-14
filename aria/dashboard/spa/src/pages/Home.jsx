@@ -73,7 +73,7 @@ const PHASE_MILESTONES = [
 function computeNodeStatus(nodeId, data) {
   const { health, entities, activity, curation, intelligence, shadow, pipeline } = data;
   const modules = health ? health.modules || {} : {};
-  const isRegistered = (name) => modules[name] && modules[name].registered;
+  const isRegistered = (name) => modules[name] && modules[name] !== 'failed' && modules[name] !== 'unknown';
 
   const maturity = intelligence ? (intelligence.data_maturity || null) : null;
   const days = maturity ? maturity.days_of_data || 0 : 0;
@@ -150,7 +150,7 @@ function computeNodeStats(data) {
   const excluded = (perStatus.excluded || 0) + (perStatus.auto_excluded || 0);
 
   const predTotal = shadow ? (shadow.predictions_total || 0) : 0;
-  const acc = shadow ? Math.round(shadow.overall_accuracy || 0) : 0;
+  const acc = shadow ? Math.round((shadow.overall_accuracy || 0) * 100) : 0;
 
   const stage = pipeline ? (pipeline.current_stage || 'backtest') : 'backtest';
 

@@ -5,12 +5,25 @@ function stripDomain(entityId) {
   return dot >= 0 ? entityId.slice(dot + 1) : entityId;
 }
 
+const STRENGTH_MAP = { very_strong: 0.9, strong: 0.7, moderate: 0.5, weak: 0.3 };
+
+function numericStrength(c) {
+  // Prefer conditional probabilities (0-100 scale) averaged and normalized to 0-1
+  const pa = c.conditional_prob_a_given_b;
+  const pb = c.conditional_prob_b_given_a;
+  if (pa != null && pb != null) return ((pa + pb) / 2) / 100;
+  // Fall back to string label mapping
+  if (typeof c.strength === 'string') return STRENGTH_MAP[c.strength] ?? 0.5;
+  // Fall back to numeric parse
+  return parseFloat(c.strength != null ? c.strength : c[2]) || 0;
+}
+
 function buildMatrix(correlations) {
   // Normalize data shape — support both object and array formats
   const pairs = correlations.map(c => ({
     a: c.entity_a || c[0],
     b: c.entity_b || c[1],
-    strength: parseFloat(c.strength != null ? c.strength : c[2]) || 0,
+    strength: numericStrength(c),
   }));
 
   // Build lookup: entity -> average |correlation|

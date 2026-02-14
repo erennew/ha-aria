@@ -106,7 +106,7 @@ function AccuracySummary({ accuracy, pipeline }) {
   const stage = pipeline?.current_stage || 'backtest';
 
   const stats = [
-    { label: 'Accuracy', value: `${Math.round(overall)}%`, colorStyle: accuracyColor(overall) },
+    { label: 'Accuracy', value: `${Math.round(overall * 100)}%`, colorStyle: accuracyColor(overall * 100) },
     { label: 'Total Predictions', value: total },
     { label: 'Correct', value: correct },
     { label: 'Disagreements', value: disagree },
@@ -511,7 +511,7 @@ export default function Shadow() {
 
       {/* Hero — learning by watching */}
       <HeroCard
-        value={Math.round(accuracy?.overall_accuracy ?? 0)}
+        value={Math.round((accuracy?.overall_accuracy ?? 0) * 100)}
         label="shadow accuracy"
         unit="%"
         delta={`${pipeline?.current_stage || 'backtest'} stage \u2022 ${accuracy?.predictions_total ?? 0} predictions`}

@@ -203,7 +203,7 @@ export default function Intelligence() {
         <DailyInsight insight={intel.daily_insight} />
 
         {/* Row 7: Correlations + SystemStatus (2-col on tablet+) */}
-        <Correlations correlations={intel.correlations} />
+        <Correlations correlations={intel.entity_correlations?.top_co_occurrences} />
         <SystemStatus runLog={intel.run_log} mlModels={intel.ml_models} metaLearning={intel.meta_learning} />
 
         {/* Row 8: DriftStatus + AnomalyAlerts (2-col on tablet+) */}

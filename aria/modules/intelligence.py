@@ -299,7 +299,11 @@ class IntelligenceModule(Module):
         """Read the most recent insight report."""
         if not insights_dir.exists():
             return None
-        files = sorted(insights_dir.glob("*.json"))
+        import re
+        files = sorted(
+            f for f in insights_dir.glob("*.json")
+            if re.match(r"\d{4}-\d{2}-\d{2}\.json", f.name)
+        )
         if not files:
             return None
         try:

@@ -495,9 +495,24 @@ class ShadowEngine(Module):
             if elapsed < cooldown:
                 return
 
+        # Batch flood detection: if >50 events arrived in the last 5 seconds,
+        # this is likely a bulk ha-log-sync flush, not real-time activity.
+        # Skip predictions to avoid tanking accuracy with stale-context guesses.
+        recent_cutoff = (now - timedelta(seconds=5)).isoformat()
+        recent_burst = sum(1 for e in self._recent_events if e.get("timestamp", "") >= recent_cutoff)
+        if recent_burst > 50:
+            self._last_prediction_time = now  # Reset cooldown to throttle further
+            self.logger.info(f"Batch flood detected ({recent_burst} events in 5s), skipping prediction")
+            return
+
         # Only predict on actionable domains
         if domain not in PREDICTABLE_DOMAINS:
             return
+
+        # Set cooldown BEFORE generating predictions (optimistic lock).
+        # Prevents async race where concurrent events all pass the cooldown check
+        # before any prediction completes and sets the timestamp.
+        self._last_prediction_time = now
 
         # Generate predictions
         try:
@@ -517,7 +532,6 @@ class ShadowEngine(Module):
                     is_exploration = random.random() < 0.2
 
                 await self._store_predictions(context, predictions, is_exploration=is_exploration)
-                self._last_prediction_time = now
         except Exception as e:
             self.logger.error(f"Prediction generation failed: {e}")
 

@@ -142,7 +142,7 @@ export function Baselines({ baselines }) {
                 <HeatCell
                   key={day + '-' + m.key}
                   value={b?.[m.key]?.mean}
-                  std={b?.[m.key]?.std}
+                  std={b?.[m.key]?.stddev}
                   metric={m}
                   range={ranges[m.key]}
                 />
