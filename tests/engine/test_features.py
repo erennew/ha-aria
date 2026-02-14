@@ -191,5 +191,54 @@ class TestFeatureVector(unittest.TestCase):
         self.assertEqual(fv["is_weekend_x_temp"], 80)
 
 
+class TestMRMRFeatureSelection(unittest.TestCase):
+    def test_selects_fewer_features_than_input(self):
+        """48 features, max_features=10 → exactly 10 returned."""
+        import numpy as np
+        from aria.engine.features.feature_selection import mrmr_select
+
+        rng = np.random.RandomState(42)
+        n_samples, n_features = 100, 48
+        X = rng.randn(n_samples, n_features)
+        y = X[:, 0] + 0.5 * X[:, 1] + rng.randn(n_samples) * 0.1
+        names = [f"feat_{i}" for i in range(n_features)]
+
+        selected = mrmr_select(X, y, names, max_features=10)
+        self.assertEqual(len(selected), 10)
+        # All returned names must be from the original set
+        for name in selected:
+            self.assertIn(name, names)
+
+    def test_selects_relevant_features(self):
+        """Signal features (feat_0 weight=5, feat_1 weight=3) should appear in top 5."""
+        import numpy as np
+        from aria.engine.features.feature_selection import mrmr_select
+
+        rng = np.random.RandomState(123)
+        n_samples, n_features = 200, 20
+        X = rng.randn(n_samples, n_features)
+        y = 5.0 * X[:, 0] + 3.0 * X[:, 1] + rng.randn(n_samples) * 0.1
+        names = [f"feat_{i}" for i in range(n_features)]
+
+        selected = mrmr_select(X, y, names, max_features=5)
+        self.assertIn("feat_0", selected)
+        self.assertIn("feat_1", selected)
+
+    def test_handles_fewer_features_than_max(self):
+        """5 features with max_features=10 → returns all 5."""
+        import numpy as np
+        from aria.engine.features.feature_selection import mrmr_select
+
+        rng = np.random.RandomState(99)
+        n_samples, n_features = 50, 5
+        X = rng.randn(n_samples, n_features)
+        y = X[:, 0] + rng.randn(n_samples) * 0.5
+        names = [f"feat_{i}" for i in range(n_features)]
+
+        selected = mrmr_select(X, y, names, max_features=10)
+        self.assertEqual(len(selected), 5)
+        self.assertEqual(set(selected), set(names))
+
+
 if __name__ == "__main__":
     unittest.main()

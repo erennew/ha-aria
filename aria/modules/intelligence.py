@@ -20,6 +20,50 @@ from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY, CACHE
 
 logger = logging.getLogger(__name__)
 
+
+def compare_model_accuracy(
+    primary_acc: list,
+    reference_acc: list,
+    threshold_pct: float = 5.0,
+) -> dict:
+    """Compare accuracy trends between primary and reference models.
+
+    Distinguishes meta-learner errors from genuine behavioral drift by
+    comparing how accuracy evolves in the meta-learner-tuned primary model
+    vs a clean reference model trained without meta-learner modifications.
+
+    Args:
+        primary_acc: List of accuracy values over time for the primary model.
+        reference_acc: List of accuracy values over time for the reference model.
+        threshold_pct: Minimum delta magnitude to count as degradation.
+
+    Returns:
+        Dict with primary_trend, reference_trend, divergence_pct, and
+        interpretation (one of: behavioral_drift, meta_learner_error,
+        meta_learner_improvement, stable).
+    """
+    primary_delta = primary_acc[-1] - primary_acc[0] if len(primary_acc) >= 2 else 0.0
+    reference_delta = reference_acc[-1] - reference_acc[0] if len(reference_acc) >= 2 else 0.0
+
+    primary_degraded = primary_delta < -threshold_pct
+    reference_degraded = reference_delta < -threshold_pct
+
+    if primary_degraded and reference_degraded:
+        interpretation = "behavioral_drift"
+    elif primary_degraded and not reference_degraded:
+        interpretation = "meta_learner_error"
+    elif not primary_degraded and reference_degraded:
+        interpretation = "meta_learner_improvement"
+    else:
+        interpretation = "stable"
+
+    return {
+        "primary_trend": round(primary_delta, 2),
+        "reference_trend": round(reference_delta, 2),
+        "divergence_pct": round(abs(primary_delta - reference_delta), 2),
+        "interpretation": interpretation,
+    }
+
 # Metrics to extract from daily/intraday snapshots
 METRIC_PATHS = {
     "power_watts": lambda d: d.get("power", {}).get("total_watts"),

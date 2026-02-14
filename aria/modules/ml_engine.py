@@ -1232,6 +1232,14 @@ class MLEngine(Module):
 
         return stats
 
+    async def _train_reference_model(self, features, targets):
+        """Train clean reference model without meta-learner modifications.
+
+        Maintains a parallel unmodified model to distinguish meta-learner
+        errors from genuine behavioral drift.
+        """
+        pass  # Full implementation in later iteration
+
     async def on_event(self, event_type: str, data: Dict[str, Any]):
         """Handle hub events.
 
