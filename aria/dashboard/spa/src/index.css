@@ -265,6 +265,7 @@ body {
   position: relative;
   background: var(--bg-surface);
   border: none;
+  border-radius: var(--radius);
   padding: 16px 20px;
   box-shadow: var(--card-shadow);
   transition: box-shadow 0.2s ease;

@@ -271,7 +271,7 @@ function PhoneNav({ currentPath }) {
 
       {/* Bottom tab bar */}
       <div
-        style="background: var(--bg-surface); border-top: 1px solid var(--border-subtle); height: 56px;"
+        style="background: var(--bg-surface); border-top: 1px solid var(--border-subtle); min-height: 56px; padding-bottom: env(safe-area-inset-bottom);"
         class="flex justify-around items-center"
       >
         {PHONE_TABS.map((tab) => {
@@ -334,7 +334,7 @@ function TabletNav({ currentPath }) {
       {/* Overlay to close expanded rail */}
       {expanded && (
         <div
-          class="hidden sm:block lg:hidden fixed inset-0 z-29"
+          class="hidden sm:block lg:hidden fixed inset-0"
           style="z-index: 29;"
           onClick={() => setExpanded(false)}
         />

@@ -24,6 +24,14 @@ export default function TimeChart({ data, series, height = 120, className }) {
     const gridColor = styles.getPropertyValue('--border-subtle').trim();
     const fontMono = styles.getPropertyValue('--font-mono').trim() || 'monospace';
 
+    // Resolve CSS variables to computed values for canvas rendering
+    function resolveColor(color) {
+      if (color.startsWith('var(')) {
+        return styles.getPropertyValue(color.slice(4, -1)).trim();
+      }
+      return color;
+    }
+
     const opts = {
       width: containerRef.current.clientWidth,
       height,
@@ -46,12 +54,15 @@ export default function TimeChart({ data, series, height = 120, className }) {
       ],
       series: [
         {}, // x-axis (timestamps)
-        ...series.map((s) => ({
-          label: s.label,
-          stroke: s.color,
-          width: s.width || 2,
-          fill: s.color + '15', // 15 = ~8% opacity hex
-        })),
+        ...series.map((s) => {
+          const resolved = resolveColor(s.color);
+          return {
+            label: s.label,
+            stroke: resolved,
+            width: s.width || 2,
+            fill: resolved + '15', // 15 = ~8% opacity hex
+          };
+        }),
       ],
     };
 
