@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useMemo } from 'preact/hooks';
 import { fetchJson, baseUrl } from '../api.js';
 import { relativeTime } from './intelligence/utils.jsx';
 import HeroCard from '../components/HeroCard.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
+import TimeChart from '../components/TimeChart.jsx';
 
 const STAGES = ['backtest', 'shadow', 'suggest', 'autonomous'];
 const STAGE_LABELS = ['Backtest', 'Shadow', 'Suggest', 'Autonomous'];
@@ -134,7 +135,51 @@ function AccuracySummary({ accuracy, pipeline }) {
   );
 }
 
-function DailyTrend({ trend }) {
+function DailyTrend({ trend, pipeline }) {
+  const stage = pipeline?.current_stage || 'backtest';
+  const gate = GATE_REQUIREMENTS[stage];
+  const thresholdPct = gate ? Math.round(gate.threshold * 100) : null;
+
+  const { chartData, chartSeries } = useMemo(() => {
+    if (!trend || trend.length === 0) return { chartData: null, chartSeries: [] };
+
+    // Build timestamps and raw values
+    const timestamps = [];
+    const rawAccuracy = [];
+    const counts = [];
+
+    for (const d of trend) {
+      // Parse date string as noon UTC to avoid timezone shifting
+      const ts = Math.floor(new Date(d.date + 'T12:00:00Z').getTime() / 1000);
+      timestamps.push(ts);
+      rawAccuracy.push(d.accuracy ?? null);
+      counts.push(d.count ?? 0);
+    }
+
+    // Compute 7-day rolling average
+    const rolling = [];
+    for (let i = 0; i < rawAccuracy.length; i++) {
+      const windowStart = Math.max(0, i - 6);
+      let sum = 0;
+      let validCount = 0;
+      for (let j = windowStart; j <= i; j++) {
+        if (rawAccuracy[j] != null) {
+          sum += rawAccuracy[j];
+          validCount++;
+        }
+      }
+      rolling.push(validCount > 0 ? sum / validCount : null);
+    }
+
+    return {
+      chartData: [timestamps, rolling, counts],
+      chartSeries: [
+        { label: '7-day Accuracy', color: 'var(--accent)', width: 2 },
+        { label: 'Predictions', color: 'var(--text-tertiary)', width: 1 },
+      ],
+    };
+  }, [trend]);
+
   if (!trend || trend.length === 0) {
     return (
       <section class="space-y-3">
@@ -146,32 +191,16 @@ function DailyTrend({ trend }) {
     );
   }
 
-  const maxAcc = Math.max(...trend.map(d => d.accuracy ?? 0), 1);
-
   return (
     <section class="space-y-3">
       <h2 class="text-lg font-bold" style="color: var(--text-primary)">Daily Trend</h2>
       <div class="t-frame" data-label="accuracy trend" style="padding: 1rem;">
-        <div class="flex items-end gap-1 h-20">
-          {trend.map((d, i) => {
-            const acc = d.accuracy ?? 0;
-            const height = Math.max((acc / maxAcc) * 100, 4);
-            const color = acc >= 70 ? 'var(--status-healthy)' : acc >= 40 ? 'var(--status-warning)' : 'var(--status-error)';
-            const label = d.date?.slice(5) || '';
-            return (
-              <div
-                key={i}
-                class="flex-1 rounded-t transition-all"
-                style={{ height: `${height}%`, backgroundColor: color, minWidth: '6px' }}
-                title={`${label}: ${Math.round(acc)}% (${d.count ?? 0} predictions)`}
-              />
-            );
-          })}
-        </div>
-        <div class="flex justify-between text-[10px] mt-1" style="color: var(--text-tertiary)">
-          <span>{trend[0]?.date?.slice(5) || ''}</span>
-          <span>{trend[trend.length - 1]?.date?.slice(5) || ''}</span>
-        </div>
+        <TimeChart data={chartData} series={chartSeries} height={160} />
+        {thresholdPct != null && (
+          <p class="text-xs mt-2" style="color: var(--text-tertiary)">
+            Gate threshold: <span style="color: var(--accent); font-weight: 600;">{thresholdPct}%</span> {gate.label} required to advance to {gate.nextStage}
+          </p>
+        )}
       </div>
     </section>
   );
@@ -387,7 +416,7 @@ export default function Shadow() {
 
       <PipelineStage pipeline={pipeline} onAdvance={handleAdvance} onRetreat={handleRetreat} advanceError={advanceError} />
       <AccuracySummary accuracy={accuracy} pipeline={pipeline} />
-      <DailyTrend trend={accuracy?.daily_trend} />
+      <DailyTrend trend={accuracy?.daily_trend} pipeline={pipeline} />
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PredictionFeed predictions={predictions} />
         <DisagreementsPanel disagreements={disagreements} />
