@@ -50,12 +50,12 @@ export function AnomalyAlerts({ anomalies }) {
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="inline-block w-2 h-2 rounded-full" style="background: var(--status-warning)" />
-                    <span class="text-xs font-bold" style="color: var(--text-primary)">{a.entity_id}</span>
+                    <span class="text-xs font-bold" style="color: var(--text-primary)">{a.entity_id || a.metric || 'unknown'}</span>
                   </div>
                   <span class="text-xs" style="color: var(--text-tertiary)">{relativeTime(a.timestamp)}</span>
                 </div>
                 <div class="flex items-center gap-4 mt-1 text-xs" style="color: var(--text-secondary)">
-                  <span>Score: <span class="data-mono" style="color: var(--status-warning)">{typeof a.score === 'number' ? a.score.toFixed(3) : a.score}</span></span>
+                  <span>Score: <span class="data-mono" style="color: var(--status-warning)">{typeof (a.score ?? a.severity) === 'number' ? (a.score ?? a.severity).toFixed(3) : (a.score ?? a.severity)}</span></span>
                   <span class="text-xs rounded-full px-2 py-0.5" style="background: var(--bg-inset); color: var(--text-tertiary)">{a.type}</span>
                 </div>
               </div>

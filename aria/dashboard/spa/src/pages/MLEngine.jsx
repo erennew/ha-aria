@@ -324,7 +324,7 @@ export default function MLEngine() {
 
   if (error) {
     return (
-      <div>
+      <div class="space-y-6">
         <PageBanner page="MLENGINE" />
         <ErrorState error={error} onRetry={load} />
       </div>
@@ -333,7 +333,7 @@ export default function MLEngine() {
 
   if (loading) {
     return (
-      <div>
+      <div class="space-y-6">
         <PageBanner page="MLENGINE" />
         <LoadingState type="full" />
       </div>
@@ -341,7 +341,7 @@ export default function MLEngine() {
   }
 
   return (
-    <div class="space-y-6">
+    <div class="space-y-6 animate-page-enter">
       <PageBanner page="MLENGINE" subtitle="Feature selection, model health, and training history" />
 
       <FeatureSelection features={features} loading={false} />

@@ -217,7 +217,7 @@ function CorrectionPropagation({ propagation }) {
           <div class="text-sm mt-1" style="color: var(--text-tertiary)">cell observations</div>
         </div>
         <div class="t-frame" data-label="kernel bandwidth" style="padding: 1rem;">
-          <div class="text-2xl font-bold" style="color: var(--accent)">{stats.kernel_bandwidth ?? 0}</div>
+          <div class="text-2xl font-bold" style="color: var(--accent)">{stats.bandwidth ?? 0}</div>
           <div class="text-sm mt-1" style="color: var(--text-tertiary)">kernel bandwidth</div>
         </div>
       </div>
