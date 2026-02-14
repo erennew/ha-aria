@@ -1,4 +1,5 @@
 // Shared utilities, constants, and layout components for Intelligence sub-sections
+import CollapsibleSection from '../../components/CollapsibleSection.jsx';
 
 export function confidenceColor(conf) {
   if (conf === 'high') return 'background: var(--status-healthy-glow); color: var(--status-healthy);';
@@ -28,15 +29,17 @@ export function durationSince(ts) {
   return rmins > 0 ? `${hrs}h ${rmins}m` : `${hrs}h`;
 }
 
-export function Section({ title, subtitle, children }) {
+export function Section({ title, subtitle, summary, defaultOpen = true, loading, children }) {
   return (
-    <section class="space-y-3">
-      <div class="t-section-header" style="padding-bottom: 8px;">
-        <h2 class="text-lg font-bold" style="color: var(--text-primary)">{title}</h2>
-        {subtitle && <p class="text-sm" style="color: var(--text-tertiary)">{subtitle}</p>}
-      </div>
+    <CollapsibleSection
+      title={title}
+      subtitle={subtitle}
+      summary={summary}
+      defaultOpen={defaultOpen}
+      loading={loading}
+    >
       {children}
-    </section>
+    </CollapsibleSection>
   );
 }
 
