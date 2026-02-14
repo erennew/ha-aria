@@ -211,7 +211,8 @@ export function ActivitySection({ activity }) {
   const parts = [];
   if (occ.anyone_home) {
     const dur = durationSince(occ.since);
-    parts.push(dur ? `${occ.people.join(' & ')} home for ${dur}` : `${occ.people.join(' & ')} home`);
+    const names = (occ.people || []).join(' & ') || 'Someone';
+    parts.push(dur ? `${names} home for ${dur}` : `${names} home`);
   } else {
     parts.push('Nobody home');
   }

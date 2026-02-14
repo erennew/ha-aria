@@ -239,6 +239,9 @@ class ActivityMonitor(Module):
                         self._ws_connected = True
                         self._ws_last_connected_at = now.isoformat()
 
+                        # 2b. Seed occupancy from current person entity states
+                        await self._seed_occupancy(session)
+
                         # 3. Subscribe to state_changed
                         await ws.send_json(
                             {
@@ -287,6 +290,8 @@ class ActivityMonitor(Module):
         old_state = data.get("old_state") or {}
 
         domain = entity_id.split(".")[0] if "." in entity_id else ""
+        from_state = old_state.get("state", "")
+        to_state = new_state.get("state", "")
 
         # Note: _included_entities/_excluded_entities are replaced atomically by
         # _load_curation_rules(). CPython's GIL ensures set reads are safe without
@@ -394,6 +399,44 @@ class ActivityMonitor(Module):
                 if not self._occupancy_people:
                     self._occupancy_state = False
                     self.logger.info("Occupancy: away (all people left)")
+
+    async def _seed_occupancy(self, session: aiohttp.ClientSession):
+        """Fetch current person.* entity states from HA REST API to seed occupancy.
+
+        Without this, occupancy stays 'away' after hub restart until someone's
+        person entity transitions — which never happens if everyone is already home.
+        """
+        try:
+            url = f"{self.ha_url}/api/states"
+            headers = {"Authorization": f"Bearer {self.ha_token}"}
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    self.logger.warning(f"Failed to seed occupancy (HTTP {resp.status})")
+                    return
+                states = await resp.json()
+
+            people = []
+            for entity in states:
+                eid = entity.get("entity_id", "")
+                if eid.startswith("person.") and entity.get("state") == "home":
+                    name = entity.get("attributes", {}).get("friendly_name") or eid.split(".")[-1].replace("_", " ").title()
+                    people.append(name)
+
+            if people:
+                self._occupancy_people = people
+                self._occupancy_state = True
+                self._occupancy_since = datetime.now().isoformat()
+                self.logger.info(f"Occupancy seeded: {', '.join(people)} home")
+            else:
+                self._occupancy_people = []
+                self._occupancy_state = False
+                self._occupancy_since = None
+                self.logger.info("Occupancy seeded: nobody home")
+
+            # Immediately push to cache so dashboard doesn't show stale "away"
+            await self._update_summary_cache()
+        except Exception as e:
+            self.logger.warning(f"Failed to seed occupancy: {e}")
 
     def _maybe_trigger_snapshot(self):
         """Trigger an extra intraday snapshot if conditions are met."""
