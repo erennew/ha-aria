@@ -296,6 +296,15 @@ def _serve(host: str, port: int, log_level: str = "INFO"):
         except Exception as e:
             logger.warning(f"Activity monitor failed (non-fatal): {e}")
 
+        # activity_labeler (non-fatal)
+        try:
+            from aria.modules.activity_labeler import ActivityLabeler
+            activity_labeler = ActivityLabeler(hub)
+            hub.register_module(activity_labeler)
+            await _init_module(activity_labeler, "activity_labeler")()
+        except Exception as e:
+            logger.warning(f"Activity labeler module failed (non-fatal): {e}")
+
         # Module load summary
         total = len(hub.module_status)
         running = sum(1 for s in hub.module_status.values() if s == "running")

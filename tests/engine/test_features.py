@@ -157,7 +157,14 @@ class TestFeatureVector(unittest.TestCase):
         self.assertEqual(fv["prev_snapshot_lights"], 5)
 
     def test_build_training_data(self):
-        from conftest import make_synthetic_snapshots
+        import importlib.util, pathlib
+        _spec = importlib.util.spec_from_file_location(
+            "engine_conftest",
+            pathlib.Path(__file__).parent / "conftest.py",
+        )
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        make_synthetic_snapshots = _mod.make_synthetic_snapshots
 
         config = DEFAULT_FEATURE_CONFIG
         snapshots = make_synthetic_snapshots(10)

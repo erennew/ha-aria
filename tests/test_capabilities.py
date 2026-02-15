@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from aria.capabilities import Capability, CapabilityRegistry
+from aria.capabilities import Capability, CapabilityRegistry, DemandSignal
 
 PROJECT_ROOT = str(Path(__file__).parent.parent)
 
@@ -72,6 +72,48 @@ class TestCapabilityCreation:
     def test_with_depends_on(self):
         cap = _make_cap(depends_on=["discovery", "ml_engine"])
         assert cap.depends_on == ["discovery", "ml_engine"]
+
+
+class TestDemandSignal:
+    """Tests for DemandSignal dataclass and its integration with Capability."""
+
+    def test_demand_signal_defaults(self):
+        sig = DemandSignal()
+        assert sig.entity_domains == []
+        assert sig.device_classes == []
+        assert sig.min_entities == 5
+        assert sig.description == ""
+
+    def test_demand_signal_custom_fields(self):
+        sig = DemandSignal(
+            entity_domains=["light", "switch"],
+            device_classes=["occupancy"],
+            min_entities=10,
+            description="Lighting groups for zone control",
+        )
+        assert sig.entity_domains == ["light", "switch"]
+        assert sig.device_classes == ["occupancy"]
+        assert sig.min_entities == 10
+        assert sig.description == "Lighting groups for zone control"
+
+    def test_demand_signal_frozen(self):
+        sig = DemandSignal()
+        with pytest.raises(AttributeError):
+            sig.min_entities = 10
+
+    def test_capability_with_demand_signals(self):
+        signals = [
+            DemandSignal(entity_domains=["light"], min_entities=10),
+            DemandSignal(entity_domains=["climate"], device_classes=["thermostat"]),
+        ]
+        cap = _make_cap(demand_signals=signals)
+        assert len(cap.demand_signals) == 2
+        assert cap.demand_signals[0].entity_domains == ["light"]
+        assert cap.demand_signals[1].device_classes == ["thermostat"]
+
+    def test_capability_without_demand_signals_defaults_empty(self):
+        cap = _make_cap()
+        assert cap.demand_signals == []
 
 
 class TestCapabilityValidation:
@@ -408,3 +450,26 @@ class TestRuntimeHealth:
         health = registry.health({})
         assert health["discovery"]["module_loaded"] is None
         assert health["discovery"]["module_status"] == "unknown"
+
+
+class TestDemandSignalDeclarations:
+    """Verify ML engine and shadow engine declare demand signals."""
+
+    def test_ml_engine_declares_demand_signals(self):
+        from aria.modules.ml_engine import MLEngine
+        caps = MLEngine.CAPABILITIES
+        assert any(len(c.demand_signals) > 0 for c in caps)
+        # Check the first demand signal has required fields
+        ds = caps[0].demand_signals[0]
+        assert ds.entity_domains
+        assert ds.min_entities >= 1
+
+    def test_shadow_engine_declares_demand_signals(self):
+        from aria.modules.shadow_engine import ShadowEngine
+        caps = ShadowEngine.CAPABILITIES
+        assert any(len(c.demand_signals) > 0 for c in caps)
+
+    def test_demand_signals_are_frozen(self):
+        ds = DemandSignal(entity_domains=["sensor"], min_entities=5)
+        with pytest.raises(Exception):  # FrozenInstanceError
+            ds.min_entities = 10

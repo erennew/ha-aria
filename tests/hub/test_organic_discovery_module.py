@@ -571,3 +571,221 @@ class TestOnEvent:
         """on_event should not raise."""
         # Intentionally no assertion — verifies on_event doesn't raise
         await module.on_event("cache_updated", {"category": "entities"})
+
+
+class TestDriftDetection:
+    @pytest.mark.asyncio
+    async def test_drift_flags_capability(self):
+        """Drift event flags capability for re-discovery."""
+        module = _make_module()
+        # Seed capabilities cache
+        module.hub.get_cache.return_value = _make_cache_entry({
+            "climate": {"available": True, "entities": ["sensor.temp"], "status": "promoted"}
+        })
+
+        await module.on_event("drift_detected", {
+            "capability": "climate",
+            "drift_type": "behavioral_drift",
+            "severity": 0.8,
+        })
+
+        # Verify set_cache was called with the flagged capability
+        cap_calls = [
+            c for c in module.hub.set_cache.call_args_list
+            if c[0][0] == "capabilities"
+        ]
+        assert len(cap_calls) >= 1
+        written_caps = cap_calls[-1][0][1]
+        assert written_caps["climate"]["drift_flagged"] is True
+        assert written_caps["climate"]["drift_severity"] == 0.8
+
+    @pytest.mark.asyncio
+    async def test_drift_ignores_unknown_capability(self):
+        """Drift for non-existent capability is silently ignored."""
+        module = _make_module()
+        module.hub.get_cache.return_value = _make_cache_entry({
+            "climate": {"available": True}
+        })
+
+        await module.on_event("drift_detected", {
+            "capability": "nonexistent",
+            "severity": 0.5,
+        })
+
+        # set_cache should NOT have been called for capabilities
+        cap_calls = [
+            c for c in module.hub.set_cache.call_args_list
+            if c[0][0] == "capabilities"
+        ]
+        assert len(cap_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_drift_ignores_non_drift_events(self):
+        """Non-drift events are ignored."""
+        module = _make_module()
+        module.hub.get_cache.return_value = _make_cache_entry({
+            "climate": {"available": True}
+        })
+
+        await module.on_event("state_changed", {"entity_id": "sensor.temp"})
+
+        # get_cache should not even be called for non-drift events
+        module.hub.get_cache.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_drift_ignores_empty_capability_name(self):
+        """Empty capability name is ignored."""
+        module = _make_module()
+        module.hub.get_cache.return_value = _make_cache_entry({"climate": {"available": True}})
+
+        await module.on_event("drift_detected", {"capability": "", "severity": 0.5})
+
+        # Should return early without calling get_cache
+        module.hub.get_cache.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_drift_no_capabilities_cache(self):
+        """Drift with no capabilities cache does nothing."""
+        module = _make_module()
+        module.hub.get_cache.return_value = None
+
+        # Should not raise
+        await module.on_event("drift_detected", {"capability": "climate", "severity": 0.5})
+
+
+# ---------------------------------------------------------------------------
+# Predictability feedback
+# ---------------------------------------------------------------------------
+
+
+class TestPredictabilityFeedback:
+    """Tests for _compute_predictability reading ML/shadow feedback."""
+
+    def test_compute_predictability_with_ml_and_shadow(self, module):
+        """Both ML and shadow present — weighted blend (0.7 * ML + 0.3 * shadow)."""
+        caps = {
+            "living_room": {
+                "ml_accuracy": {"mean_r2": 0.8},
+                "shadow_accuracy": {"hit_rate": 0.6},
+            }
+        }
+        result = module._compute_predictability("living_room", caps)
+        expected = 0.8 * 0.7 + 0.6 * 0.3  # 0.56 + 0.18 = 0.74
+        assert abs(result - expected) < 1e-9
+
+    def test_compute_predictability_ml_only(self, module):
+        """Only ML accuracy present, no shadow — shadow defaults to 0."""
+        caps = {
+            "kitchen": {
+                "ml_accuracy": {"mean_r2": 0.5},
+            }
+        }
+        result = module._compute_predictability("kitchen", caps)
+        expected = 0.5 * 0.7 + 0.0 * 0.3  # 0.35
+        assert abs(result - expected) < 1e-9
+
+    def test_compute_predictability_shadow_only(self, module):
+        """Only shadow accuracy present, no ML — ML defaults to 0."""
+        caps = {
+            "bedroom": {
+                "shadow_accuracy": {"hit_rate": 0.9},
+            }
+        }
+        result = module._compute_predictability("bedroom", caps)
+        expected = 0.0 * 0.7 + 0.9 * 0.3  # 0.27
+        assert abs(result - expected) < 1e-9
+
+    def test_compute_predictability_neither(self, module):
+        """No ML or shadow data — returns 0.0."""
+        caps = {"some_cap": {"entities": ["light.test"]}}
+        result = module._compute_predictability("some_cap", caps)
+        assert result == 0.0
+
+    def test_compute_predictability_missing_cap(self, module):
+        """Capability not in cache at all — returns 0.0."""
+        caps = {"other_cap": {"ml_accuracy": {"mean_r2": 0.9}}}
+        result = module._compute_predictability("missing_cap", caps)
+        assert result == 0.0
+
+    def test_compute_predictability_from_cache_wrapper(self, module):
+        """Handles {"data": {...}} wrapper from cache entries."""
+        caps = {
+            "data": {
+                "garage": {
+                    "ml_accuracy": {"mean_r2": 0.6},
+                    "shadow_accuracy": {"hit_rate": 0.4},
+                }
+            }
+        }
+        result = module._compute_predictability("garage", caps)
+        expected = 0.6 * 0.7 + 0.4 * 0.3  # 0.42 + 0.12 = 0.54
+        assert abs(result - expected) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# Demand alignment
+# ---------------------------------------------------------------------------
+
+
+def _make_module():
+    """Create an OrganicDiscoveryModule with a mock hub for unit tests."""
+    hub = AsyncMock()
+    hub.cache = AsyncMock()
+    hub.set_cache = AsyncMock(return_value=1)
+    hub.get_cache = AsyncMock(return_value=None)
+    hub.publish = AsyncMock()
+    hub.schedule_task = AsyncMock()
+    hub.mark_module_running = MagicMock()
+    hub.mark_module_failed = MagicMock()
+    hub.is_running = MagicMock(return_value=True)
+    mod = OrganicDiscoveryModule(hub)
+    mod._load_logbook = AsyncMock(return_value=[])
+    return mod
+
+
+class TestDemandAlignment:
+    def test_full_match_gets_max_bonus(self):
+        module = _make_module()
+        from aria.capabilities import DemandSignal
+        demands = [DemandSignal(entity_domains=["sensor"], device_classes=["power"], min_entities=3)]
+        entities = [
+            {"entity_id": f"sensor.power_{i}", "domain": "sensor", "device_class": "power"}
+            for i in range(5)
+        ]
+        bonus = module._compute_demand_alignment(entities, demands)
+        assert bonus == 0.2
+
+    def test_domain_match_only(self):
+        module = _make_module()
+        from aria.capabilities import DemandSignal
+        demands = [DemandSignal(entity_domains=["sensor"], device_classes=["power"], min_entities=3)]
+        entities = [
+            {"entity_id": f"sensor.temp_{i}", "domain": "sensor", "device_class": "temperature"}
+            for i in range(5)
+        ]
+        bonus = module._compute_demand_alignment(entities, demands)
+        assert bonus == 0.05
+
+    def test_no_match(self):
+        module = _make_module()
+        from aria.capabilities import DemandSignal
+        demands = [DemandSignal(entity_domains=["sensor"], device_classes=["power"], min_entities=3)]
+        entities = [{"entity_id": "light.lamp", "domain": "light", "device_class": ""}]
+        bonus = module._compute_demand_alignment(entities, demands)
+        assert bonus == 0.0
+
+    def test_empty_demands(self):
+        module = _make_module()
+        bonus = module._compute_demand_alignment([{"domain": "sensor"}], [])
+        assert bonus == 0.0
+
+    def test_domain_and_class_match_below_size(self):
+        module = _make_module()
+        from aria.capabilities import DemandSignal
+        demands = [DemandSignal(entity_domains=["sensor"], device_classes=["power"], min_entities=10)]
+        entities = [
+            {"entity_id": f"sensor.power_{i}", "domain": "sensor", "device_class": "power"}
+            for i in range(3)
+        ]
+        bonus = module._compute_demand_alignment(entities, demands)
+        assert bonus == 0.1  # domain + class match but below size threshold

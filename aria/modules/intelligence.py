@@ -153,6 +153,9 @@ class IntelligenceModule(Module):
                 )
                 self.logger.debug("Intelligence cache refreshed")
 
+                # Check for behavioral drift → notify organic discovery
+                await self._check_for_drift(data)
+
                 # Check for new daily insight → send digest
                 await self._maybe_send_digest(data)
             except Exception as e:
@@ -168,6 +171,41 @@ class IntelligenceModule(Module):
 
     async def on_event(self, event_type: str, data: Dict[str, Any]):
         pass
+
+    async def _check_for_drift(self, data: Dict[str, Any]):
+        """Check intelligence data for behavioral drift and publish events.
+
+        Reads drift_status and accuracy from the assembled intelligence data.
+        If drift_status contains entries with interpretation == 'behavioral_drift',
+        publishes drift_detected events so organic discovery can flag capabilities
+        for re-evaluation.
+        """
+        drift_status = data.get("drift_status")
+        if not drift_status:
+            return
+
+        # drift_status can be a dict keyed by capability name or a list
+        entries = []
+        if isinstance(drift_status, dict):
+            for cap_name, entry in drift_status.items():
+                if isinstance(entry, dict):
+                    entry["_cap_name"] = cap_name
+                    entries.append(entry)
+        elif isinstance(drift_status, list):
+            entries = drift_status
+
+        for entry in entries:
+            interpretation = entry.get("interpretation", "")
+            if interpretation == "behavioral_drift":
+                cap_name = entry.get("_cap_name") or entry.get("capability", "")
+                if not cap_name:
+                    continue
+                divergence = abs(entry.get("divergence_pct", 0))
+                await self.hub.publish("drift_detected", {
+                    "capability": cap_name,
+                    "drift_type": "behavioral_drift",
+                    "severity": divergence / 100,
+                })
 
     # ------------------------------------------------------------------
     # Data assembly

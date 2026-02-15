@@ -571,6 +571,142 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Capability '{capability_id}' not found")
         return asdict(cap)
 
+    # Automation suggestion feedback endpoints
+    @router.post("/api/automations/feedback")
+    async def record_automation_feedback(body: dict = Body(...)):
+        """Record user feedback on an automation suggestion."""
+        suggestion_id = body.get("suggestion_id")
+        capability_source = body.get("capability_source")
+        user_action = body.get("user_action")
+
+        if not suggestion_id or not capability_source or not user_action:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Missing required fields: suggestion_id, capability_source, user_action"},
+            )
+
+        allowed_actions = ("accepted", "rejected", "modified", "ignored")
+        if user_action not in allowed_actions:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Invalid user_action. Must be one of: {', '.join(allowed_actions)}"},
+            )
+
+        # Read existing feedback data or create empty structure
+        cached = await hub.get_cache("automation_feedback")
+        if cached and cached.get("data"):
+            feedback_data = cached["data"]
+        else:
+            feedback_data = {"suggestions": {}, "per_capability": {}}
+
+        # Store feedback entry
+        feedback_data["suggestions"][suggestion_id] = {
+            "capability_source": capability_source,
+            "user_action": user_action,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        # Update per-capability counters
+        cap_stats = feedback_data["per_capability"].get(capability_source, {
+            "suggested": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "acceptance_rate": 0.0,
+        })
+        cap_stats["suggested"] = cap_stats.get("suggested", 0) + 1
+        if user_action == "accepted":
+            cap_stats["accepted"] = cap_stats.get("accepted", 0) + 1
+        elif user_action == "rejected":
+            cap_stats["rejected"] = cap_stats.get("rejected", 0) + 1
+
+        total = cap_stats["suggested"]
+        cap_stats["acceptance_rate"] = round(cap_stats["accepted"] / total, 3) if total > 0 else 0.0
+        feedback_data["per_capability"][capability_source] = cap_stats
+
+        await hub.set_cache("automation_feedback", feedback_data, {"source": "user_feedback"})
+
+        return {"status": "recorded", "suggestion_id": suggestion_id}
+
+    @router.get("/api/automations/feedback")
+    async def get_automation_feedback():
+        """Get automation suggestion feedback history."""
+        cached = await hub.get_cache("automation_feedback")
+        if cached and cached.get("data"):
+            return cached["data"]
+        return {"suggestions": {}, "per_capability": {}}
+
+    # Feedback health endpoint
+    @router.get("/api/capabilities/feedback/health")
+    async def get_feedback_health():
+        """Summarize health of all feedback channels."""
+        entry = await hub.get_cache("capabilities")
+        caps = entry.get("data", {}) if entry else {}
+        ml_count = sum(1 for c in caps.values() if isinstance(c, dict) and c.get("ml_accuracy"))
+        shadow_count = sum(1 for c in caps.values() if isinstance(c, dict) and c.get("shadow_accuracy"))
+        drift_count = sum(1 for c in caps.values() if isinstance(c, dict) and c.get("drift_flagged"))
+
+        labels_entry = await hub.get_cache("activity_labels")
+        label_stats = labels_entry.get("data", {}).get("label_stats", {}) if labels_entry else {}
+
+        feedback_entry = await hub.get_cache("automation_feedback")
+        suggestion_stats = feedback_entry.get("data", {}).get("per_capability", {}) if feedback_entry else {}
+
+        return {
+            "capabilities_total": len([c for c in caps.values() if isinstance(c, dict)]),
+            "capabilities_with_ml_feedback": ml_count,
+            "capabilities_with_shadow_feedback": shadow_count,
+            "capabilities_drift_flagged": drift_count,
+            "activity_labels": label_stats.get("total_labels", 0),
+            "activity_classifier_ready": label_stats.get("classifier_ready", False),
+            "automation_feedback_count": sum(v.get("suggested", 0) for v in suggestion_stats.values()),
+        }
+
+    # Activity labeling endpoints
+    @router.get("/api/activity/current")
+    async def get_current_activity():
+        """Get current predicted activity."""
+        entry = await hub.get_cache("activity_labels")
+        if not entry or not entry.get("data"):
+            return {"predicted": "unknown", "confidence": 0, "method": "none"}
+        return entry["data"].get("current_activity", {"predicted": "unknown", "confidence": 0, "method": "none"})
+
+    @router.post("/api/activity/label")
+    async def post_activity_label(body: dict = Body(...)):
+        """Record a user-confirmed or corrected activity label."""
+        actual = body.get("actual_activity", "")
+        if not actual:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "actual_activity required"},
+            )
+        entry = await hub.get_cache("activity_labels")
+        current = entry["data"].get("current_activity", {}) if entry and entry.get("data") else {}
+        predicted = current.get("predicted", "unknown")
+        context = current.get("sensor_context", {})
+        source = "confirmed" if actual == predicted else "corrected"
+        labeler = hub.modules.get("activity_labeler")
+        if labeler:
+            stats = await labeler.record_label(predicted, actual, context, source)
+            return {"status": "recorded", "predicted": predicted, "actual": actual, "source": source, "stats": stats}
+        return {"status": "recorded", "predicted": predicted, "actual": actual, "source": source}
+
+    @router.get("/api/activity/labels")
+    async def get_activity_labels(limit: int = 50):
+        """Get activity label history."""
+        entry = await hub.get_cache("activity_labels")
+        if not entry or not entry.get("data"):
+            return {"labels": [], "label_stats": {}}
+        data = entry["data"]
+        return {"labels": data.get("labels", [])[-limit:], "label_stats": data.get("label_stats", {})}
+
+    @router.get("/api/activity/stats")
+    async def get_activity_stats():
+        """Get activity labeling statistics."""
+        entry = await hub.get_cache("activity_labels")
+        if not entry or not entry.get("data"):
+            return {"total_labels": 0, "classifier_ready": False}
+        return entry["data"].get("label_stats", {})
+
     # Shadow engine endpoints
     @router.get("/api/shadow/predictions")
     async def get_shadow_predictions(

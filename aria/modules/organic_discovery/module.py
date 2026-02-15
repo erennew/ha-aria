@@ -5,11 +5,11 @@ naming, scoring) and integrates with the ARIA hub lifecycle.
 """
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
 from aria.hub.core import Module, IntelligenceHub
-from aria.capabilities import Capability
+from aria.capabilities import Capability, DemandSignal, CapabilityRegistry
 from aria.modules.organic_discovery.feature_vectors import build_feature_matrix
 from aria.modules.organic_discovery.clustering import cluster_entities
 from aria.modules.organic_discovery.seed_validation import validate_seeds
@@ -105,8 +105,21 @@ class OrganicDiscoveryModule(Module):
             self.logger.error(f"Periodic organic discovery failed: {e}")
 
     async def on_event(self, event_type: str, data: Dict[str, Any]):
-        """Handle hub events (no-op for now)."""
-        pass
+        """Handle hub events — drift_detected flags capabilities for re-discovery."""
+        if event_type == "drift_detected":
+            cap_name = data.get("capability", "")
+            if not cap_name:
+                return
+            caps_entry = await self.hub.get_cache("capabilities")
+            if not caps_entry or not caps_entry.get("data"):
+                return
+            caps = caps_entry["data"]
+            if cap_name in caps:
+                caps[cap_name]["drift_flagged"] = True
+                caps[cap_name]["drift_detected_at"] = datetime.now().isoformat()
+                caps[cap_name]["drift_severity"] = data.get("severity", 0.0)
+                await self.hub.set_cache("capabilities", caps, {"source": "drift_flag"})
+                self.logger.warning(f"Capability '{cap_name}' flagged for re-discovery due to drift")
 
     # ------------------------------------------------------------------
     # Naming
@@ -199,6 +212,9 @@ class OrganicDiscoveryModule(Module):
             except Exception as e:
                 self.logger.warning(f"Seed validation failed: {e}")
 
+        # Collect demand signals for alignment scoring
+        demand_signals = self._collect_demand_signals()
+
         # 5-6. Name and score each cluster
         organic_caps: Dict[str, Dict[str, Any]] = {}
         total_entities = len(entity_ids) if entity_ids else 1
@@ -226,13 +242,19 @@ class OrganicDiscoveryModule(Module):
                 avg_activity = sum(rates) / len(rates)
 
             components = UsefulnessComponents(
-                predictability=0.0,  # no ML model yet for organic clusters
+                predictability=self._compute_predictability(name, seed_caps),
                 stability=self._compute_stability(name),
                 entity_coverage=len(member_ids) / total_entities,
                 activity=min(avg_activity / 50.0, 1.0),  # normalize: 50 changes/day = 1.0
                 cohesion=max(silhouette, 0.0),
             )
             usefulness = compute_usefulness(components)
+
+            # Demand alignment bonus
+            entity_lookup = {e.get("entity_id", ""): e for e in entities}
+            cluster_entity_data = [entity_lookup[eid] for eid in member_ids if eid in entity_lookup]
+            demand_bonus = self._compute_demand_alignment(cluster_entity_data, demand_signals)
+            usefulness = int(min(usefulness + demand_bonus * 100, 100))
 
             today = str(date.today())
             organic_caps[name] = {
@@ -279,13 +301,19 @@ class OrganicDiscoveryModule(Module):
 
                 silhouette = cluster.get("silhouette", 0.0)
                 components = UsefulnessComponents(
-                    predictability=0.0,
+                    predictability=self._compute_predictability(name, seed_caps),
                     stability=self._compute_stability(name),
                     entity_coverage=len(member_ids) / total_entities,
                     activity=min(avg_activity / 50.0, 1.0),
                     cohesion=max(silhouette, 0.0),
                 )
                 usefulness = compute_usefulness(components)
+
+                # Demand alignment bonus
+                entity_lookup_b = {e.get("entity_id", ""): e for e in entities}
+                cluster_entity_data_b = [entity_lookup_b[eid] for eid in member_ids if eid in entity_lookup_b]
+                demand_bonus_b = self._compute_demand_alignment(cluster_entity_data_b, demand_signals)
+                usefulness = int(min(usefulness + demand_bonus_b * 100, 100))
 
                 organic_caps[name] = {
                     "available": True,
@@ -365,6 +393,42 @@ class OrganicDiscoveryModule(Module):
         )
 
         return run_record
+
+    # ------------------------------------------------------------------
+    # Demand alignment
+    # ------------------------------------------------------------------
+
+    def _compute_demand_alignment(self, cluster_entities: list, demands: list) -> float:
+        """Score how well a cluster aligns with consumer demand signals (0.0-0.2 bonus)."""
+        if not demands:
+            return 0.0
+        best_score = 0.0
+        domains = {e.get("domain", "") for e in cluster_entities if isinstance(e, dict)}
+        device_classes = {e.get("device_class", "") for e in cluster_entities if isinstance(e, dict)}
+        count = len(cluster_entities)
+        for demand in demands:
+            domain_match = bool(set(demand.entity_domains) & domains) if demand.entity_domains else True
+            class_match = bool(set(demand.device_classes) & device_classes) if demand.device_classes else True
+            size_match = count >= demand.min_entities
+            if domain_match and class_match and size_match:
+                best_score = max(best_score, 0.2)
+            elif domain_match and class_match:
+                best_score = max(best_score, 0.1)
+            elif domain_match:
+                best_score = max(best_score, 0.05)
+        return best_score
+
+    def _collect_demand_signals(self) -> list:
+        """Collect all demand signals from registered capabilities."""
+        try:
+            registry = CapabilityRegistry()
+            registry.collect_from_modules()
+            signals = []
+            for cap in registry._caps.values():
+                signals.extend(cap.demand_signals)
+            return signals
+        except Exception:
+            return []
 
     # ------------------------------------------------------------------
     # Helpers
@@ -449,6 +513,20 @@ class OrganicDiscoveryModule(Module):
         if len(domains) <= 1:
             return "domain"
         return "behavioral"
+
+    def _compute_predictability(self, cap_name: str, existing_caps: dict) -> float:
+        """Compute predictability from ML + shadow feedback signals.
+
+        Blends ML accuracy (mean_r2, weight 0.7) with shadow accuracy
+        (hit_rate, weight 0.3) from the capabilities cache.
+        """
+        caps = existing_caps.get("data", existing_caps) if isinstance(existing_caps, dict) else {}
+        existing = caps.get(cap_name, {})
+        ml_r2 = existing.get("ml_accuracy", {}).get("mean_r2", 0.0)
+        shadow_hr = existing.get("shadow_accuracy", {}).get("hit_rate", 0.0)
+        if ml_r2 + shadow_hr == 0:
+            return 0.0
+        return ml_r2 * 0.7 + shadow_hr * 0.3
 
     def _compute_stability(self, cap_name: str) -> float:
         """Compute stability score (0-1) from history.
