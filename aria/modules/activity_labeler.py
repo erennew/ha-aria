@@ -69,6 +69,16 @@ class ActivityLabeler(Module):
                     except Exception as e:
                         self.logger.warning(f"Failed to restore classifier from cached labels: {e}")
 
+        # Validate classifier accepts current feature count
+        if self._classifier_ready and self._classifier is not None:
+            try:
+                test_features = self._context_to_features({})
+                self._classifier.predict([test_features])
+            except Exception:
+                self.logger.warning("Cached classifier incompatible with current features, resetting")
+                self._classifier = None
+                self._classifier_ready = False
+
         await self.hub.schedule_task(
             task_id="activity_labeler_predict",
             coro=self._periodic_predict,

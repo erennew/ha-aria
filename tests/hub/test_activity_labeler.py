@@ -555,3 +555,21 @@ class TestInitialize:
         await labeler.initialize()
         assert labeler._classifier_ready
         assert labeler._classifier is not None
+
+    @pytest.mark.asyncio
+    async def test_old_classifier_resets_on_feature_mismatch(self, labeler, hub):
+        """Classifier trained on 5 features gracefully resets when features are now 8."""
+        from sklearn.ensemble import GradientBoostingClassifier
+
+        # Train a classifier on 5-feature vectors (old format)
+        clf = GradientBoostingClassifier(n_estimators=10)
+        clf.fit([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]], [0, 1])
+        labeler._classifier = clf
+        labeler._classifier_ready = True
+        labeler._label_encoder = Mock()
+
+        # Initialize should detect the mismatch and reset
+        await labeler.initialize()
+
+        assert labeler._classifier is None
+        assert labeler._classifier_ready is False
