@@ -254,7 +254,7 @@ class OrganicDiscoveryModule(Module):
             entity_lookup = {e.get("entity_id", ""): e for e in entities}
             cluster_entity_data = [entity_lookup[eid] for eid in member_ids if eid in entity_lookup]
             demand_bonus = self._compute_demand_alignment(cluster_entity_data, demand_signals)
-            usefulness = min(usefulness + demand_bonus * 100, 100)
+            usefulness = int(min(usefulness + demand_bonus * 100, 100))
 
             today = str(date.today())
             organic_caps[name] = {
@@ -313,7 +313,7 @@ class OrganicDiscoveryModule(Module):
                 entity_lookup_b = {e.get("entity_id", ""): e for e in entities}
                 cluster_entity_data_b = [entity_lookup_b[eid] for eid in member_ids if eid in entity_lookup_b]
                 demand_bonus_b = self._compute_demand_alignment(cluster_entity_data_b, demand_signals)
-                usefulness = min(usefulness + demand_bonus_b * 100, 100)
+                usefulness = int(min(usefulness + demand_bonus_b * 100, 100))
 
                 organic_caps[name] = {
                     "available": True,

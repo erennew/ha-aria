@@ -22,7 +22,14 @@ from aria.engine.models.device_failure import (
 from aria.engine.config import HolidayConfig, PathConfig
 from aria.engine.collectors.snapshot import build_empty_snapshot
 
-from conftest import make_synthetic_snapshots
+import importlib.util, pathlib
+_spec = importlib.util.spec_from_file_location(
+    "engine_conftest",
+    pathlib.Path(__file__).parent / "conftest.py",
+)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+make_synthetic_snapshots = _mod.make_synthetic_snapshots
 
 
 HAS_SKLEARN = True
