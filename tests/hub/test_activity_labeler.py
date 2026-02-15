@@ -389,6 +389,125 @@ class TestTimeOfDay:
                 assert result == "evening", f"Hour {hour} should be evening, got {result}"
 
 
+class TestIntelligenceFeatureExtraction:
+    """Tests for _extract_intelligence_features method."""
+
+    def test_extracts_correlated_entities(self, labeler):
+        """Correlated entity count from intelligence cache."""
+        intel_data = {
+            "entity_correlations": {
+                "top_co_occurrences": [
+                    {"entity_a": "light.kitchen", "entity_b": "switch.kitchen", "strength": "very_strong"},
+                    {"entity_a": "light.living", "entity_b": "media.tv", "strength": "strong"},
+                    {"entity_a": "sensor.temp", "entity_b": "sensor.humidity", "strength": "weak"},
+                ]
+            }
+        }
+        result = labeler._extract_intelligence_features(intel_data)
+        # 4 unique strong/very_strong entities
+        assert result["correlated_entities_active"] == 4
+
+    def test_extracts_anomaly_nearby(self, labeler):
+        """anomaly_nearby=1 when anomaly within last hour."""
+        from datetime import datetime, timedelta
+        recent_time = (datetime.now() - timedelta(minutes=30)).isoformat()
+        intel_data = {
+            "sequence_anomalies": {
+                "anomalies": [
+                    {"time_end": recent_time, "description": "unusual pattern"}
+                ]
+            }
+        }
+        result = labeler._extract_intelligence_features(intel_data)
+        assert result["anomaly_nearby"] == 1
+
+    def test_anomaly_not_nearby_when_old(self, labeler):
+        """anomaly_nearby=0 when anomaly older than 1 hour."""
+        from datetime import datetime, timedelta
+        old_time = (datetime.now() - timedelta(hours=2)).isoformat()
+        intel_data = {
+            "sequence_anomalies": {
+                "anomalies": [
+                    {"time_end": old_time, "description": "old pattern"}
+                ]
+            }
+        }
+        result = labeler._extract_intelligence_features(intel_data)
+        assert result["anomaly_nearby"] == 0
+
+    def test_extracts_active_appliance_count(self, labeler):
+        """active_appliance_count from power profiles."""
+        intel_data = {
+            "power_profiles": {
+                "outlets": {
+                    "switch.washer": {"is_active": True},
+                    "switch.dryer": {"is_active": True},
+                    "switch.tv": {"is_active": False},
+                }
+            }
+        }
+        result = labeler._extract_intelligence_features(intel_data)
+        assert result["active_appliance_count"] == 2
+
+    def test_graceful_no_intelligence(self, labeler):
+        """All 3 features default to 0 when intelligence cache empty."""
+        result = labeler._extract_intelligence_features({})
+        assert result["correlated_entities_active"] == 0
+        assert result["anomaly_nearby"] == 0
+        assert result["active_appliance_count"] == 0
+
+    def test_graceful_malformed_intelligence(self, labeler):
+        """Handles malformed intelligence data gracefully."""
+        result = labeler._extract_intelligence_features({"entity_correlations": "bad"})
+        assert result["correlated_entities_active"] == 0
+
+
+class TestPeriodicPredictIntelligence:
+    """Test that _periodic_predict passes intelligence features to context."""
+
+    @pytest.mark.asyncio
+    async def test_periodic_predict_includes_intelligence_features(self, labeler, hub):
+        """_periodic_predict merges intelligence features into context."""
+        from datetime import datetime, timedelta
+        recent_time = (datetime.now() - timedelta(minutes=30)).isoformat()
+
+        hub._cache["intelligence"] = {
+            "data": {
+                "entity_correlations": {
+                    "top_co_occurrences": [
+                        {"entity_a": "light.a", "entity_b": "light.b", "strength": "strong"},
+                    ]
+                },
+                "sequence_anomalies": {
+                    "anomalies": [
+                        {"time_end": recent_time, "description": "test"}
+                    ]
+                },
+                "power_profiles": {
+                    "outlets": {
+                        "switch.a": {"is_active": True},
+                    }
+                },
+            }
+        }
+
+        # Mock predict_activity to capture the context
+        captured_context = {}
+        async def mock_predict(ctx):
+            captured_context.update(ctx)
+            return {"predicted": "relaxing", "confidence": 0.5, "method": "ollama", "sensor_context": ctx, "predicted_at": "now"}
+        labeler.predict_activity = mock_predict
+
+        await labeler._periodic_predict()
+
+        assert "correlated_entities_active" in captured_context
+        assert "anomaly_nearby" in captured_context
+        assert "active_appliance_count" in captured_context
+        assert captured_context["correlated_entities_active"] == 2  # 2 unique entities
+        assert captured_context["anomaly_nearby"] == 1
+        assert captured_context["active_appliance_count"] == 1
+
+
 class TestInitialize:
     """Tests for module initialization."""
 

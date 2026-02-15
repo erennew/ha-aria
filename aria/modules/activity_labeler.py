@@ -332,6 +332,53 @@ class ActivityLabeler(Module):
         return [power_watts, float(lights_on), float(motion_room_count), hour, is_home,
                 correlated_entities_active, anomaly_nearby, active_appliance_count]
 
+    def _extract_intelligence_features(self, intel_data: dict) -> dict:
+        """Extract intelligence-derived features from engine data.
+
+        Args:
+            intel_data: Intelligence cache data dict.
+
+        Returns:
+            Dict with correlated_entities_active, anomaly_nearby, active_appliance_count.
+        """
+        result = {"correlated_entities_active": 0, "anomaly_nearby": 0, "active_appliance_count": 0}
+
+        # Count strong correlations
+        correlations = intel_data.get("entity_correlations")
+        if correlations and isinstance(correlations, dict):
+            pairs = correlations.get("top_co_occurrences", [])
+            strong = set()
+            for p in pairs:
+                if p.get("strength") in ("very_strong", "strong"):
+                    strong.add(p.get("entity_a", ""))
+                    strong.add(p.get("entity_b", ""))
+            result["correlated_entities_active"] = len(strong)
+
+        # Recent anomalies
+        anomalies = intel_data.get("sequence_anomalies")
+        if anomalies and isinstance(anomalies, dict):
+            now = datetime.now()
+            one_hour_ago = now - timedelta(hours=1)
+            for a in anomalies.get("anomalies", []):
+                try:
+                    t = datetime.fromisoformat(a.get("time_end", "").replace("+00:00", ""))
+                    if t >= one_hour_ago:
+                        result["anomaly_nearby"] = 1
+                        break
+                except (ValueError, TypeError):
+                    continue
+
+        # Active power outlets
+        profiles = intel_data.get("power_profiles")
+        if profiles and isinstance(profiles, dict):
+            outlets = profiles.get("outlets", profiles)
+            result["active_appliance_count"] = sum(
+                1 for v in outlets.values()
+                if isinstance(v, dict) and v.get("is_active", False)
+            )
+
+        return result
+
     async def _periodic_predict(self):
         """Read caches, build sensor context, predict activity, store result."""
         # Read activity summary for sensor data
@@ -356,11 +403,13 @@ class ActivityLabeler(Module):
             context["occupancy"] = summary.get("occupancy", "unknown")
             context["recent_events"] = summary.get("recent_events", "none")
 
-        if intelligence_entry and intelligence_entry.get("data"):
-            intel = intelligence_entry["data"]
-            # Supplement with intelligence data if available
-            if "power_watts" in intel and not context["power_watts"]:
-                context["power_watts"] = intel.get("power_watts", 0)
+        # Extract intelligence features and supplement power_watts fallback
+        intel_data = intelligence_entry.get("data", {}) if intelligence_entry else {}
+        if intel_data:
+            if "power_watts" in intel_data and not context["power_watts"]:
+                context["power_watts"] = intel_data.get("power_watts", 0)
+        intel_features = self._extract_intelligence_features(intel_data)
+        context.update(intel_features)
 
         try:
             result = await self.predict_activity(context)
