@@ -635,6 +635,32 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             return cached["data"]
         return {"suggestions": {}, "per_capability": {}}
 
+    # Feedback health endpoint
+    @router.get("/api/capabilities/feedback/health")
+    async def get_feedback_health():
+        """Summarize health of all feedback channels."""
+        entry = await hub.get_cache("capabilities")
+        caps = entry.get("data", {}) if entry else {}
+        ml_count = sum(1 for c in caps.values() if isinstance(c, dict) and c.get("ml_accuracy"))
+        shadow_count = sum(1 for c in caps.values() if isinstance(c, dict) and c.get("shadow_accuracy"))
+        drift_count = sum(1 for c in caps.values() if isinstance(c, dict) and c.get("drift_flagged"))
+
+        labels_entry = await hub.get_cache("activity_labels")
+        label_stats = labels_entry.get("data", {}).get("label_stats", {}) if labels_entry else {}
+
+        feedback_entry = await hub.get_cache("automation_feedback")
+        suggestion_stats = feedback_entry.get("data", {}).get("per_capability", {}) if feedback_entry else {}
+
+        return {
+            "capabilities_total": len([c for c in caps.values() if isinstance(c, dict)]),
+            "capabilities_with_ml_feedback": ml_count,
+            "capabilities_with_shadow_feedback": shadow_count,
+            "capabilities_drift_flagged": drift_count,
+            "activity_labels": label_stats.get("total_labels", 0),
+            "activity_classifier_ready": label_stats.get("classifier_ready", False),
+            "automation_feedback_count": sum(v.get("suggested", 0) for v in suggestion_stats.values()),
+        }
+
     # Shadow engine endpoints
     @router.get("/api/shadow/predictions")
     async def get_shadow_predictions(
