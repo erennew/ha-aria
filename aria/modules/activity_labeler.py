@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 CLASSIFIER_THRESHOLD = 50  # Labels needed before training classifier
 PREDICTION_INTERVAL = timedelta(minutes=15)
-OLLAMA_QUEUE_URL = "http://127.0.0.1:7683"
+OLLAMA_URL = "http://127.0.0.1:11434"
 
 ACTIVITY_PROMPT_TEMPLATE = """Given the current smart home state:
 - Power draw: {power_watts}W
@@ -231,7 +231,7 @@ class ActivityLabeler(Module):
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{OLLAMA_QUEUE_URL}/api/generate",
+                    f"{OLLAMA_URL}/api/generate",
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=60),
                 ) as resp:
