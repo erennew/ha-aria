@@ -41,7 +41,7 @@ def _make_prediction_kwargs(
     """Helper to build insert_prediction keyword args."""
     return {
         "prediction_id": prediction_id,
-        "timestamp": timestamp or datetime.now().isoformat(),
+        "timestamp": timestamp or datetime(2099, 6, 15, 14, 30, 0).isoformat(),
         "context": context or {"room": "living_room", "time_of_day": "evening"},
         "predictions": predictions or [{"action": "light.turn_on", "target": "living_room"}],
         "confidence": confidence,
@@ -241,8 +241,9 @@ class TestGetRecentPredictions:
 
     @pytest.mark.asyncio
     async def test_ordered_by_timestamp_desc(self, cache):
+        base = datetime(2026, 1, 15, 14, 0, 0)
         for i in range(3):
-            ts = (datetime.now() - timedelta(minutes=10 - i)).isoformat()
+            ts = (base - timedelta(minutes=10 - i)).isoformat()
             await cache.insert_prediction(**_make_prediction_kwargs(prediction_id=f"pred-{i}", timestamp=ts))
 
         rows = await cache.get_recent_predictions()
@@ -292,7 +293,7 @@ class TestGetPendingPredictions:
     @pytest.mark.asyncio
     async def test_returns_expired_window(self, cache):
         """Prediction with expired window should be returned."""
-        past = (datetime.now() - timedelta(minutes=10)).isoformat()
+        past = (datetime(2026, 1, 15, 14, 0, 0) - timedelta(minutes=10)).isoformat()
         await cache.insert_prediction(
             **_make_prediction_kwargs(
                 prediction_id="p-expired",
@@ -308,7 +309,7 @@ class TestGetPendingPredictions:
     @pytest.mark.asyncio
     async def test_excludes_future_window(self, cache):
         """Prediction whose window hasn't expired should NOT be returned."""
-        now = datetime.now().isoformat()
+        now = datetime(2099, 1, 15, 14, 30, 0).isoformat()
         await cache.insert_prediction(
             **_make_prediction_kwargs(
                 prediction_id="p-future",
@@ -323,7 +324,7 @@ class TestGetPendingPredictions:
     @pytest.mark.asyncio
     async def test_excludes_resolved(self, cache):
         """Already resolved predictions should not appear."""
-        past = (datetime.now() - timedelta(minutes=10)).isoformat()
+        past = (datetime(2026, 1, 15, 14, 0, 0) - timedelta(minutes=10)).isoformat()
         await cache.insert_prediction(
             **_make_prediction_kwargs(
                 prediction_id="p-resolved",
@@ -361,8 +362,9 @@ class TestGetPendingPredictions:
     @pytest.mark.asyncio
     async def test_ordered_by_timestamp_asc(self, cache):
         """Pending predictions should be oldest first."""
+        base = datetime(2026, 1, 15, 14, 0, 0)
         for i in range(3):
-            ts = (datetime.now() - timedelta(minutes=30 - i)).isoformat()
+            ts = (base - timedelta(minutes=30 - i)).isoformat()
             await cache.insert_prediction(
                 **_make_prediction_kwargs(
                     prediction_id=f"p-{i}",
@@ -420,7 +422,7 @@ class TestGetAccuracyStats:
     async def test_respects_days_window(self, cache):
         """Only predictions within the time window should count."""
         # Old prediction (outside 7-day window)
-        old_ts = (datetime.now() - timedelta(days=10)).isoformat()
+        old_ts = (datetime(2026, 1, 15, 14, 30, 0) - timedelta(days=10)).isoformat()
         await cache.insert_prediction(**_make_prediction_kwargs(prediction_id="p-old", timestamp=old_ts))
         await cache.update_prediction_outcome("p-old", "correct")
 
