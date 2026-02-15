@@ -14,7 +14,7 @@
 **Your home generates 22,000+ events every day.<br/>ARIA learns what they mean.**
 
 [![CI](https://github.com/parthalon025/ha-aria/actions/workflows/ci.yml/badge.svg)](https://github.com/parthalon025/ha-aria/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-747_passing-brightgreen)](https://github.com/parthalon025/ha-aria/actions)
+[![Tests](https://img.shields.io/badge/tests-984_passing-brightgreen)](https://github.com/parthalon025/ha-aria/actions)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -267,7 +267,7 @@ HA tracks individual entity history. ARIA finds patterns *across* entities, pred
 
 | | |
 |:---|:---|
-| **Tests** | 747 passing (CI-enforced) |
+| **Tests** | 984 passing (CI-enforced) |
 | **Code** | 14,451 lines across 63 Python files |
 | **Dashboard** | 44 JSX components across 13 pages |
 | **Hub modules** | 8 registered (discovery, ML, patterns, shadow, orchestrator, data quality, intelligence, activity) |

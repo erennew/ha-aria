@@ -207,13 +207,13 @@ See: `~/Documents/docs/lessons/2026-02-15-horizontal-vertical-pipeline-testing.m
 ### Unit Tests
 
 ```bash
-# All tests (~973)
+# All tests (~984)
 .venv/bin/python -m pytest tests/ -v
 
 # By suite
-.venv/bin/python -m pytest tests/hub/ -v         # Hub (~544 tests)
-.venv/bin/python -m pytest tests/engine/ -v       # Engine (177 tests)
-.venv/bin/python -m pytest tests/integration/ -v  # Integration (9 tests)
+.venv/bin/python -m pytest tests/hub/ -v         # Hub (~670 tests)
+.venv/bin/python -m pytest tests/engine/ -v       # Engine (222 tests)
+.venv/bin/python -m pytest tests/integration/ -v  # Integration (39 tests)
 
 # By feature area (use -k for keyword filtering)
 .venv/bin/python -m pytest tests/hub/ -k "organic" -v       # Organic discovery (148 tests)
