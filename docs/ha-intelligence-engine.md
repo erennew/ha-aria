@@ -58,7 +58,7 @@ This plan is grounded in real data pulled from HA on 2026-02-10:
 ## File Structure
 
 ```
-~/.local/bin/ha-intelligence          # Main orchestrator (Python, ~800 lines)
+~/.local/bin/aria          # Main orchestrator (Python, ~800 lines)
 ~/ha-logs/intelligence/
   ├── daily/YYYY-MM-DD.json           # Daily aggregated snapshots
   ├── baselines.json                  # Computed per-day-of-week baselines
@@ -77,7 +77,7 @@ This plan is grounded in real data pulled from HA on 2026-02-10:
 
 **Files:**
 - Create: `~/Documents/tests/test_ha_intelligence.py`
-- Create: `~/.local/bin/ha-intelligence`
+- Create: `~/.local/bin/aria`
 
 The aggregator collects one daily snapshot that all other components consume. It pulls from HA REST API, weather, and calendar into a single JSON structure.
 
@@ -99,7 +99,7 @@ class TestDailySnapshot(unittest.TestCase):
     def test_snapshot_schema_has_required_keys(self):
         """Daily snapshot must contain all data sections."""
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         snapshot = ha.build_empty_snapshot("2026-02-10")
         required_keys = [
@@ -114,7 +114,7 @@ class TestDailySnapshot(unittest.TestCase):
 
     def test_snapshot_date_metadata(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         snapshot = ha.build_empty_snapshot("2026-02-10")
         self.assertEqual(snapshot["date"], "2026-02-10")
@@ -226,7 +226,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add ~/Documents/tests/test_ha_intelligence.py ~/.local/bin/ha-intelligence
+git add ~/Documents/tests/test_ha_intelligence.py ~/.local/bin/aria
 git commit -m "feat(ha-intelligence): scaffold with empty snapshot builder"
 ```
 
@@ -235,7 +235,7 @@ git commit -m "feat(ha-intelligence): scaffold with empty snapshot builder"
 ## Task 2: HA API Data Collection
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 Populate the snapshot from the HA REST API. This is the most data-dense task — we extract power, occupancy, climate, locks, lights, motion, automations, and EV data from the 3,065 entity states.
@@ -274,14 +274,14 @@ class TestEntityExtraction(unittest.TestCase):
 
     def test_extract_power(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         snapshot = ha.build_empty_snapshot("2026-02-10")
         ha.extract_power(snapshot, self.SAMPLE_STATES)
         self.assertAlmostEqual(snapshot["power"]["total_watts"], 156.5, places=1)
 
     def test_extract_occupancy(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         snapshot = ha.build_empty_snapshot("2026-02-10")
         ha.extract_occupancy(snapshot, self.SAMPLE_STATES)
         self.assertIn("Justin", snapshot["occupancy"]["people_home"])
@@ -290,7 +290,7 @@ class TestEntityExtraction(unittest.TestCase):
 
     def test_extract_climate(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         snapshot = ha.build_empty_snapshot("2026-02-10")
         ha.extract_climate(snapshot, self.SAMPLE_STATES)
         self.assertEqual(len(snapshot["climate"]), 1)
@@ -299,7 +299,7 @@ class TestEntityExtraction(unittest.TestCase):
 
     def test_extract_lights(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         snapshot = ha.build_empty_snapshot("2026-02-10")
         ha.extract_lights(snapshot, self.SAMPLE_STATES)
         self.assertEqual(snapshot["lights"]["on"], 1)
@@ -307,7 +307,7 @@ class TestEntityExtraction(unittest.TestCase):
 
     def test_extract_ev(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         snapshot = ha.build_empty_snapshot("2026-02-10")
         ha.extract_ev(snapshot, self.SAMPLE_STATES)
         self.assertIn("TARS", snapshot["ev"])
@@ -505,7 +505,7 @@ Expected: All PASS
 **Step 5: Commit**
 
 ```bash
-git add ~/.local/bin/ha-intelligence ~/Documents/tests/test_ha_intelligence.py
+git add ~/.local/bin/aria ~/Documents/tests/test_ha_intelligence.py
 git commit -m "feat(ha-intelligence): entity extraction for power, occupancy, climate, lights, locks, motion, EV"
 ```
 
@@ -514,7 +514,7 @@ git commit -m "feat(ha-intelligence): entity extraction for power, occupancy, cl
 ## Task 3: Weather + Calendar + Logbook Collection
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 **Step 1: Write failing test for weather/calendar/logbook**
@@ -523,7 +523,7 @@ git commit -m "feat(ha-intelligence): entity extraction for power, occupancy, cl
 class TestExternalData(unittest.TestCase):
     def test_parse_weather(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         raw = "Partly cloudy +62°F 70% →11mph"
         result = ha.parse_weather(raw)
         self.assertEqual(result["temp_f"], 62)
@@ -532,7 +532,7 @@ class TestExternalData(unittest.TestCase):
 
     def test_parse_logbook_summary(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         entries = [
             {"entity_id": "sensor.time", "when": "2026-02-10T01:02:00+00:00"},
             {"entity_id": "sensor.time", "when": "2026-02-10T01:03:00+00:00"},
@@ -654,7 +654,7 @@ Run: `python3 ~/Documents/tests/test_ha_intelligence.py -v`
 **Step 5: Commit**
 
 ```bash
-git add ~/.local/bin/ha-intelligence ~/Documents/tests/test_ha_intelligence.py
+git add ~/.local/bin/aria ~/Documents/tests/test_ha_intelligence.py
 git commit -m "feat(ha-intelligence): weather parsing, calendar fetch, logbook summarization"
 ```
 
@@ -663,7 +663,7 @@ git commit -m "feat(ha-intelligence): weather parsing, calendar fetch, logbook s
 ## Task 4: Full Snapshot Assembly + CLI
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 Wire all extraction functions together. The `--snapshot` command fetches live data and saves to `~/ha-logs/intelligence/daily/`.
@@ -678,7 +678,7 @@ class TestSnapshotAssembly(unittest.TestCase):
     @patch("ha_intelligence.load_logbook")
     def test_build_snapshot_assembles_all_sections(self, mock_log, mock_cal, mock_weather, mock_states):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         mock_states.return_value = TestEntityExtraction.SAMPLE_STATES
         mock_weather.return_value = "Clear +75°F 50% →5mph"
@@ -803,7 +803,7 @@ git commit -m "feat(ha-intelligence): full snapshot assembly with HA, weather, c
 ## Task 5: Baseline Builder
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 Compute per-day-of-week baselines from accumulated daily snapshots. After 7+ days of data, we know what "normal Tuesday" looks like.
@@ -814,7 +814,7 @@ Compute per-day-of-week baselines from accumulated daily snapshots. After 7+ day
 class TestBaselines(unittest.TestCase):
     def _make_snapshot(self, date_str, power=150, lights_on=30, devices_home=50):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         snap = ha.build_empty_snapshot(date_str)
         snap["power"]["total_watts"] = power
         snap["lights"]["on"] = lights_on
@@ -823,7 +823,7 @@ class TestBaselines(unittest.TestCase):
 
     def test_compute_baselines_groups_by_day_of_week(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         snapshots = [
             self._make_snapshot("2026-02-03", power=100),  # Tuesday
@@ -837,7 +837,7 @@ class TestBaselines(unittest.TestCase):
 
     def test_baseline_includes_stddev(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         snapshots = [
             self._make_snapshot("2026-02-03", power=100),
@@ -921,7 +921,7 @@ git commit -m "feat(ha-intelligence): per-day-of-week baseline computation"
 ## Task 6: Anomaly Detection
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 Z-score deviation from baselines. >2σ = anomaly.
@@ -932,7 +932,7 @@ Z-score deviation from baselines. >2σ = anomaly.
 class TestAnomalyDetection(unittest.TestCase):
     def test_detects_high_power_anomaly(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         baselines = {
             "Tuesday": {
@@ -954,7 +954,7 @@ class TestAnomalyDetection(unittest.TestCase):
 
     def test_no_anomaly_within_normal_range(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         baselines = {
             "Tuesday": {
@@ -1034,7 +1034,7 @@ git commit -m "feat(ha-intelligence): z-score anomaly detection against baseline
 ## Task 7: Device Reliability Tracker
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 Track unavailable/available transitions per device over time. Predict which devices are degrading.
@@ -1045,7 +1045,7 @@ Track unavailable/available transitions per device over time. Predict which devi
 class TestDeviceReliability(unittest.TestCase):
     def test_reliability_score_decreases_with_more_outages(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         # 7 days of snapshots, device appears unavailable on 3 of them
         snapshots = []
@@ -1066,7 +1066,7 @@ class TestDeviceReliability(unittest.TestCase):
 
     def test_healthy_device_gets_100_score(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         snapshots = []
         for i in range(7):
@@ -1162,7 +1162,7 @@ git commit -m "feat(ha-intelligence): device reliability scoring with trend dete
 ## Task 8: Cross-Correlation Engine
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 Discover which metrics correlate with each other and with external factors (weather, calendar, day-of-week).
@@ -1173,7 +1173,7 @@ Discover which metrics correlate with each other and with external factors (weat
 class TestCorrelation(unittest.TestCase):
     def test_perfect_positive_correlation(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         x = [1, 2, 3, 4, 5]
         y = [2, 4, 6, 8, 10]
@@ -1182,7 +1182,7 @@ class TestCorrelation(unittest.TestCase):
 
     def test_no_correlation(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         x = [1, 2, 3, 4, 5]
         y = [5, 1, 4, 2, 3]
@@ -1191,7 +1191,7 @@ class TestCorrelation(unittest.TestCase):
 
     def test_cross_correlate_finds_weather_power_link(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         # Simulate: hot days → more power (HVAC)
         snapshots = []
@@ -1297,7 +1297,7 @@ git commit -m "feat(ha-intelligence): cross-correlation engine with Pearson-r"
 ## Task 9: Prediction Engine
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 Generate predictions for tomorrow based on day-of-week baselines, weather forecast, and calendar.
@@ -1308,7 +1308,7 @@ Generate predictions for tomorrow based on day-of-week baselines, weather foreca
 class TestPredictions(unittest.TestCase):
     def test_predict_uses_baseline_mean(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         baselines = {
             "Wednesday": {
@@ -1327,7 +1327,7 @@ class TestPredictions(unittest.TestCase):
 
     def test_predict_adjusts_for_weather(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         baselines = {
             "Wednesday": {
@@ -1438,7 +1438,7 @@ git commit -m "feat(ha-intelligence): prediction engine with weather-adjusted fo
 ## Task 10: Self-Reinforcement Loop
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/Documents/tests/test_ha_intelligence.py`
 
 Compare yesterday's predictions to actual data. Score accuracy. Adjust weights over time.
@@ -1449,7 +1449,7 @@ Compare yesterday's predictions to actual data. Score accuracy. Adjust weights o
 class TestSelfReinforcement(unittest.TestCase):
     def test_score_prediction_perfect(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         prediction = {"power_watts": {"predicted": 150, "baseline_mean": 150, "baseline_stddev": 10}}
         actual = {"power": {"total_watts": 150}}
@@ -1458,7 +1458,7 @@ class TestSelfReinforcement(unittest.TestCase):
 
     def test_score_prediction_off_by_one_sigma(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         prediction = {"power_watts": {"predicted": 150, "baseline_mean": 150, "baseline_stddev": 10}}
         actual = {"power": {"total_watts": 160}}  # 1σ off
@@ -1469,7 +1469,7 @@ class TestSelfReinforcement(unittest.TestCase):
 
     def test_accuracy_history_tracks_trend(self):
         from importlib.machinery import SourceFileLoader
-        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/ha-intelligence")).load_module()
+        ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
 
         history = {
             "scores": [
@@ -1593,7 +1593,7 @@ git commit -m "feat(ha-intelligence): self-reinforcement loop with accuracy trac
 ## Task 11: Ollama Insight Generation
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 
 No unit test for this — it's LLM output. Test manually with `--report --dry-run`.
 
@@ -1695,7 +1695,7 @@ git commit -m "feat(ha-intelligence): Ollama insight report generation"
 ## Task 12: CLI Main + Cron Integration
 
 **Files:**
-- Modify: `~/.local/bin/ha-intelligence`
+- Modify: `~/.local/bin/aria`
 - Modify: `~/.local/bin/telegram-brief` (add intelligence line)
 - Modify crontab
 
@@ -1845,7 +1845,7 @@ if __name__ == "__main__":
 **Step 2: Make executable and test**
 
 ```bash
-chmod +x ~/.local/bin/ha-intelligence
+chmod +x ~/.local/bin/aria
 source ~/.env && ha-intelligence --snapshot
 source ~/.env && ha-intelligence --analyze
 source ~/.env && ha-intelligence --predict

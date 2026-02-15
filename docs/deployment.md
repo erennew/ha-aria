@@ -23,7 +23,7 @@ Original deployment guide for HA Intelligence Hub using systemd and optional Tai
 
 ### 1. Create Service File
 
-Create `~/.config/systemd/user/ha-intelligence-hub.service`:
+Create `~/.config/systemd/user/aria-hub.service`:
 
 ```ini
 [Unit]
@@ -33,8 +33,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/justin/Documents/projects/ha-intelligence-hub-phase2
-ExecStart=/bin/bash -c '. ~/.env && exec /home/justin/Documents/projects/ha-intelligence-hub-phase2/venv/bin/python /home/justin/Documents/projects/ha-intelligence-hub-phase2/bin/ha-hub.py --port 8000 --log-level INFO'
+WorkingDirectory=/home/justin/Documents/projects/ha-aria
+ExecStart=/bin/bash -c '. ~/.env && exec /home/justin/Documents/projects/ha-aria/venv/bin/python /home/justin/Documents/projects/ha-aria/bin/ha-hub.py --port 8000 --log-level INFO'
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -58,26 +58,26 @@ WantedBy=default.target
 systemctl --user daemon-reload
 
 # Enable service (start on boot)
-systemctl --user enable ha-intelligence-hub.service
+systemctl --user enable aria-hub.service
 
 # Start service
-systemctl --user start ha-intelligence-hub.service
+systemctl --user start aria-hub.service
 
 # Check status
-systemctl --user status ha-intelligence-hub.service
+systemctl --user status aria-hub.service
 ```
 
 ### 3. View Logs
 
 ```bash
 # Follow logs in real-time
-journalctl --user -u ha-intelligence-hub.service -f
+journalctl --user -u aria-hub.service -f
 
 # View recent logs
-journalctl --user -u ha-intelligence-hub.service -n 100
+journalctl --user -u aria-hub.service -n 100
 
 # Filter by date
-journalctl --user -u ha-intelligence-hub.service --since "1 hour ago"
+journalctl --user -u aria-hub.service --since "1 hour ago"
 ```
 
 ## Tailscale Serve (Remote Access)
@@ -138,7 +138,7 @@ Critical data to backup:
 Backup script:
 ```bash
 #!/bin/bash
-BACKUP_DIR=~/backups/ha-intelligence-hub
+BACKUP_DIR=~/backups/ha-aria
 DATE=$(date +%Y-%m-%d)
 
 mkdir -p "$BACKUP_DIR"
@@ -178,19 +178,19 @@ Add line:
 
 ```bash
 # Stop service
-systemctl --user stop ha-intelligence-hub.service
+systemctl --user stop aria-hub.service
 
 # Restore cache
-cp ~/backups/ha-intelligence-hub/hub-2026-02-11.db ~/ha-logs/intelligence/cache/hub.db
+cp ~/backups/ha-aria/hub-2026-02-11.db ~/ha-logs/intelligence/cache/hub.db
 
 # Restore models
-tar -xzf ~/backups/ha-intelligence-hub/models-2026-02-11.tar.gz -C ~/
+tar -xzf ~/backups/ha-aria/models-2026-02-11.tar.gz -C ~/
 
 # Restore training data
-tar -xzf ~/backups/ha-intelligence-hub/training-data-2026-02-11.tar.gz -C ~/
+tar -xzf ~/backups/ha-aria/training-data-2026-02-11.tar.gz -C ~/
 
 # Start service
-systemctl --user start ha-intelligence-hub.service
+systemctl --user start aria-hub.service
 ```
 
 ## Health Monitoring
@@ -210,7 +210,7 @@ if curl -s -f "$HEALTH_URL" > /dev/null; then
   exit 0
 else
   echo "$(date): Hub is DOWN - restarting" >> "$LOG_FILE"
-  systemctl --user restart ha-intelligence-hub.service
+  systemctl --user restart aria-hub.service
   exit 1
 fi
 ```
@@ -271,7 +271,7 @@ python -O bin/ha-hub.py  # Removes assert statements
 Monitor memory usage:
 ```bash
 # View service memory usage
-systemctl --user status ha-intelligence-hub.service | grep Memory
+systemctl --user status aria-hub.service | grep Memory
 
 # Detailed memory info
 ps aux | grep ha-hub.py
@@ -283,10 +283,10 @@ ps aux | grep ha-hub.py
 
 ```bash
 # Check logs for errors
-journalctl --user -u ha-intelligence-hub.service -n 50
+journalctl --user -u aria-hub.service -n 50
 
 # Verify environment
-systemctl --user show ha-intelligence-hub.service | grep Environment
+systemctl --user show aria-hub.service | grep Environment
 
 # Test manually
 . ~/.env && ./venv/bin/python bin/ha-hub.py
@@ -305,7 +305,7 @@ systemctl --user show ha-intelligence-hub.service | grep Environment
 
 ```bash
 # Stop service
-systemctl --user stop ha-intelligence-hub.service
+systemctl --user stop aria-hub.service
 
 # Check for stale connections
 fuser ~/ha-logs/intelligence/cache/hub.db
@@ -315,14 +315,14 @@ rm ~/ha-logs/intelligence/cache/hub.db-shm
 rm ~/ha-logs/intelligence/cache/hub.db-wal
 
 # Start service
-systemctl --user start ha-intelligence-hub.service
+systemctl --user start aria-hub.service
 ```
 
 ### Dashboard Not Loading
 
 ```bash
 # Check if service is running
-systemctl --user status ha-intelligence-hub.service
+systemctl --user status aria-hub.service
 
 # Verify port is listening
 netstat -tuln | grep 8000
@@ -378,13 +378,13 @@ Restrict access to specific devices in Tailscale ACL:
 
 ```bash
 # Stop service
-systemctl --user stop ha-intelligence-hub.service
+systemctl --user stop aria-hub.service
 
 # Backup database
 cp ~/ha-logs/intelligence/cache/hub.db ~/ha-logs/intelligence/cache/hub.db.backup
 
 # Pull latest code
-cd ~/Documents/projects/ha-intelligence-hub-phase2
+cd ~/Documents/projects/ha-aria
 git pull origin phase2-hub-core
 
 # Update dependencies
@@ -395,7 +395,7 @@ pip install -r requirements.txt --upgrade
 # ./venv/bin/python scripts/migrate.py
 
 # Start service
-systemctl --user start ha-intelligence-hub.service
+systemctl --user start aria-hub.service
 
 # Verify upgrade
 curl http://localhost:8000/health
@@ -409,7 +409,7 @@ Consider setting up a monitoring dashboard with:
 - AlertManager for alerts
 
 Example Grafana dashboard queries:
-- Hub uptime: `up{job="ha-intelligence-hub"}`
+- Hub uptime: `up{job="ha-aria"}`
 - Request rate: `rate(hub_requests_total[5m])`
 - Module count: `hub_modules_active`
 - Cache size: `hub_cache_size_bytes`
