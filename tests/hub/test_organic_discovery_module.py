@@ -573,6 +573,86 @@ class TestOnEvent:
         await module.on_event("cache_updated", {"category": "entities"})
 
 
+class TestDriftDetection:
+    @pytest.mark.asyncio
+    async def test_drift_flags_capability(self):
+        """Drift event flags capability for re-discovery."""
+        module = _make_module()
+        # Seed capabilities cache
+        module.hub.get_cache.return_value = _make_cache_entry({
+            "climate": {"available": True, "entities": ["sensor.temp"], "status": "promoted"}
+        })
+
+        await module.on_event("drift_detected", {
+            "capability": "climate",
+            "drift_type": "behavioral_drift",
+            "severity": 0.8,
+        })
+
+        # Verify set_cache was called with the flagged capability
+        cap_calls = [
+            c for c in module.hub.set_cache.call_args_list
+            if c[0][0] == "capabilities"
+        ]
+        assert len(cap_calls) >= 1
+        written_caps = cap_calls[-1][0][1]
+        assert written_caps["climate"]["drift_flagged"] is True
+        assert written_caps["climate"]["drift_severity"] == 0.8
+
+    @pytest.mark.asyncio
+    async def test_drift_ignores_unknown_capability(self):
+        """Drift for non-existent capability is silently ignored."""
+        module = _make_module()
+        module.hub.get_cache.return_value = _make_cache_entry({
+            "climate": {"available": True}
+        })
+
+        await module.on_event("drift_detected", {
+            "capability": "nonexistent",
+            "severity": 0.5,
+        })
+
+        # set_cache should NOT have been called for capabilities
+        cap_calls = [
+            c for c in module.hub.set_cache.call_args_list
+            if c[0][0] == "capabilities"
+        ]
+        assert len(cap_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_drift_ignores_non_drift_events(self):
+        """Non-drift events are ignored."""
+        module = _make_module()
+        module.hub.get_cache.return_value = _make_cache_entry({
+            "climate": {"available": True}
+        })
+
+        await module.on_event("state_changed", {"entity_id": "sensor.temp"})
+
+        # get_cache should not even be called for non-drift events
+        module.hub.get_cache.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_drift_ignores_empty_capability_name(self):
+        """Empty capability name is ignored."""
+        module = _make_module()
+        module.hub.get_cache.return_value = _make_cache_entry({"climate": {"available": True}})
+
+        await module.on_event("drift_detected", {"capability": "", "severity": 0.5})
+
+        # Should return early without calling get_cache
+        module.hub.get_cache.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_drift_no_capabilities_cache(self):
+        """Drift with no capabilities cache does nothing."""
+        module = _make_module()
+        module.hub.get_cache.return_value = None
+
+        # Should not raise
+        await module.on_event("drift_detected", {"capability": "climate", "severity": 0.5})
+
+
 # ---------------------------------------------------------------------------
 # Predictability feedback
 # ---------------------------------------------------------------------------
