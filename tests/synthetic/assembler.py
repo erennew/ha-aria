@@ -31,6 +31,8 @@ class SnapshotAssembler:
 
     def build_snapshot(self, day: int, date_str: str, hour: float = 18.0) -> dict:
         """Build a single snapshot for a given day using real collectors."""
+        import random
+
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         is_weekend = dt.weekday() >= 5
         holidays_config = HolidayConfig()
@@ -82,15 +84,40 @@ class SnapshotAssembler:
                 break
         snapshot["time_features"] = build_time_features(timestamp_str, sun_data, date_str)
 
-        # Logbook summary (synthetic placeholder with realistic shape)
-        snapshot["logbook_summary"] = {
-            "total_events": 2500 + (day * 10),
-            "useful_events": 2000 + (day * 8),
-            "by_domain": {"light": 200, "switch": 100, "binary_sensor": 500},
-            "hourly": {},
-        }
+        # Logbook summary — varies with occupancy, time, and active devices
+        rng = random.Random(self.seed + day * 100 + int(hour))
+        snapshot["logbook_summary"] = self._build_logbook_summary(snapshot, day, hour, rng)
 
         return snapshot
+
+    def _build_logbook_summary(self, snapshot: dict, day: int, hour: float, rng) -> dict:
+        """Build realistic logbook event counts correlated with activity."""
+        people_home = len(snapshot.get("occupancy", {}).get("people_home", []))
+        lights_on = snapshot.get("lights", {}).get("on", 0)
+        media_active = snapshot.get("media", {}).get("total_active", 0)
+
+        # Peak during waking hours (7am-11pm), low at night
+        if 7 <= hour <= 23:
+            hour_factor = 1.0
+        elif 5 <= hour < 7 or 23 < hour:
+            hour_factor = 0.3
+        else:
+            hour_factor = 0.1
+
+        base_events = int((80 + people_home * 40 + lights_on * 10 + media_active * 15) * hour_factor)
+        useful = int(base_events * 0.8)
+        noise = rng.randint(-10, 10)
+
+        return {
+            "total_events": max(0, base_events + noise),
+            "useful_events": max(0, useful + noise),
+            "by_domain": {
+                "light": max(0, lights_on * 5 + rng.randint(0, 10)),
+                "switch": rng.randint(5, 20),
+                "binary_sensor": max(0, int(30 * hour_factor) + rng.randint(0, 15)),
+            },
+            "hourly": {},
+        }
 
     def _patch_states_for_collectors(
         self, states: list[dict], date_str: str, hour: float

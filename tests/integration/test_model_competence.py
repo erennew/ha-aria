@@ -1,5 +1,5 @@
 """Tier 1: ML model competence tests against realistic synthetic data."""
-from tests.synthetic.simulator import HouseholdSimulator
+from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
 from tests.synthetic.pipeline import PipelineRunner
 
 
@@ -78,7 +78,7 @@ class TestDegradationGraceful:
 
         runner = PipelineRunner(snapshots, data_dir=tmp_path)
         result = runner.run_full()
-        assert result["snapshots_saved"] == 30
+        assert result["snapshots_saved"] == 30 * len(INTRADAY_HOURS)
         assert result["predictions"] is not None
 
 

@@ -7,6 +7,10 @@ from tests.synthetic.assembler import SnapshotAssembler
 from tests.synthetic.people import Person, Schedule
 from tests.synthetic.scenarios.household import SCENARIOS
 
+# Default hours that capture key diurnal patterns:
+# early morning, morning, midday, afternoon, evening, night
+INTRADAY_HOURS = [6.0, 9.0, 12.0, 15.0, 18.0, 21.0]
+
 
 class HouseholdSimulator:
     """Generate realistic household data for ARIA pipeline testing."""
@@ -20,8 +24,15 @@ class HouseholdSimulator:
         self.seed = seed
         self.start_date = start_date
 
-    def generate(self) -> list[dict]:
-        """Generate daily snapshots for the scenario."""
+    def generate(self, hours_per_day: list[float] | None = None) -> list[dict]:
+        """Generate intraday snapshots for the scenario.
+
+        Produces one snapshot per hour per day, giving the ML models varied
+        time features and more training samples.
+        """
+        if hours_per_day is None:
+            hours_per_day = INTRADAY_HOURS
+
         config = self.scenario_config
         people = list(config["people"])
         roster = config["roster"]
@@ -37,11 +48,12 @@ class HouseholdSimulator:
 
             day_people = self._get_people_for_day(people, config, day, is_weekend)
 
-            assembler = SnapshotAssembler(roster, day_people, weather, self.seed)
-            snapshot = assembler.build_snapshot(day=day, date_str=date_str)
+            for hour in hours_per_day:
+                assembler = SnapshotAssembler(roster, day_people, weather, self.seed)
+                snapshot = assembler.build_snapshot(day=day, date_str=date_str, hour=hour)
 
-            self._apply_scenario_mods(snapshot, config, day)
-            snapshots.append(snapshot)
+                self._apply_scenario_mods(snapshot, config, day)
+                snapshots.append(snapshot)
 
         return snapshots
 

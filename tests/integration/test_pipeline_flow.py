@@ -2,7 +2,7 @@
 """Tier 3: End-to-end pipeline flow and handoff validation."""
 import json
 import pytest
-from tests.synthetic.simulator import HouseholdSimulator
+from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
 from tests.synthetic.pipeline import PipelineRunner
 
 
@@ -20,7 +20,7 @@ class TestFullPipelineCompletes:
         snapshots = sim.generate()
         runner = PipelineRunner(snapshots, data_dir=tmp_path)
         result = runner.run_full()
-        assert result["snapshots_saved"] == days
+        assert result["snapshots_saved"] == days * len(INTRADAY_HOURS)
         assert result["scores"] is not None
 
 

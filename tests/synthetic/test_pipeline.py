@@ -1,7 +1,7 @@
 """Tests for PipelineRunner — full pipeline orchestration."""
 import pytest
 from tests.synthetic.pipeline import PipelineRunner
-from tests.synthetic.simulator import HouseholdSimulator
+from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
 
 
 @pytest.fixture
@@ -17,6 +17,7 @@ class TestPipelineRunner:
         daily_dir = runner.store.paths.daily_dir
         assert daily_dir.exists()
         files = list(daily_dir.glob("*.json"))
+        # Multiple intraday snapshots per day overwrite the same {date}.json
         assert len(files) == 21
 
     def test_compute_baselines(self, runner):
@@ -63,4 +64,4 @@ class TestPipelineRunner:
         assert "training" in result
         assert "predictions" in result
         assert "scores" in result
-        assert result["snapshots_saved"] == 21
+        assert result["snapshots_saved"] == 21 * len(INTRADAY_HOURS)
