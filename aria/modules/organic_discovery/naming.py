@@ -158,14 +158,13 @@ def heuristic_description(cluster_info: dict) -> str:
 async def _call_ollama(prompt: str, model: str = "deepseek-r1:8b") -> str:
     """Call Ollama API directly for real-time LLM inference.
 
-    Uses direct Ollama (port 11434), not ollama-queue (port 7683).
-    ollama-queue is a batch command queue, not an API proxy.
+    Routes through ollama-queue proxy (port 7683) to serialize GPU access.
     """
     import aiohttp
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            "http://127.0.0.1:11434/api/generate",
+            "http://127.0.0.1:7683/api/generate",
             json={"model": model, "prompt": prompt, "stream": False},
             timeout=aiohttp.ClientTimeout(total=120),
         ) as resp:

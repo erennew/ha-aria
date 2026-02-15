@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 CLASSIFIER_THRESHOLD = 50  # Labels needed before training classifier
 PREDICTION_INTERVAL = timedelta(minutes=15)
-OLLAMA_URL = "http://127.0.0.1:11434"
+OLLAMA_URL = "http://127.0.0.1:7683"
 
 ACTIVITY_PROMPT_TEMPLATE = """Given the current smart home state:
 - Power draw: {power_watts}W
