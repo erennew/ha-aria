@@ -266,3 +266,40 @@ class TestValidateAll:
         assert any("fake.config.key" in i for i in issues)
         assert any("tests/does_not_exist.py" in i for i in issues)
         assert any("missing_dep" in i for i in issues)
+
+
+# --- collect_from_modules ---
+
+
+class TestCollectFromModules:
+    """Tests for CapabilityRegistry.collect_from_modules()."""
+
+    def test_collect_finds_hub_modules(self):
+        registry = CapabilityRegistry()
+        registry.collect_from_modules()
+        hub_caps = registry.list_by_layer("hub")
+        hub_module_ids = {c.module for c in hub_caps}
+        expected = {
+            "discovery", "ml_engine", "pattern_recognition", "orchestrator",
+            "shadow_engine", "data_quality", "organic_discovery",
+            "intelligence", "activity_monitor",
+        }
+        assert expected.issubset(hub_module_ids), f"Missing: {expected - hub_module_ids}"
+
+    def test_collect_finds_engine_capabilities(self):
+        registry = CapabilityRegistry()
+        registry.collect_from_modules()
+        engine_caps = registry.list_by_layer("engine")
+        assert len(engine_caps) >= 10
+
+    def test_all_collected_capabilities_validate(self):
+        registry = CapabilityRegistry()
+        registry.collect_from_modules()
+        issues = registry.validate_all()
+        assert issues == [], f"Validation issues:\n" + "\n".join(issues)
+
+    def test_total_capability_count(self):
+        registry = CapabilityRegistry()
+        registry.collect_from_modules()
+        stable = registry.list_by_status("stable")
+        assert len(stable) >= 22

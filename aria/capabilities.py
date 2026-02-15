@@ -191,3 +191,30 @@ class CapabilityRegistry:
         issues.extend(self.validate_config_keys())
         issues.extend(self.validate_test_paths())
         return issues
+
+    def collect_from_modules(self) -> None:
+        """Discover and register all capabilities from hub modules and engine."""
+        # Hub modules
+        from aria.modules.discovery import DiscoveryModule
+        from aria.modules.ml_engine import MLEngine
+        from aria.modules.patterns import PatternRecognition
+        from aria.modules.orchestrator import OrchestratorModule
+        from aria.modules.shadow_engine import ShadowEngine
+        from aria.modules.data_quality import DataQualityModule
+        from aria.modules.organic_discovery.module import OrganicDiscoveryModule
+        from aria.modules.intelligence import IntelligenceModule
+        from aria.modules.activity_monitor import ActivityMonitor
+
+        hub_modules = [
+            DiscoveryModule, MLEngine, PatternRecognition, OrchestratorModule,
+            ShadowEngine, DataQualityModule, OrganicDiscoveryModule,
+            IntelligenceModule, ActivityMonitor,
+        ]
+        for module_cls in hub_modules:
+            for cap in getattr(module_cls, "CAPABILITIES", []):
+                self.register(cap)
+
+        # Engine capabilities
+        from aria.engine.capabilities import ENGINE_CAPABILITIES
+        for cap in ENGINE_CAPABILITIES:
+            self.register(cap)
