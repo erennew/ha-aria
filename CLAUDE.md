@@ -12,6 +12,7 @@ Unified intelligence platform for Home Assistant — batch ML engine, real-time 
 **Activity monitor plan:** `~/.claude/plans/resilient-stargazing-catmull.md`
 **Shadow mode design:** `~/Documents/docs/plans/2026-02-12-ha-hub-shadow-mode-design.md`
 **Organic discovery design:** `docs/plans/2026-02-14-organic-capability-discovery-design.md`
+**Closed-loop feedback design:** `docs/plans/2026-02-15-closed-loop-feedback-design.md`
 
 ## Running
 
@@ -46,7 +47,7 @@ curl -s http://127.0.0.1:8001/api/cache/activity_summary | /usr/bin/python3 -m j
 
 ## Architecture
 
-Single `aria.*` package: `hub/` (real-time core + 9 modules), `engine/` (batch ML, 7 subpackages), `modules/` (discovery through activity_monitor), `dashboard/` (Preact SPA). Full layout, module registry, cache categories: `docs/architecture-detailed.md`
+Single `aria.*` package: `hub/` (real-time core + 11 modules), `engine/` (batch ML, 7 subpackages), `modules/` (discovery through activity_labeler), `dashboard/` (Preact SPA). Full layout, module registry, cache categories: `docs/architecture-detailed.md`. Closed-loop feedback system connects ML accuracy, shadow hit rates, automation acceptance, drift signals, and activity label corrections back into the learning pipeline.
 
 All imports use `aria.*` namespace — e.g. `from aria.hub.core import IntelligenceHub`
 
@@ -64,7 +65,7 @@ Preact SPA at `aria/dashboard/spa/`. Must rebuild after JSX changes: `cd aria/da
 
 ARIA has the deepest pipeline — engine→JSON files→hub cache→API→WebSocket→dashboard. Unit tests cover each layer but not the flow between them. After any deployment or feature change, run dual-axis tests:
 
-**Horizontal:** Hit every API endpoint (`/api/cache/{category}` for all 8 categories, `/api/shadow/accuracy`, `/api/pipeline`, `/api/ml/*`, `/api/capabilities/*`, `/api/config`, `/api/curation/summary`). Confirm each returns expected shape with real data.
+**Horizontal:** Hit every API endpoint (`/api/cache/{category}` for all 8 categories, `/api/shadow/accuracy`, `/api/pipeline`, `/api/ml/*`, `/api/capabilities/*`, `/api/config`, `/api/curation/summary`, `/api/capabilities/feedback/health`, `/api/activity/current`, `/api/activity/labels`, `/api/activity/stats`, `/api/automations/feedback`). Confirm each returns expected shape with real data.
 
 **Vertical:** Trigger one engine command (e.g., `aria snapshot-intraday`), then trace:
 ```
@@ -80,10 +81,10 @@ See: `~/Documents/docs/lessons/2026-02-15-horizontal-vertical-pipeline-testing.m
 
 ### Unit Tests
 
-**Memory warning:** The full suite (~1030 tests) can consume 4-8G RAM. If concurrent agents or services are running, check `free -h` first. If available memory < 4G, run by suite instead of the full set. Shadow engine tests previously consumed 17G+ RAM due to mock objects returning None in tight loops — those are fixed, but watch for regressions.
+**Memory warning:** The full suite (~1111 tests) can consume 4-8G RAM. If concurrent agents or services are running, check `free -h` first. If available memory < 4G, run by suite instead of the full set. Shadow engine tests previously consumed 17G+ RAM due to mock objects returning None in tight loops — those are fixed, but watch for regressions.
 
 ```bash
-# All tests (~1030) — use timeout to catch hangs
+# All tests (~1111) — use timeout to catch hangs
 .venv/bin/python -m pytest tests/ -v --timeout=120
 
 # By suite (safer when memory-constrained)
@@ -96,6 +97,8 @@ See: `~/Documents/docs/lessons/2026-02-15-horizontal-vertical-pipeline-testing.m
 .venv/bin/python -m pytest tests/hub/ -k "shadow" -v        # Shadow mode
 .venv/bin/python -m pytest tests/hub/ -k "activity" -v      # Activity monitor
 .venv/bin/python -m pytest tests/hub/ -k "data_quality" -v  # Data quality/curation
+.venv/bin/python -m pytest tests/hub/ -k "feedback" -v      # Closed-loop feedback
+.venv/bin/python -m pytest tests/hub/ -k "activity_labeler" -v  # Activity labeler
 ```
 
 ## Environment
@@ -144,6 +147,9 @@ HA uses a three-tier hierarchy: **entity → device → area**. Only ~0.2% of en
 - **Organic discovery needs 15+ entities per group** — HDBSCAN won't cluster small groups. If discovery finds no organic capabilities, the entity count may be too low or data too homogeneous.
 - **Organic discovery Ollama contention** — If LLM naming is enabled, the Sunday 4:00 AM run (~45 min) overlaps with suggest-automations at 4:30 AM. Move one timer if both use Ollama.
 - **Capabilities cache is extended, not replaced** — Organic discovery adds fields (`source`, `usefulness`, `layer`, `status`, etc.) to the existing capabilities cache. Existing consumers see the same key with optional new fields. Seed capabilities are always preserved.
+- **Activity labeler Ollama dependency** — Uses ollama-queue (port 7683) for LLM-based activity predictions every 15 min. May queue-stack with organic discovery on Sundays (4:00 AM). Monitor queue depth if both run concurrently.
+- **Feedback data requires service restart** — New backend code writes to cache but the running service uses old code until `systemctl --user restart aria-hub`. Always restart + vertical trace after deploying feedback changes.
+- **Engine conftest collision** — `from conftest import X` resolves to the wrong conftest in full-suite runs. Use `importlib.util.spec_from_file_location` for explicit file-based conftest imports. Tests that pass in isolation may break in full-suite runs due to implicit pytest conftest namespacing.
 
 ## Reference Docs
 
@@ -155,3 +161,5 @@ HA uses a three-tier hierarchy: **entity → device → area**. Only ~0.2% of en
 - `docs/api-reference.md` — Full API curl examples (pre-existing)
 - `docs/design-language.md` — Dashboard design system (pre-existing)
 - `docs/dashboard-components.md` — Component reference (pre-existing)
+- `docs/plans/2026-02-15-closed-loop-feedback-design.md` — Feedback channels, activity labeler, DemandSignal
+- `docs/plans/2026-02-15-closed-loop-feedback-implementation.md` — Implementation plan, wave dispatch
