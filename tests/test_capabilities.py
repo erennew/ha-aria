@@ -206,3 +206,63 @@ class TestRegistryDependencyGraph:
         reg.register(_make_cap(id="self_ref", depends_on=["self_ref"]))
         errors = reg.validate_deps()
         assert any("cycle" in e.lower() for e in errors)
+
+
+# --- Validation Engine (config keys, test paths, validate_all) ---
+
+
+class TestValidateConfigKeys:
+    """validate_config_keys() checks declared config_keys against CONFIG_DEFAULTS."""
+
+    def test_validate_config_keys_missing(self):
+        """Cap with a nonexistent config key should produce an issue."""
+        reg = CapabilityRegistry()
+        reg.register(_make_cap(id="bad_cfg", config_keys=["totally.fake.key"]))
+        issues = reg.validate_config_keys()
+        assert len(issues) == 1
+        assert "totally.fake.key" in issues[0]
+
+    def test_validate_config_keys_present(self):
+        """Cap with a real config key should produce no issue."""
+        reg = CapabilityRegistry()
+        reg.register(_make_cap(id="good_cfg", config_keys=["shadow.min_confidence"]))
+        issues = reg.validate_config_keys()
+        assert issues == []
+
+
+class TestValidateTestPaths:
+    """validate_test_paths() checks declared test_paths exist on disk."""
+
+    def test_validate_test_paths_missing(self):
+        """Cap with a nonexistent test path should produce an issue."""
+        reg = CapabilityRegistry()
+        reg.register(_make_cap(id="bad_path", test_paths=["tests/nonexistent_file.py"]))
+        issues = reg.validate_test_paths()
+        assert len(issues) == 1
+        assert "tests/nonexistent_file.py" in issues[0]
+
+    def test_validate_test_paths_present(self):
+        """Cap with a real test path should produce no issue."""
+        reg = CapabilityRegistry()
+        reg.register(_make_cap(id="good_path", test_paths=["tests/hub/test_shadow_engine.py"]))
+        issues = reg.validate_test_paths()
+        assert issues == []
+
+
+class TestValidateAll:
+    """validate_all() combines all validation checks."""
+
+    def test_validate_all_combines_checks(self):
+        """Cap with fake config key + fake test path + missing dep should produce >=3 issues."""
+        reg = CapabilityRegistry()
+        reg.register(_make_cap(
+            id="broken",
+            config_keys=["fake.config.key"],
+            test_paths=["tests/does_not_exist.py"],
+            depends_on=["missing_dep"],
+        ))
+        issues = reg.validate_all()
+        assert len(issues) >= 3
+        assert any("fake.config.key" in i for i in issues)
+        assert any("tests/does_not_exist.py" in i for i in issues)
+        assert any("missing_dep" in i for i in issues)

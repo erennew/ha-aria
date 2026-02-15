@@ -8,6 +8,7 @@ validates, and queries those declarations.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Optional
 
 
@@ -141,3 +142,52 @@ class CapabilityRegistry:
                 dfs(node, [node])
 
         return errors
+
+    def validate_config_keys(self) -> List[str]:
+        """Validate that all declared config_keys exist in CONFIG_DEFAULTS.
+
+        Returns a list of issue strings for any config key not found.
+        """
+        from aria.hub.config_defaults import CONFIG_DEFAULTS
+
+        valid_keys = {entry["key"] for entry in CONFIG_DEFAULTS}
+        issues: List[str] = []
+        for cap in self._caps.values():
+            for key in cap.config_keys:
+                if key not in valid_keys:
+                    issues.append(
+                        f"Capability {cap.id!r} declares config_key {key!r}, "
+                        f"which is not in CONFIG_DEFAULTS"
+                    )
+        return issues
+
+    def validate_test_paths(self) -> List[str]:
+        """Validate that all declared test_paths exist on disk.
+
+        Paths are resolved relative to the project root (parent of the aria/
+        package directory).
+
+        Returns a list of issue strings for any path not found.
+        """
+        project_root = Path(__file__).resolve().parent.parent
+        issues: List[str] = []
+        for cap in self._caps.values():
+            for test_path in cap.test_paths:
+                full_path = project_root / test_path
+                if not full_path.exists():
+                    issues.append(
+                        f"Capability {cap.id!r} declares test_path {test_path!r}, "
+                        f"which does not exist"
+                    )
+        return issues
+
+    def validate_all(self) -> List[str]:
+        """Run all validation checks and return combined issues.
+
+        Combines: validate_deps, validate_config_keys, validate_test_paths.
+        """
+        issues: List[str] = []
+        issues.extend(self.validate_deps())
+        issues.extend(self.validate_config_keys())
+        issues.extend(self.validate_test_paths())
+        return issues
