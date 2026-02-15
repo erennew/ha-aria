@@ -14,7 +14,7 @@
 **Your home generates 22,000+ events every day.<br/>ARIA learns what they mean.**
 
 [![CI](https://github.com/parthalon025/ha-aria/actions/workflows/ci.yml/badge.svg)](https://github.com/parthalon025/ha-aria/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-984_passing-brightgreen)](https://github.com/parthalon025/ha-aria/actions)
+[![Tests](https://img.shields.io/badge/tests-1030_passing-brightgreen)](https://github.com/parthalon025/ha-aria/actions)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -70,7 +70,7 @@ ARIA watches, learns, and predicts — **entirely on your local hardware.** No c
 
 ### See
 
-- **13-page interactive dashboard** with live WebSocket updates
+- **12-page interactive dashboard** with live WebSocket updates
 - **Real-time activity monitor** — what's happening in your home right now
 - **Layman-readable** — every chart includes a plain-English explanation
 
@@ -143,7 +143,7 @@ flowchart TB
     end
 
     subgraph Dash ["Dashboard"]
-        D1["13 interactive pages"]
+        D1["12 interactive pages"]
         D2["Live updates"]
     end
 
@@ -171,7 +171,7 @@ flowchart TB
 
 ## Dashboard
 
-The dashboard ships with 13 pages covering the full intelligence pipeline:
+The dashboard ships with 12 pages covering the full intelligence pipeline:
 
 | Page | What You See |
 |------|-------------|
@@ -267,10 +267,10 @@ HA tracks individual entity history. ARIA finds patterns *across* entities, pred
 
 | | |
 |:---|:---|
-| **Tests** | 984 passing (CI-enforced) |
-| **Code** | 14,451 lines across 63 Python files |
-| **Dashboard** | 44 JSX components across 13 pages |
-| **Hub modules** | 8 registered (discovery, ML, patterns, shadow, orchestrator, data quality, intelligence, activity) |
+| **Tests** | 1,030 passing (CI-enforced) |
+| **Code** | 10,053 lines across 76 Python files |
+| **Dashboard** | 43 JSX components across 12 pages |
+| **Hub modules** | 9 registered (discovery, ML, patterns, shadow, orchestrator, data quality, organic discovery, intelligence, activity) |
 | **CI** | Lint → Test (Python 3.12 + 3.13) → Dashboard build → Codecov |
 
 ## For Researchers
