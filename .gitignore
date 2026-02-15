@@ -56,3 +56,4 @@ aria/dashboard/spa/node_modules/
 
 # Claude Code (machine-specific)
 CLAUDE.md
+.worktrees
