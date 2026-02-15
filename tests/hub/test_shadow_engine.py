@@ -1089,6 +1089,10 @@ class TestExpiredWindowResolution:
         # Should not raise
         await engine._resolve_expired_predictions()
 
+        # Verify error was handled — update_prediction_outcome should never be called
+        # because the function returns early after the get_pending_predictions failure
+        hub.cache.update_prediction_outcome.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_resolves_multiple_predictions(self, engine, hub):
         """Should resolve multiple expired predictions in one pass."""
@@ -1186,6 +1190,10 @@ class TestPredictionStorage:
 
         # Should not raise
         await engine._store_predictions(context, predictions)
+
+        # Verify error was handled — window_events should NOT be populated
+        # because the exception occurs before the tracking code runs
+        assert len(engine._window_events) == 0
 
 
 # ============================================================================

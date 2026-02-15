@@ -321,8 +321,23 @@ class TestMLEngine:
         # - n_estimators=100
         # - contamination=0.05
 
-        # These are verified by reading the code in _train_model_for_target
-        pass
+        # Verify the engine stores correct default model configuration
+        assert ml_engine.enabled_models == {"gb": True, "rf": True, "lgbm": True}
+        assert ml_engine.model_weights["gb"] == 0.35
+        assert ml_engine.model_weights["rf"] == 0.25
+        assert ml_engine.model_weights["lgbm"] == 0.40
+        assert abs(sum(ml_engine.model_weights.values()) - 1.0) < 0.001
+
+        # Verify capability-to-prediction mapping is defined
+        assert "power_monitoring" in ml_engine.capability_predictions
+        assert "lighting" in ml_engine.capability_predictions
+        assert "occupancy" in ml_engine.capability_predictions
+        assert "motion" in ml_engine.capability_predictions
+        assert "climate" in ml_engine.capability_predictions
+
+        # Verify each capability maps to at least one target
+        for cap, targets in ml_engine.capability_predictions.items():
+            assert len(targets) > 0, f"Capability {cap} has no prediction targets"
 
     @pytest.mark.asyncio
     async def test_generate_predictions_basic(self, ml_engine, mock_hub, mock_capabilities, synthetic_snapshots):
