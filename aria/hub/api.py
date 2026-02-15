@@ -661,6 +661,52 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             "automation_feedback_count": sum(v.get("suggested", 0) for v in suggestion_stats.values()),
         }
 
+    # Activity labeling endpoints
+    @router.get("/api/activity/current")
+    async def get_current_activity():
+        """Get current predicted activity."""
+        entry = await hub.get_cache("activity_labels")
+        if not entry or not entry.get("data"):
+            return {"predicted": "unknown", "confidence": 0, "method": "none"}
+        return entry["data"].get("current_activity", {"predicted": "unknown", "confidence": 0, "method": "none"})
+
+    @router.post("/api/activity/label")
+    async def post_activity_label(body: dict = Body(...)):
+        """Record a user-confirmed or corrected activity label."""
+        actual = body.get("actual_activity", "")
+        if not actual:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "actual_activity required"},
+            )
+        entry = await hub.get_cache("activity_labels")
+        current = entry["data"].get("current_activity", {}) if entry and entry.get("data") else {}
+        predicted = current.get("predicted", "unknown")
+        context = current.get("sensor_context", {})
+        source = "confirmed" if actual == predicted else "corrected"
+        labeler = hub.modules.get("activity_labeler")
+        if labeler:
+            stats = await labeler.record_label(predicted, actual, context, source)
+            return {"status": "recorded", "predicted": predicted, "actual": actual, "source": source, "stats": stats}
+        return {"status": "recorded", "predicted": predicted, "actual": actual, "source": source}
+
+    @router.get("/api/activity/labels")
+    async def get_activity_labels(limit: int = 50):
+        """Get activity label history."""
+        entry = await hub.get_cache("activity_labels")
+        if not entry or not entry.get("data"):
+            return {"labels": [], "label_stats": {}}
+        data = entry["data"]
+        return {"labels": data.get("labels", [])[-limit:], "label_stats": data.get("label_stats", {})}
+
+    @router.get("/api/activity/stats")
+    async def get_activity_stats():
+        """Get activity labeling statistics."""
+        entry = await hub.get_cache("activity_labels")
+        if not entry or not entry.get("data"):
+            return {"total_labels": 0, "classifier_ready": False}
+        return entry["data"].get("label_stats", {})
+
     # Shadow engine endpoints
     @router.get("/api/shadow/predictions")
     async def get_shadow_predictions(
