@@ -40,157 +40,23 @@ curl -s http://127.0.0.1:8001/api/cache | python3 -m json.tool
 curl -s http://127.0.0.1:8001/api/cache/activity_summary | /usr/bin/python3 -m json.tool
 ```
 
-### ARIA CLI Commands
+### CLI Commands
 
-All commands route through the unified `aria` entry point (`aria/cli.py`).
-
-| Command | What it does |
-|---------|-------------|
-| `aria serve` | Start real-time hub + dashboard (replaces `bin/ha-hub.py`) |
-| `aria full` | Full daily pipeline: snapshot → predict → report |
-| `aria snapshot` | Collect current HA state snapshot |
-| `aria predict` | Generate predictions from latest snapshot |
-| `aria score` | Score yesterday's predictions against actuals |
-| `aria retrain` | Retrain ML models from accumulated data |
-| `aria meta-learn` | LLM meta-learning to tune feature config |
-| `aria check-drift` | Detect concept drift in predictions |
-| `aria correlations` | Compute entity co-occurrence correlations |
-| `aria suggest-automations` | Generate HA automation YAML via LLM |
-| `aria prophet` | Train Prophet seasonal forecasters |
-| `aria occupancy` | Bayesian occupancy estimation |
-| `aria power-profiles` | Analyze per-outlet power consumption |
-| `aria sequences train` | Train Markov chain model from logbook sequences |
-| `aria sequences detect` | Detect anomalous event sequences |
-| `aria snapshot-intraday` | Collect intraday snapshot (used internally by hub) |
-| `aria sync-logs` | Sync HA logbook to local JSON |
-| `aria discover-organic` | Run organic capability discovery (Layer 1 + Layer 2) |
-| `aria capabilities list` | List all registered capabilities (--layer, --status, --verbose) |
-| `aria capabilities verify` | Validate all capabilities against tests/config/deps |
-| `aria capabilities export` | Export capability registry as JSON |
-
-Engine commands delegate to `aria.engine.cli` with old-style flags internally.
+22 commands via `aria` entry point — full reference: `docs/cli-reference.md`
 
 ## Architecture
 
-### Package Layout
+Single `aria.*` package: `hub/` (real-time core + 9 modules), `engine/` (batch ML, 7 subpackages), `modules/` (discovery through activity_monitor), `dashboard/` (Preact SPA). Full layout, module registry, cache categories: `docs/architecture-detailed.md`
 
-```
-aria/
-├── cli.py                  # Unified CLI entry point
-├── capabilities.py         # Capability dataclass, CapabilityRegistry, validation engine
-├── hub/                    # Real-time hub core
-│   ├── core.py             # IntelligenceHub — module registry, task scheduler, event bus
-│   ├── cache.py            # SQLite-backed cache (hub.db) with category-based get/set
-│   ├── constants.py        # Shared cache key constants
-│   ├── api.py              # FastAPI routes + WebSocket server
-│   └── config_defaults.py  # Default config parameter seeding
-├── modules/                # Hub modules (registered in order)
-│   ├── discovery.py        # HA entity/device/area scanning via REST + WebSocket
-│   ├── ml_engine.py        # Feature engineering, model training, periodic retraining
-│   ├── patterns.py         # Recurring event sequence detection from logbook
-│   ├── orchestrator.py     # Automation suggestions from detected patterns
-│   ├── shadow_engine.py    # Predict-compare-score loop for shadow mode
-│   ├── data_quality.py     # Entity classification pipeline (auto-exclude, edge, include)
-│   ├── organic_discovery/  # HDBSCAN-based capability discovery (domain + behavioral clustering)
-│   │   ├── module.py       # OrganicDiscoveryModule — full pipeline orchestration
-│   │   ├── feature_vectors.py  # Entity attribute → numeric feature matrix
-│   │   ├── clustering.py   # HDBSCAN clustering with silhouette scoring
-│   │   ├── behavioral.py   # Layer 2: co-occurrence matrix + temporal patterns
-│   │   ├── scoring.py      # 5-component weighted usefulness score (0-100)
-│   │   ├── naming.py       # Heuristic + Ollama LLM naming backends
-│   │   └── seed_validation.py  # Jaccard similarity validation against seed capabilities
-│   ├── intelligence.py     # Unified cache assembly (snapshots, baselines, predictions, ML)
-│   └── activity_monitor.py # WebSocket state_changed listener, 15-min windows, analytics
-├── engine/                 # Batch ML engine (formerly ha-intelligence)
-│   ├── cli.py              # Engine CLI (called by aria CLI dispatcher)
-│   ├── config.py           # Engine configuration
-│   ├── collectors/         # HA API, logbook, snapshot, registry data collection
-│   ├── features/           # Feature engineering (time features, vector builder, config)
-│   ├── models/             # ML models (GradientBoosting, RandomForest, IsolationForest, Prophet, etc.)
-│   ├── predictions/        # Prediction generation and scoring
-│   ├── analysis/           # Baselines, correlations, drift, anomalies, power profiles, occupancy
-│   ├── llm/                # LLM integration (meta-learning, automation suggestions, reports)
-│   └── storage/            # Data store and model I/O
-└── dashboard/              # Preact SPA (Jinja legacy removed)
-    └── spa/                # Active SPA (esbuild-bundled Preact + Tailwind)
-```
+All imports use `aria.*` namespace — e.g. `from aria.hub.core import IntelligenceHub`
 
-### Legacy Entry Points
+### Dashboard
 
-| File | Status |
-|------|--------|
-| `bin/ha-hub.py` | Legacy wrapper — calls `aria serve` internally |
-| `bin/discover.py` | Standalone discovery CLI (also used as subprocess) |
-| `bin/ha-log-sync` | Log sync script (called by `aria sync-logs`) |
+Preact SPA at `aria/dashboard/spa/`. Must rebuild after JSX changes: `cd aria/dashboard/spa && npm run build`. Design language: `docs/design-language.md`. Build & CSS rules: `docs/dashboard-build.md`
 
-### Hub Modules (9, registered in order)
+### Activity Monitor
 
-| Module | File | Purpose |
-|--------|------|---------|
-| `discovery` | `aria/modules/discovery.py` | Scans HA (REST + WebSocket), detects capabilities, caches entities/devices/areas |
-| `ml_engine` | `aria/modules/ml_engine.py` | Feature engineering, model training (GradientBoosting, RandomForest, LightGBM), periodic retraining |
-| `pattern_recognition` | `aria/modules/patterns.py` | Detects recurring event sequences from logbook data |
-| `orchestrator` | `aria/modules/orchestrator.py` | Generates automation suggestions from detected patterns |
-| `shadow_engine` | `aria/modules/shadow_engine.py` | Predict-compare-score loop: captures context on state_changed, generates predictions (next_domain, room_activation, routine_trigger), scores against reality |
-| `data_quality` | `aria/modules/data_quality.py` | Entity classification pipeline — auto-exclude (domain, stale, noise, vehicle, unavailable grace period), edge cases, default include. Reads discovery cache, writes to `entity_curation` table. Runs on startup and daily. |
-| `organic_discovery` | `aria/modules/organic_discovery/module.py` | Two-layer HDBSCAN capability discovery: Layer 1 clusters entities by attributes, Layer 2 clusters by temporal co-occurrence. Usefulness scoring, seed validation, autonomy modes, heuristic/Ollama naming. Weekly via systemd timer. |
-| `intelligence` | `aria/modules/intelligence.py` | Assembles daily/intraday snapshots, baselines, predictions, ML scores into unified cache. Reads engine outputs (entity correlations, sequence anomalies, power profiles, automation suggestions). Sends Telegram digest on new insights. |
-| `activity_monitor` | `aria/modules/activity_monitor.py` | WebSocket listener for state_changed events, 15-min windowed activity log, adaptive snapshot triggering, prediction analytics. Emits filtered events to hub event bus for shadow engine. |
-
-Each module declares its capabilities via a `CAPABILITIES` class attribute (see `aria/capabilities.py` for the `Capability` dataclass). The `CapabilityRegistry.collect_from_modules()` method harvests all declarations for validation and CLI/API exposure.
-
-### Engine Subpackages (7)
-
-| Package | Path | Purpose |
-|---------|------|---------|
-| `collectors` | `aria/engine/collectors/` | HA API, logbook, snapshot, registry data collection |
-| `features` | `aria/engine/features/` | Time features, vector builder, feature config |
-| `models` | `aria/engine/models/` | ML models: GradientBoosting, RandomForest, IsolationForest, Prophet, device failure, registry |
-| `predictions` | `aria/engine/predictions/` | Prediction generation and scoring |
-| `analysis` | `aria/engine/analysis/` | Baselines, correlations, drift, anomalies, occupancy, power profiles, reliability |
-| `llm` | `aria/engine/llm/` | Ollama/LLM integration: meta-learning, automation suggestions, reports |
-| `storage` | `aria/engine/storage/` | Data store and model I/O |
-
-### Cache Categories (8) + Shadow Tables (2)
-
-**Category-based:** `activity_log`, `activity_summary`, `areas`, `capabilities`, `devices`, `discovery_metadata`, `entities`, `intelligence`
-**Shadow tables:** `predictions` (predict-compare-score records), `pipeline_state` (backtest→shadow→suggest→autonomous progression)
-**Phase 2 tables:** `config` (editable engine parameters), `entity_curation` (tiered entity classification), `config_history` (change audit log)
-**Organic discovery keys:** `discovery_history` (run history), `discovery_settings` (autonomy mode, naming backend, thresholds)
-**ML data keys in intelligence cache:** `drift_status`, `feature_selection`, `reference_model`, `incremental_training`, `forecaster_backend`, `anomaly_alerts`, `autoencoder_status`, `isolation_forest_status`, `shap_attributions`
-
-### Dashboard (Preact SPA)
-
-**Stack:** Preact 10 + @preact/signals + Tailwind CSS v4 + uPlot, bundled with esbuild
-**Location:** `aria/dashboard/spa/`
-**Design language:** `docs/design-language.md` — MUST READ before creating or modifying UI components
-**Full component reference:** `docs/dashboard-components.md`
-**Pages (13):** Home, Discovery, Capabilities, Data Curation, Intelligence, Predictions, Patterns, Shadow Mode, ML Engine, Automations, Settings, Guide
-
-#### Build & CSS
-
-```bash
-# Rebuild SPA after JSX changes (REQUIRED — dist/bundle.js is gitignored)
-cd aria/dashboard/spa && npm run build
-```
-
-**CSS rules:**
-- All colors via CSS custom properties in `index.css` — NEVER hardcode hex values in JSX
-- Use `.t-frame` with `data-label` for content cards (NOT `.t-card` — legacy)
-- Use `class` attribute (Preact), NOT `className`
-- Tailwind via pre-built `bundle.css` — arbitrary values may not exist. Use inline `style` for non-standard values.
-- uPlot renders on `<canvas>` — CSS variables must be resolved via `getComputedStyle()` before passing to uPlot
-
-### Activity Monitor — Prediction Analytics
-
-Four analytical methods computed on each 15-min flush and cached in `activity_summary`:
-
-| Method | What it does | Cold-start requirement |
-|--------|-------------|----------------------|
-| `_event_sequence_prediction` | Frequency-based next-domain model from 5-domain n-grams | 6+ events in window history |
-| `_detect_activity_patterns` | Frequent 3-domain trigrams (3+ occurrences in 24h) | 3+ recurring sequences |
-| `_predict_next_arrival` | Day-of-week historical occupancy transition averages | Occupancy transitions in history |
-| `_detect_activity_anomalies` | Current event rate vs hourly historical average (flags >2x) | Hourly average data |
+4 prediction analytics methods per 15-min window. Reference: `docs/activity-monitor-reference.md`
 
 ## Testing
 
@@ -242,31 +108,9 @@ See: `~/Documents/docs/lessons/2026-02-15-horizontal-vertical-pipeline-testing.m
 - **Cache DB:** `~/ha-logs/intelligence/cache/hub.db` (SQLite)
 - **Snapshot log:** `~/ha-logs/intelligence/snapshot_log.jsonl` (append-only JSONL)
 
-## WebSocket Connections
+## WebSocket & Entity Filtering
 
-The hub maintains **two separate WebSocket connections** to HA:
-
-1. **Discovery** (`aria/modules/discovery.py`) — listens for `entity_registry/list`, `device_registry/list`, `area_registry/list` (low-frequency registry events)
-2. **Activity** (`aria/modules/activity_monitor.py`) — listens for `state_changed` (high-volume, ~22K events/day)
-
-Separated by design: state_changed volume would drown registry events. Each has independent backoff (5s→60s max).
-
-## Entity Filtering (Activity Monitor)
-
-**Phase 2 curation layer:** Entity-level include/exclude from `entity_curation` SQLite table. Loaded on startup, reloaded dynamically via `curation_updated` event bus. Falls back to domain filtering when curation table is empty (first boot).
-
-**Domain fallback (used when curation not loaded):**
-**Tracked:** light, switch, binary_sensor, lock, media_player, cover, climate, vacuum, person, device_tracker, fan
-**Conditional:** sensor (only if device_class == "power")
-**Excluded:** update, tts, stt, scene, button, number, select, input_*, counter, script, zone, sun, weather, conversation, event, automation, camera, image, remote
-
-**Noise suppression:** unavailable↔unknown transitions, same-state-to-same-state
-
-### API Reference
-
-Full curl examples for all endpoints: `docs/api-reference.md`
-
-Key endpoints: `/api/cache/{category}`, `/api/shadow/accuracy`, `/api/pipeline`, `/api/ml/*`, `/api/capabilities/*`, `/api/capabilities/registry`, `/api/capabilities/registry/{id}`, `/api/capabilities/registry/graph`, `/api/capabilities/registry/health`, `/api/config`, `/api/curation/summary`
+Two HA WebSocket connections (discovery + activity), entity curation layer, domain filtering fallback. Reference: `docs/websocket-and-filtering.md`
 
 ## HA Data Model
 
@@ -300,3 +144,14 @@ HA uses a three-tier hierarchy: **entity → device → area**. Only ~0.2% of en
 - **Organic discovery needs 15+ entities per group** — HDBSCAN won't cluster small groups. If discovery finds no organic capabilities, the entity count may be too low or data too homogeneous.
 - **Organic discovery Ollama contention** — If LLM naming is enabled, the Sunday 4:00 AM run (~45 min) overlaps with suggest-automations at 4:30 AM. Move one timer if both use Ollama.
 - **Capabilities cache is extended, not replaced** — Organic discovery adds fields (`source`, `usefulness`, `layer`, `status`, etc.) to the existing capabilities cache. Existing consumers see the same key with optional new fields. Seed capabilities are always preserved.
+
+## Reference Docs
+
+- `docs/cli-reference.md` — All 22 CLI commands
+- `docs/architecture-detailed.md` — Package layout, module registry, cache categories
+- `docs/dashboard-build.md` — SPA build, CSS rules, design language
+- `docs/activity-monitor-reference.md` — Prediction analytics methods
+- `docs/websocket-and-filtering.md` — WebSocket connections, entity filtering, API endpoints
+- `docs/api-reference.md` — Full API curl examples (pre-existing)
+- `docs/design-language.md` — Dashboard design system (pre-existing)
+- `docs/dashboard-components.md` — Component reference (pre-existing)
