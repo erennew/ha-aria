@@ -571,6 +571,70 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Capability '{capability_id}' not found")
         return asdict(cap)
 
+    # Automation suggestion feedback endpoints
+    @router.post("/api/automations/feedback")
+    async def record_automation_feedback(body: dict = Body(...)):
+        """Record user feedback on an automation suggestion."""
+        suggestion_id = body.get("suggestion_id")
+        capability_source = body.get("capability_source")
+        user_action = body.get("user_action")
+
+        if not suggestion_id or not capability_source or not user_action:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Missing required fields: suggestion_id, capability_source, user_action"},
+            )
+
+        allowed_actions = ("accepted", "rejected", "modified", "ignored")
+        if user_action not in allowed_actions:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Invalid user_action. Must be one of: {', '.join(allowed_actions)}"},
+            )
+
+        # Read existing feedback data or create empty structure
+        cached = await hub.get_cache("automation_feedback")
+        if cached and cached.get("data"):
+            feedback_data = cached["data"]
+        else:
+            feedback_data = {"suggestions": {}, "per_capability": {}}
+
+        # Store feedback entry
+        feedback_data["suggestions"][suggestion_id] = {
+            "capability_source": capability_source,
+            "user_action": user_action,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        # Update per-capability counters
+        cap_stats = feedback_data["per_capability"].get(capability_source, {
+            "suggested": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "acceptance_rate": 0.0,
+        })
+        cap_stats["suggested"] = cap_stats.get("suggested", 0) + 1
+        if user_action == "accepted":
+            cap_stats["accepted"] = cap_stats.get("accepted", 0) + 1
+        elif user_action == "rejected":
+            cap_stats["rejected"] = cap_stats.get("rejected", 0) + 1
+
+        total = cap_stats["suggested"]
+        cap_stats["acceptance_rate"] = round(cap_stats["accepted"] / total, 3) if total > 0 else 0.0
+        feedback_data["per_capability"][capability_source] = cap_stats
+
+        await hub.set_cache("automation_feedback", feedback_data, {"source": "user_feedback"})
+
+        return {"status": "recorded", "suggestion_id": suggestion_id}
+
+    @router.get("/api/automations/feedback")
+    async def get_automation_feedback():
+        """Get automation suggestion feedback history."""
+        cached = await hub.get_cache("automation_feedback")
+        if cached and cached.get("data"):
+            return cached["data"]
+        return {"suggestions": {}, "per_capability": {}}
+
     # Shadow engine endpoints
     @router.get("/api/shadow/predictions")
     async def get_shadow_predictions(
