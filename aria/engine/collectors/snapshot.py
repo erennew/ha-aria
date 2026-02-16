@@ -1,6 +1,10 @@
 """Snapshot construction — empty, intraday, daily, and aggregation."""
 
+import json
+import logging
+import sqlite3
 import statistics
+import urllib.request
 from datetime import datetime
 
 from aria.engine.config import AppConfig, HolidayConfig
@@ -14,6 +18,42 @@ from aria.engine.collectors.ha_api import (
     fetch_calendar_events,
 )
 from aria.engine.collectors.logbook import summarize_logbook
+
+logger = logging.getLogger(__name__)
+
+
+def _fetch_presence_cache():
+    """Fetch presence cache from hub API or SQLite fallback.
+
+    Returns the presence data dict, or None if unavailable.
+    """
+    # Try hub API first (fast, already parsed)
+    try:
+        req = urllib.request.Request("http://127.0.0.1:8001/api/cache/presence")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+            # API returns {"category": "presence", "data": {...}, ...}
+            return data.get("data", data) if isinstance(data, dict) else None
+    except Exception:
+        pass
+
+    # Fallback: direct SQLite read
+    db_path = "/home/justin/ha-logs/intelligence/cache/hub.db"
+    try:
+        conn = sqlite3.connect(db_path, timeout=5)
+        cursor = conn.execute(
+            "SELECT data FROM cache WHERE category = ?", ("presence",)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            data = json.loads(row[0])
+            return data.get("data", data) if isinstance(data, dict) else None
+    except Exception:
+        pass
+
+    logger.debug("Presence cache unavailable — snapshot will have zero presence data")
+    return None
 
 
 def build_empty_snapshot(date_str: str, holidays_config: HolidayConfig) -> dict:
@@ -60,6 +100,8 @@ def build_intraday_snapshot(hour: int | None, date_str: str | None, config: AppC
     if states:
         # Run all registered collectors
         for name, collector_cls in CollectorRegistry.all().items():
+            if name == "presence":
+                continue  # Presence uses hub cache, not HA states — handled separately below
             if name == "entities_summary":
                 collector = collector_cls(safety_config=config.safety)
             else:
@@ -91,6 +133,11 @@ def build_intraday_snapshot(hour: int | None, date_str: str | None, config: AppC
         # Add is_charging for EV
         for ev_name, ev_data in snapshot["ev"].items():
             ev_data["is_charging"] = ev_data.get("charger_power_kw", 0) > 0
+
+    # Presence data (from hub cache, not HA states)
+    presence_cache = _fetch_presence_cache()
+    presence_collector = CollectorRegistry.get("presence")()
+    presence_collector.inject_presence(snapshot, presence_cache)
 
     # Note: time_features will be added by the features module when it's migrated.
     # For now, snapshot["time_features"] is not set here.
@@ -207,11 +254,18 @@ def build_snapshot(date_str: str | None, config: AppConfig, store: DataStore) ->
     if states:
         # Run all registered collectors
         for name, collector_cls in CollectorRegistry.all().items():
+            if name == "presence":
+                continue  # Presence uses hub cache, not HA states — handled separately below
             if name == "entities_summary":
                 collector = collector_cls(safety_config=config.safety)
             else:
                 collector = collector_cls()
             collector.extract(snapshot, states)
+
+    # Presence data (from hub cache, not HA states)
+    presence_cache = _fetch_presence_cache()
+    presence_collector = CollectorRegistry.get("presence")()
+    presence_collector.inject_presence(snapshot, presence_cache)
 
     # Weather
     weather_raw = fetch_weather(config.weather)

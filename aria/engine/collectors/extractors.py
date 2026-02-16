@@ -344,3 +344,60 @@ class VacuumCollector(BaseCollector):
                     "battery": attrs.get("battery_level"),
                 }
         snapshot["vacuum"] = vacuums
+
+
+@CollectorRegistry.register("presence")
+class PresenceCollector(BaseCollector):
+    """Collects presence summary from hub cache for engine snapshots.
+
+    Unlike other collectors, this does NOT extract from HA entity states.
+    Instead, it receives presence cache data separately via the presence_cache parameter.
+    Call extract() with states=[] and pass presence_cache as a keyword argument,
+    or call inject_presence() directly.
+    """
+
+    def extract(self, snapshot, states, **kwargs):
+        """Standard collector interface — delegates to inject_presence."""
+        presence_cache = kwargs.get("presence_cache")
+        self.inject_presence(snapshot, presence_cache)
+
+    def inject_presence(self, snapshot, presence_cache=None):
+        """Inject presence summary into snapshot from hub cache data."""
+        if not presence_cache:
+            snapshot["presence"] = {
+                "overall_probability": 0,
+                "occupied_room_count": 0,
+                "identified_person_count": 0,
+                "camera_signal_count": 0,
+                "rooms": {},
+            }
+            return
+
+        rooms = presence_cache.get("rooms", {})
+        occupied = [r for r, d in rooms.items() if d.get("probability", 0) > 0.5]
+        persons = presence_cache.get("identified_persons", {})
+
+        # Count camera signals across all rooms
+        camera_signals = 0
+        for r, d in rooms.items():
+            for s in d.get("signals", []):
+                if isinstance(s, dict) and s.get("type", "").startswith("camera_"):
+                    camera_signals += 1
+
+        # Overall probability: max of all room probabilities
+        probs = [d.get("probability", 0) for d in rooms.values()]
+        overall = max(probs) if probs else 0
+
+        snapshot["presence"] = {
+            "overall_probability": round(overall, 3),
+            "occupied_room_count": len(occupied),
+            "identified_person_count": len(persons),
+            "camera_signal_count": camera_signals,
+            "rooms": {
+                room: {
+                    "probability": round(d.get("probability", 0), 3),
+                    "person_count": len(d.get("persons", [])),
+                }
+                for room, d in rooms.items()
+            },
+        }

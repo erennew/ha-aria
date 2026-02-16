@@ -18,6 +18,7 @@ from aria.engine.collectors.extractors import (
     MediaCollector,
     SunCollector,
     VacuumCollector,
+    PresenceCollector,
 )
 
 from conftest import SAMPLE_STATES, EXTENDED_STATES
@@ -198,6 +199,71 @@ class TestSnapshotAssembly(unittest.TestCase):
             self.assertGreater(len(snapshot["occupancy"]["people_home"]), 0)
         finally:
             shutil.rmtree(tmpdir)
+
+
+class TestPresenceCollector(unittest.TestCase):
+    def test_presence_collector_with_data(self):
+        """PresenceCollector extracts summary from presence cache."""
+        from aria.engine.collectors.registry import CollectorRegistry
+
+        collector = CollectorRegistry.get("presence")()
+        snapshot = {"date": "2026-02-16"}
+        presence_cache = {
+            "rooms": {
+                "bedroom": {
+                    "probability": 0.9,
+                    "persons": [{"name": "Justin"}],
+                    "signals": [{"type": "camera_person"}],
+                },
+                "kitchen": {"probability": 0.7, "persons": [], "signals": []},
+                "driveway": {
+                    "probability": 0.3,
+                    "persons": [],
+                    "signals": [{"type": "camera_person"}],
+                },
+            },
+            "identified_persons": {"Justin": {"room": "bedroom"}},
+        }
+        collector.inject_presence(snapshot, presence_cache)
+        assert "presence" in snapshot
+        assert snapshot["presence"]["overall_probability"] == 0.9
+        assert snapshot["presence"]["occupied_room_count"] == 2  # bedroom + kitchen > 0.5
+        assert snapshot["presence"]["identified_person_count"] == 1
+        assert snapshot["presence"]["camera_signal_count"] == 2
+
+    def test_presence_collector_no_data(self):
+        """PresenceCollector defaults to zeros when no cache available."""
+        from aria.engine.collectors.registry import CollectorRegistry
+
+        collector = CollectorRegistry.get("presence")()
+        snapshot = {"date": "2026-02-16"}
+        collector.inject_presence(snapshot, None)
+        assert snapshot["presence"]["overall_probability"] == 0
+        assert snapshot["presence"]["occupied_room_count"] == 0
+
+    def test_presence_collector_via_extract_interface(self):
+        """PresenceCollector works through standard extract() interface with kwargs."""
+        from aria.engine.collectors.registry import CollectorRegistry
+
+        collector = CollectorRegistry.get("presence")()
+        snapshot = {"date": "2026-02-16"}
+        presence_cache = {
+            "rooms": {"living_room": {"probability": 0.8, "persons": [], "signals": []}},
+            "identified_persons": {},
+        }
+        collector.extract(snapshot, [], presence_cache=presence_cache)
+        assert snapshot["presence"]["overall_probability"] == 0.8
+        assert snapshot["presence"]["occupied_room_count"] == 1
+
+    def test_presence_collector_empty_rooms(self):
+        """PresenceCollector handles empty rooms dict."""
+        from aria.engine.collectors.registry import CollectorRegistry
+
+        collector = CollectorRegistry.get("presence")()
+        snapshot = {"date": "2026-02-16"}
+        collector.inject_presence(snapshot, {"rooms": {}, "identified_persons": {}})
+        assert snapshot["presence"]["overall_probability"] == 0
+        assert snapshot["presence"]["occupied_room_count"] == 0
 
 
 if __name__ == "__main__":
