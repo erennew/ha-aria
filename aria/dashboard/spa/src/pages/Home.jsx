@@ -8,6 +8,7 @@ import ErrorState from '../components/ErrorState.jsx';
 import AriaLogo from '../components/AriaLogo.jsx';
 import HeroCard from '../components/HeroCard.jsx';
 import PageBanner from '../components/PageBanner.jsx';
+import PresenceCard from '../components/PresenceCard.jsx';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -636,6 +637,8 @@ export default function Home() {
       <JourneyProgress maturity={maturity} shadowStage={shadowStage} />
 
       <RightNowStrip activity={activity} intraday={intraday} />
+
+      <PresenceCard />
 
       <BusArchitecture
         moduleStatuses={health?.modules || {}}
