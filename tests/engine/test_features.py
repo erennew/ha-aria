@@ -198,6 +198,80 @@ class TestFeatureVector(unittest.TestCase):
         self.assertEqual(fv["is_weekend_x_temp"], 80)
 
 
+class TestPresenceFeatures(unittest.TestCase):
+    def _make_snapshot_with_presence(self):
+        """Helper to create a snapshot with presence data."""
+        snap = {
+            "date": "2026-02-16",
+            "time_features": {"hour_sin": 0.5, "hour_cos": 0.87, "dow_sin": 0.0, "dow_cos": 1.0,
+                              "month_sin": 0.5, "month_cos": 0.87, "day_of_year_sin": 0.3, "day_of_year_cos": 0.95,
+                              "is_weekend": False, "is_holiday": False, "is_night": False, "is_work_hours": True,
+                              "minutes_since_sunrise": 200, "minutes_until_sunset": 400, "daylight_remaining_pct": 0.67},
+            "weather": {"temp_f": 55, "humidity_pct": 60, "wind_mph": 5},
+            "occupancy": {"people_home": ["Justin"], "device_count_home": 10, "people_home_count": 1},
+            "lights": {"on": 3, "total_brightness": 500},
+            "motion": {"active_count": 1},
+            "media": {"total_active": 0},
+            "ev": {"TARS": {"battery_pct": 75, "is_charging": False}},
+            "entities": {"total": 3050, "unavailable": 50},
+            "power": {"total_watts": 200.0},
+            "presence": {
+                "overall_probability": 0.92,
+                "occupied_room_count": 3,
+                "identified_person_count": 2,
+                "camera_signal_count": 5,
+            },
+        }
+        return snap
+
+    def test_presence_features_extracted(self):
+        """Feature vector includes presence data when available."""
+        snap = self._make_snapshot_with_presence()
+        features = build_feature_vector(snap)
+        self.assertEqual(features["presence_probability"], 0.92)
+        self.assertEqual(features["presence_occupied_rooms"], 3)
+        self.assertEqual(features["presence_identified_persons"], 2)
+        self.assertEqual(features["presence_camera_signals"], 5)
+
+    def test_presence_features_default_zero(self):
+        """Feature vector defaults presence to 0 when no presence data."""
+        snap = self._make_snapshot_with_presence()
+        del snap["presence"]
+        features = build_feature_vector(snap)
+        self.assertEqual(features.get("presence_probability"), 0)
+        self.assertEqual(features.get("presence_occupied_rooms"), 0)
+        self.assertEqual(features.get("presence_identified_persons"), 0)
+        self.assertEqual(features.get("presence_camera_signals"), 0)
+
+    def test_presence_features_in_feature_names(self):
+        """Presence feature names appear in get_feature_names()."""
+        names = get_feature_names()
+        self.assertIn("presence_probability", names)
+        self.assertIn("presence_occupied_rooms", names)
+        self.assertIn("presence_identified_persons", names)
+        self.assertIn("presence_camera_signals", names)
+
+    def test_presence_features_disabled(self):
+        """Disabled presence features should not appear in output."""
+        config = copy.deepcopy(DEFAULT_FEATURE_CONFIG)
+        config["presence_features"]["presence_probability"] = False
+        config["presence_features"]["presence_camera_signals"] = False
+        snap = self._make_snapshot_with_presence()
+        features = build_feature_vector(snap, config)
+        self.assertNotIn("presence_probability", features)
+        self.assertIn("presence_occupied_rooms", features)
+        self.assertNotIn("presence_camera_signals", features)
+        self.assertIn("presence_identified_persons", features)
+
+    def test_presence_in_training_data(self):
+        """build_training_data includes presence features in matrix."""
+        snap = self._make_snapshot_with_presence()
+        names, X, targets = build_training_data([snap])
+        self.assertIn("presence_probability", names)
+        idx = names.index("presence_probability")
+        self.assertEqual(X[0][idx], 0.92)
+
+
 class TestMRMRFeatureSelection(unittest.TestCase):
     def test_selects_fewer_features_than_input(self):
         """48 features, max_features=10 → exactly 10 returned."""

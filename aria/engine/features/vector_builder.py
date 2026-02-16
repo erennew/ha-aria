@@ -45,6 +45,10 @@ def get_feature_names(config=None):
         if config["interaction_features"][key]:
             names.append(key)
 
+    for key in config.get("presence_features", {}):
+        if config["presence_features"][key]:
+            names.append(key)
+
     return names
 
 
@@ -140,6 +144,18 @@ def build_feature_vector(snapshot, config=None, prev_snapshot=None, rolling_stat
         features["people_home_x_hour_sin"] = features.get("people_home_count", 0) * features.get("hour_sin", 0)
     if ic.get("daylight_x_lights"):
         features["daylight_x_lights"] = features.get("daylight_remaining_pct", 0) * features.get("lights_on", 0)
+
+    # Presence features (from real-time presence module cache)
+    pc = config.get("presence_features", {})
+    presence = snapshot.get("presence", {})
+    if pc.get("presence_probability"):
+        features["presence_probability"] = presence.get("overall_probability", 0)
+    if pc.get("presence_occupied_rooms"):
+        features["presence_occupied_rooms"] = presence.get("occupied_room_count", 0)
+    if pc.get("presence_identified_persons"):
+        features["presence_identified_persons"] = presence.get("identified_person_count", 0)
+    if pc.get("presence_camera_signals"):
+        features["presence_camera_signals"] = presence.get("camera_signal_count", 0)
 
     return features
 

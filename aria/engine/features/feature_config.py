@@ -51,6 +51,12 @@ DEFAULT_FEATURE_CONFIG = {
         "people_home_x_hour_sin": False,
         "daylight_x_lights": False,
     },
+    "presence_features": {
+        "presence_probability": True,
+        "presence_occupied_rooms": True,
+        "presence_identified_persons": True,
+        "presence_camera_signals": True,
+    },
     "target_metrics": [
         "power_watts",
         "lights_on",
@@ -67,6 +73,7 @@ _REQUIRED_SECTIONS = {
     "home_features",
     "lag_features",
     "interaction_features",
+    "presence_features",
     "target_metrics",
 }
 
@@ -82,7 +89,7 @@ def validate_feature_config(config):
             errors.append(f"Missing required section: {section}")
 
     # Validate feature sections contain only bool values
-    for section in ["time_features", "weather_features", "home_features", "lag_features", "interaction_features"]:
+    for section in ["time_features", "weather_features", "home_features", "lag_features", "interaction_features", "presence_features"]:
         sub = config.get(section, {})
         if not isinstance(sub, dict):
             errors.append(f"Section '{section}' must be a dict")
