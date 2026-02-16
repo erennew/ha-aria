@@ -318,8 +318,9 @@ class ActivityLabeler(Module):
             ctx: Sensor context dict.
 
         Returns:
-            List of 8 floats: [power_watts, lights_on, motion_room_count, hour, is_home,
-                                correlated_entities_active, anomaly_nearby, active_appliance_count]
+            List of 10 floats: [power_watts, lights_on, motion_room_count, hour, is_home,
+                                correlated_entities_active, anomaly_nearby, active_appliance_count,
+                                presence_probability, occupied_room_count]
         """
         power_watts = float(ctx.get("power_watts", 0))
         lights_on = int(ctx.get("lights_on", 0))
@@ -339,8 +340,13 @@ class ActivityLabeler(Module):
         anomaly_nearby = float(ctx.get("anomaly_nearby", 0))
         active_appliance_count = float(ctx.get("active_appliance_count", 0))
 
+        # Presence features
+        presence_probability = float(ctx.get("presence_probability", 0))
+        occupied_room_count = float(ctx.get("occupied_room_count", 0))
+
         return [power_watts, float(lights_on), float(motion_room_count), hour, is_home,
-                correlated_entities_active, anomaly_nearby, active_appliance_count]
+                correlated_entities_active, anomaly_nearby, active_appliance_count,
+                presence_probability, occupied_room_count]
 
     def _extract_intelligence_features(self, intel_data: dict) -> dict:
         """Extract intelligence-derived features from engine data.
@@ -394,6 +400,7 @@ class ActivityLabeler(Module):
         # Read activity summary for sensor data
         activity_entry = await self.hub.get_cache("activity_summary")
         intelligence_entry = await self.hub.get_cache("intelligence")
+        presence_entry = await self.hub.get_cache("presence")
 
         # Build context from available cache data
         context = {
@@ -420,6 +427,15 @@ class ActivityLabeler(Module):
                 context["power_watts"] = intel_data.get("power_watts", 0)
         intel_features = self._extract_intelligence_features(intel_data)
         context.update(intel_features)
+
+        # Add presence features from presence cache
+        if presence_entry and presence_entry.get("data"):
+            presence_data = presence_entry["data"]
+            rooms = presence_data.get("rooms", {})
+            probs = [r.get("probability", 0) for r in rooms.values()]
+            context["presence_probability"] = max(probs, default=0)
+            occupied = [r for r, d in rooms.items() if d.get("probability", 0) > 0.5]
+            context["occupied_room_count"] = len(occupied)
 
         try:
             result = await self.predict_activity(context)

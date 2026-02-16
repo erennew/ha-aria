@@ -296,7 +296,7 @@ class TestContextToFeatures:
         )
         features = labeler._context_to_features(ctx)
 
-        assert len(features) == 8
+        assert len(features) == 10
         assert features[0] == 450.0  # power_watts
         assert features[1] == 3.0  # lights_on
         assert features[2] == 2.0  # motion_room_count (2 rooms)
@@ -325,7 +325,7 @@ class TestContextToFeatures:
     def test_context_to_features_defaults(self, labeler):
         """Missing context keys produce sensible defaults."""
         features = labeler._context_to_features({})
-        assert len(features) == 8
+        assert len(features) == 10
         assert features[0] == 0.0  # power_watts default
         assert features[1] == 0.0  # lights_on default
         assert features[2] == 0.0  # motion_room_count default
@@ -340,17 +340,43 @@ class TestContextToFeatures:
         ctx["anomaly_nearby"] = 1
         ctx["active_appliance_count"] = 2
         features = labeler._context_to_features(ctx)
-        assert len(features) == 8
+        assert len(features) == 10
         assert features[5] == 3.0
         assert features[6] == 1.0
         assert features[7] == 2.0
 
     def test_context_to_features_defaults_intelligence(self, labeler):
         features = labeler._context_to_features({})
-        assert len(features) == 8
+        assert len(features) == 10
         assert features[5] == 0.0
         assert features[6] == 0.0
         assert features[7] == 0.0
+
+    def test_context_to_features_with_presence(self, labeler):
+        """Presence data is included as features 8 and 9."""
+        ctx = {
+            "power_watts": 100,
+            "lights_on": 3,
+            "motion_rooms": ["bedroom"],
+            "hour": 14,
+            "occupancy": "home",
+            "correlated_entities_active": 2,
+            "anomaly_nearby": 1,
+            "active_appliance_count": 4,
+            "presence_probability": 0.85,
+            "occupied_room_count": 3,
+        }
+        features = labeler._context_to_features(ctx)
+        assert len(features) == 10
+        assert features[8] == 0.85  # presence_probability
+        assert features[9] == 3.0   # occupied_room_count
+
+    def test_context_to_features_presence_defaults(self, labeler):
+        """Presence features default to 0 when not in context."""
+        features = labeler._context_to_features({})
+        assert len(features) == 10
+        assert features[8] == 0.0  # presence_probability
+        assert features[9] == 0.0  # occupied_room_count
 
 
 class TestTimeOfDay:
@@ -507,6 +533,45 @@ class TestPeriodicPredictIntelligence:
         assert captured_context["anomaly_nearby"] == 1
         assert captured_context["active_appliance_count"] == 1
 
+    @pytest.mark.asyncio
+    async def test_periodic_predict_includes_presence_features(self, labeler, hub):
+        """_periodic_predict merges presence features into context."""
+        hub._cache["presence"] = {
+            "data": {
+                "rooms": {
+                    "kitchen": {"probability": 0.9},
+                    "bedroom": {"probability": 0.3},
+                    "living_room": {"probability": 0.7},
+                }
+            }
+        }
+
+        captured_context = {}
+        async def mock_predict(ctx):
+            captured_context.update(ctx)
+            return {"predicted": "cooking", "confidence": 0.8, "method": "ollama", "sensor_context": ctx, "predicted_at": "now"}
+        labeler.predict_activity = mock_predict
+
+        await labeler._periodic_predict()
+
+        assert captured_context["presence_probability"] == 0.9  # max of all rooms
+        assert captured_context["occupied_room_count"] == 2  # kitchen + living_room > 0.5
+
+    @pytest.mark.asyncio
+    async def test_periodic_predict_no_presence_cache(self, labeler, hub):
+        """_periodic_predict works without presence cache (defaults to 0)."""
+        captured_context = {}
+        async def mock_predict(ctx):
+            captured_context.update(ctx)
+            return {"predicted": "relaxing", "confidence": 0.5, "method": "ollama", "sensor_context": ctx, "predicted_at": "now"}
+        labeler.predict_activity = mock_predict
+
+        await labeler._periodic_predict()
+
+        # No presence keys in context when cache is empty
+        assert captured_context.get("presence_probability", 0) == 0
+        assert captured_context.get("occupied_room_count", 0) == 0
+
 
 class TestInitialize:
     """Tests for module initialization."""
@@ -558,7 +623,7 @@ class TestInitialize:
 
     @pytest.mark.asyncio
     async def test_old_classifier_resets_on_feature_mismatch(self, labeler, hub):
-        """Classifier trained on 5 features gracefully resets when features are now 8."""
+        """Classifier trained on 5 features gracefully resets when features are now 10."""
         from sklearn.ensemble import GradientBoostingClassifier
 
         # Train a classifier on 5-feature vectors (old format)
