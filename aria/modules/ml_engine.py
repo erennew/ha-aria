@@ -37,6 +37,7 @@ warnings.filterwarnings(
 )
 
 from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG as _ENGINE_FEATURE_CONFIG  # noqa: E402
+from aria.engine.features.vector_builder import build_feature_vector as _engine_build_feature_vector  # noqa: E402
 from aria.hub.core import Module, IntelligenceHub  # noqa: E402
 from aria.capabilities import Capability, DemandSignal  # noqa: E402
 
@@ -977,111 +978,23 @@ class MLEngine(Module):
         rolling_stats: Optional[Dict[str, float]] = None,
         rolling_window_stats: Optional[Dict[str, float]] = None,
     ) -> Optional[Dict[str, float]]:
-        """Extract feature vector from snapshot using feature config.
+        """Extract feature vector from snapshot using shared vector_builder.
 
-        Args:
-            snapshot: Snapshot dictionary
-            config: Feature configuration (uses default if None)
-            prev_snapshot: Previous snapshot for lag features (optional)
-            rolling_stats: Rolling statistics dict (optional)
-            rolling_window_stats: Rolling window stats from activity log (optional)
-
-        Returns:
-            Dictionary of feature_name -> float value
+        Delegates base feature extraction to vector_builder.build_feature_vector()
+        (single source of truth), then appends hub-specific rolling window features
+        from the live activity log.
         """
         if config is None:
             config = await self._get_feature_config()
 
-        features = {}
+        # If snapshot lacks time_features, compute them (daily snapshots may not have them)
+        if "time_features" not in snapshot:
+            snapshot = {**snapshot, "time_features": self._compute_time_features(snapshot)}
 
-        # Compute or retrieve time features
-        tf = self._compute_time_features(snapshot)
-        tc = config.get("time_features", {})
+        # Delegate base feature extraction to shared engine builder
+        features = _engine_build_feature_vector(snapshot, config, prev_snapshot, rolling_stats)
 
-        # Time features - sin/cos pairs for cyclic encoding
-        if tc.get("hour_sin_cos"):
-            features["hour_sin"] = tf.get("hour_sin", 0)
-            features["hour_cos"] = tf.get("hour_cos", 0)
-        if tc.get("dow_sin_cos"):
-            features["dow_sin"] = tf.get("dow_sin", 0)
-            features["dow_cos"] = tf.get("dow_cos", 0)
-        if tc.get("month_sin_cos"):
-            features["month_sin"] = tf.get("month_sin", 0)
-            features["month_cos"] = tf.get("month_cos", 0)
-        if tc.get("day_of_year_sin_cos"):
-            features["day_of_year_sin"] = tf.get("day_of_year_sin", 0)
-            features["day_of_year_cos"] = tf.get("day_of_year_cos", 0)
-
-        # Time features - simple boolean/numeric
-        for simple in [
-            "is_weekend",
-            "is_holiday",
-            "is_night",
-            "is_work_hours",
-            "minutes_since_sunrise",
-            "minutes_until_sunset",
-            "daylight_remaining_pct",
-        ]:
-            if tc.get(simple):
-                val = tf.get(simple, 0)
-                features[simple] = 1 if val is True else (0 if val is False else (val or 0))
-
-        # Weather features
-        weather = snapshot.get("weather", {})
-        for key, enabled in config.get("weather_features", {}).items():
-            if enabled:
-                features[f"weather_{key}"] = weather.get(key) or 0
-
-        # Home state features
-        hc = config.get("home_features", {})
-        if hc.get("people_home_count"):
-            features["people_home_count"] = snapshot.get("occupancy", {}).get(
-                "people_home_count", len(snapshot.get("occupancy", {}).get("people_home", []))
-            )
-        if hc.get("device_count_home"):
-            features["device_count_home"] = snapshot.get("occupancy", {}).get("device_count_home", 0)
-        if hc.get("lights_on"):
-            features["lights_on"] = snapshot.get("lights", {}).get("on", 0)
-        if hc.get("total_brightness"):
-            features["total_brightness"] = snapshot.get("lights", {}).get("total_brightness", 0)
-        if hc.get("motion_active_count"):
-            features["motion_active_count"] = snapshot.get("motion", {}).get("active_count", 0)
-        if hc.get("active_media_players"):
-            features["active_media_players"] = snapshot.get("media", {}).get("total_active", 0)
-        if hc.get("ev_battery_pct"):
-            features["ev_battery_pct"] = snapshot.get("ev", {}).get("TARS", {}).get("battery_pct", 0)
-        if hc.get("ev_is_charging"):
-            features["ev_is_charging"] = 1 if snapshot.get("ev", {}).get("TARS", {}).get("is_charging") else 0
-
-        # Lag features - previous snapshot and rolling stats
-        lc = config.get("lag_features", {})
-        if lc.get("prev_snapshot_power") and prev_snapshot:
-            features["prev_snapshot_power"] = prev_snapshot.get("power", {}).get("total_watts", 0)
-        elif lc.get("prev_snapshot_power"):
-            features["prev_snapshot_power"] = 0
-        if lc.get("prev_snapshot_lights") and prev_snapshot:
-            features["prev_snapshot_lights"] = prev_snapshot.get("lights", {}).get("on", 0)
-        elif lc.get("prev_snapshot_lights"):
-            features["prev_snapshot_lights"] = 0
-        if lc.get("prev_snapshot_occupancy") and prev_snapshot:
-            features["prev_snapshot_occupancy"] = prev_snapshot.get("occupancy", {}).get("device_count_home", 0)
-        elif lc.get("prev_snapshot_occupancy"):
-            features["prev_snapshot_occupancy"] = 0
-        if lc.get("rolling_7d_power_mean"):
-            features["rolling_7d_power_mean"] = (rolling_stats or {}).get("power_mean_7d", 0)
-        if lc.get("rolling_7d_lights_mean"):
-            features["rolling_7d_lights_mean"] = (rolling_stats or {}).get("lights_mean_7d", 0)
-
-        # Interaction features - derived from other features
-        ic = config.get("interaction_features", {})
-        if ic.get("is_weekend_x_temp"):
-            features["is_weekend_x_temp"] = features.get("is_weekend", 0) * features.get("weather_temp_f", 0)
-        if ic.get("people_home_x_hour_sin"):
-            features["people_home_x_hour_sin"] = features.get("people_home_count", 0) * features.get("hour_sin", 0)
-        if ic.get("daylight_x_lights"):
-            features["daylight_x_lights"] = features.get("daylight_remaining_pct", 0) * features.get("lights_on", 0)
-
-        # Rolling window features (from activity log)
+        # Hub-only: append rolling window features from live activity log
         rws = rolling_window_stats or {}
         for hours in ROLLING_WINDOWS_HOURS:
             features[f"rolling_{hours}h_event_count"] = rws.get(f"rolling_{hours}h_event_count", 0)

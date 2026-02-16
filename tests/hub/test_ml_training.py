@@ -1639,5 +1639,42 @@ class TestMLFeedbackToCapabilities:
         assert isinstance(targets["power_watts"]["mae"], float)
 
 
+@pytest.mark.asyncio
+async def test_extract_features_delegates_to_vector_builder(ml_engine):
+    """Hub _extract_features must produce same base features as vector_builder."""
+    from aria.engine.features.vector_builder import build_feature_vector
+
+    snapshot = {
+        "date": "2026-02-16",
+        "hour": 14,
+        "time_features": {
+            "hour_sin": 0.5, "hour_cos": -0.866,
+            "dow_sin": 0.0, "dow_cos": 1.0,
+            "month_sin": 0.5, "month_cos": 0.866,
+            "day_of_year_sin": 0.3, "day_of_year_cos": 0.95,
+            "is_weekend": 0, "is_holiday": 0, "is_night": 0, "is_work_hours": 1,
+            "minutes_since_sunrise": 450, "minutes_until_sunset": 270,
+            "daylight_remaining_pct": 37.5,
+        },
+        "power": {"total_watts": 155},
+        "lights": {"on": 3, "total_brightness": 450},
+        "occupancy": {"device_count_home": 2, "people_home_count": 1, "people_home": ["justin"]},
+        "motion": {"active_count": 1},
+        "media": {"total_active": 0},
+        "weather": {"temp_f": 55, "humidity": 60},
+        "presence": {"overall_probability": 0.85, "occupied_room_count": 2, "identified_person_count": 1, "camera_signal_count": 0},
+    }
+
+    hub_features = await ml_engine._extract_features(snapshot)
+    engine_features = build_feature_vector(snapshot)
+
+    # All engine features must appear in hub features with same values
+    for key, val in engine_features.items():
+        assert key in hub_features, f"Missing engine feature in hub: {key}"
+        assert hub_features[key] == pytest.approx(val, abs=1e-6), (
+            f"Feature {key} differs: hub={hub_features[key]} engine={val}"
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
