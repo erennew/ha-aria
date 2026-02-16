@@ -18,6 +18,58 @@ class TestCrossScenarioComparisons:
         assert isinstance(stable_occ, int | float), "stable_couple should predict devices_home"
         assert isinstance(vacation_occ, int | float), "vacation should predict devices_home"
 
+    def test_stable_more_accurate_than_vacation(self, all_scenario_results):
+        """Stable patterns are easier to predict than vacation absences."""
+        stable_score = all_scenario_results["stable_couple"]["result"]["scores"]["overall"]
+        vacation_score = all_scenario_results["vacation"]["result"]["scores"]["overall"]
+        assert isinstance(stable_score, int | float), "stable_couple overall not numeric"
+        assert isinstance(vacation_score, int | float), "vacation overall not numeric"
+        assert stable_score >= vacation_score, (
+            f"stable_couple ({stable_score}%) should score >= vacation ({vacation_score}%)"
+        )
+
+    def test_wfh_more_accurate_than_new_roommate(self, all_scenario_results):
+        """Consistent WFH patterns should be easier to predict than changing roommate patterns."""
+        wfh_score = all_scenario_results["work_from_home"]["result"]["scores"]["overall"]
+        roommate_score = all_scenario_results["new_roommate"]["result"]["scores"]["overall"]
+        assert isinstance(wfh_score, int | float), "work_from_home overall not numeric"
+        assert isinstance(roommate_score, int | float), "new_roommate overall not numeric"
+        assert wfh_score >= roommate_score - 5, (
+            f"work_from_home ({wfh_score}%) should score >= new_roommate ({roommate_score}%) - 5"
+        )
+
+    def test_higher_occupancy_predicts_higher_power(self, all_scenario_results):
+        """More people home should predict higher power consumption."""
+        stable_power = (
+            all_scenario_results["stable_couple"]["result"]["predictions"].get("power_watts", {}).get("predicted", 0)
+        )
+        vacation_power = (
+            all_scenario_results["vacation"]["result"]["predictions"].get("power_watts", {}).get("predicted", 0)
+        )
+        assert isinstance(stable_power, int | float), "stable_couple power not numeric"
+        assert isinstance(vacation_power, int | float), "vacation power not numeric"
+        assert stable_power >= vacation_power, (
+            f"stable_couple power ({stable_power}W) should be >= vacation ({vacation_power}W)"
+        )
+
+    def test_degradation_does_not_improve_accuracy(self, all_scenario_results):
+        """Sensor degradation should not produce better scores than clean data."""
+        degraded_score = all_scenario_results["sensor_degradation"]["result"]["scores"]["overall"]
+        stable_score = all_scenario_results["stable_couple"]["result"]["scores"]["overall"]
+        assert isinstance(degraded_score, int | float), "sensor_degradation overall not numeric"
+        assert isinstance(stable_score, int | float), "stable_couple overall not numeric"
+        assert degraded_score <= stable_score + 5, (
+            f"sensor_degradation ({degraded_score}%) should score <= stable_couple ({stable_score}%) + 5"
+        )
+
+    def test_event_count_reflects_activity(self, all_scenario_results):
+        """Active households should generate more state-change events."""
+        stable_events = all_scenario_results["stable_couple"]["events"]
+        vacation_events = all_scenario_results["vacation"]["events"]
+        assert len(stable_events) >= len(vacation_events), (
+            f"stable_couple events ({len(stable_events)}) should be >= vacation ({len(vacation_events)})"
+        )
+
     def test_more_data_improves_accuracy(self, tmp_path):
         sim = HouseholdSimulator(scenario="stable_couple", days=30, seed=42)
         snapshots = sim.generate()
