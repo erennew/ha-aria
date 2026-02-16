@@ -80,3 +80,17 @@ filterwarnings = [
 [tool.ruff]
 line-length = 120
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C901", "PLR"]
+ignore = ["PLR2004"]  # Magic value comparisons — inappropriate for ML thresholds and test assertions
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-returns = 6
+
+[tool.ruff.format]
+quote-style = "double"
