@@ -66,7 +66,7 @@ def mrmr_select(
     selected_indices: list[int] = []
     remaining = set(range(n_features))
 
-    for round_num in range(max_features):
+    for _round_num in range(max_features):
         best_score: float | None = None
         best_idx: int | None = None
 
@@ -74,10 +74,7 @@ def mrmr_select(
             rel = relevance[idx]
 
             # Compute redundancy: mean |corr| with already-selected features
-            if selected_indices:
-                redundancy = corr_matrix[idx, selected_indices].mean()
-            else:
-                redundancy = 0.0
+            redundancy = corr_matrix[idx, selected_indices].mean() if selected_indices else 0.0
 
             score = rel - redundancy
 
