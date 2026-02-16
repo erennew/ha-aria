@@ -157,7 +157,9 @@ class TestFeatureVector(unittest.TestCase):
         self.assertEqual(fv["prev_snapshot_lights"], 5)
 
     def test_build_training_data(self):
-        import importlib.util, pathlib
+        import importlib.util
+        import pathlib
+
         _spec = importlib.util.spec_from_file_location(
             "engine_conftest",
             pathlib.Path(__file__).parent / "conftest.py",
@@ -203,10 +205,23 @@ class TestPresenceFeatures(unittest.TestCase):
         """Helper to create a snapshot with presence data."""
         snap = {
             "date": "2026-02-16",
-            "time_features": {"hour_sin": 0.5, "hour_cos": 0.87, "dow_sin": 0.0, "dow_cos": 1.0,
-                              "month_sin": 0.5, "month_cos": 0.87, "day_of_year_sin": 0.3, "day_of_year_cos": 0.95,
-                              "is_weekend": False, "is_holiday": False, "is_night": False, "is_work_hours": True,
-                              "minutes_since_sunrise": 200, "minutes_until_sunset": 400, "daylight_remaining_pct": 0.67},
+            "time_features": {
+                "hour_sin": 0.5,
+                "hour_cos": 0.87,
+                "dow_sin": 0.0,
+                "dow_cos": 1.0,
+                "month_sin": 0.5,
+                "month_cos": 0.87,
+                "day_of_year_sin": 0.3,
+                "day_of_year_cos": 0.95,
+                "is_weekend": False,
+                "is_holiday": False,
+                "is_night": False,
+                "is_work_hours": True,
+                "minutes_since_sunrise": 200,
+                "minutes_until_sunset": 400,
+                "daylight_remaining_pct": 0.67,
+            },
             "weather": {"temp_f": 55, "humidity_pct": 60, "wind_mph": 5},
             "occupancy": {"people_home": ["Justin"], "device_count_home": 10, "people_home_count": 1},
             "lights": {"on": 3, "total_brightness": 500},

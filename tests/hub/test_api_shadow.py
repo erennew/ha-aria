@@ -1,8 +1,6 @@
 """Tests for shadow engine API endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
+from unittest.mock import AsyncMock
 
 
 # ============================================================================

@@ -1,8 +1,6 @@
 """Tests for config and curation API endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
+from unittest.mock import AsyncMock
 
 
 # ============================================================================

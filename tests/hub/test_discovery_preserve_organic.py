@@ -1,7 +1,7 @@
 """Tests that seed discovery preserves organic capabilities in the cache."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from aria.modules.discovery import DiscoveryModule
 
@@ -21,23 +21,25 @@ def mock_hub():
 async def test_store_preserves_organic_capabilities(mock_hub):
     """Seed discovery should not overwrite organic capabilities."""
     # Existing cache has seed + organic capabilities
-    mock_hub.get_cache = AsyncMock(return_value={
-        "data": {
-            "power_monitoring": {"entities": ["sensor.power"], "source": "seed"},
-            "home_pressure_0": {
-                "entities": ["sensor.pressure_1", "sensor.pressure_2"],
-                "source": "organic",
-                "usefulness": 72,
-                "status": "promoted",
-            },
-            "motion_cluster_3": {
-                "entities": ["binary_sensor.motion_1"],
-                "source": "organic",
-                "usefulness": 45,
-                "status": "candidate",
-            },
+    mock_hub.get_cache = AsyncMock(
+        return_value={
+            "data": {
+                "power_monitoring": {"entities": ["sensor.power"], "source": "seed"},
+                "home_pressure_0": {
+                    "entities": ["sensor.pressure_1", "sensor.pressure_2"],
+                    "source": "organic",
+                    "usefulness": 72,
+                    "status": "promoted",
+                },
+                "motion_cluster_3": {
+                    "entities": ["binary_sensor.motion_1"],
+                    "source": "organic",
+                    "usefulness": 45,
+                    "status": "candidate",
+                },
+            }
         }
-    })
+    )
 
     module = DiscoveryModule(mock_hub, "http://localhost:8123", "test-token")
 
@@ -55,10 +57,7 @@ async def test_store_preserves_organic_capabilities(mock_hub):
     await module._store_discovery_results(seed_results)
 
     # Find the set_cache call for capabilities
-    cap_calls = [
-        call for call in mock_hub.set_cache.call_args_list
-        if call[0][0] == "capabilities"
-    ]
+    cap_calls = [call for call in mock_hub.set_cache.call_args_list if call[0][0] == "capabilities"]
     assert len(cap_calls) == 1
 
     stored_caps = cap_calls[0][0][1]
@@ -94,10 +93,7 @@ async def test_store_no_existing_cache(mock_hub):
 
     await module._store_discovery_results(seed_results)
 
-    cap_calls = [
-        call for call in mock_hub.set_cache.call_args_list
-        if call[0][0] == "capabilities"
-    ]
+    cap_calls = [call for call in mock_hub.set_cache.call_args_list if call[0][0] == "capabilities"]
     assert len(cap_calls) == 1
     stored_caps = cap_calls[0][0][1]
     assert "power_monitoring" in stored_caps
@@ -107,15 +103,17 @@ async def test_store_no_existing_cache(mock_hub):
 @pytest.mark.asyncio
 async def test_seed_cap_overrides_organic_with_same_name(mock_hub):
     """If seed and organic share a name, seed wins (it's the source of truth)."""
-    mock_hub.get_cache = AsyncMock(return_value={
-        "data": {
-            "power_monitoring": {
-                "entities": ["sensor.old"],
-                "source": "organic",
-                "usefulness": 50,
-            },
+    mock_hub.get_cache = AsyncMock(
+        return_value={
+            "data": {
+                "power_monitoring": {
+                    "entities": ["sensor.old"],
+                    "source": "organic",
+                    "usefulness": 50,
+                },
+            }
         }
-    })
+    )
 
     module = DiscoveryModule(mock_hub, "http://localhost:8123", "test-token")
 
@@ -130,10 +128,7 @@ async def test_seed_cap_overrides_organic_with_same_name(mock_hub):
 
     await module._store_discovery_results(seed_results)
 
-    cap_calls = [
-        call for call in mock_hub.set_cache.call_args_list
-        if call[0][0] == "capabilities"
-    ]
+    cap_calls = [call for call in mock_hub.set_cache.call_args_list if call[0][0] == "capabilities"]
     stored_caps = cap_calls[0][0][1]
     # Seed version wins
     assert stored_caps["power_monitoring"]["entities"] == ["sensor.power_new"]

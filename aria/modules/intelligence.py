@@ -75,6 +75,7 @@ def compare_model_accuracy(
         "interpretation": interpretation,
     }
 
+
 # Metrics to extract from daily/intraday snapshots
 METRIC_PATHS = {
     "power_watts": lambda d: d.get("power", {}).get("total_watts"),
@@ -201,11 +202,14 @@ class IntelligenceModule(Module):
                 if not cap_name:
                     continue
                 divergence = abs(entry.get("divergence_pct", 0))
-                await self.hub.publish("drift_detected", {
-                    "capability": cap_name,
-                    "drift_type": "behavioral_drift",
-                    "severity": divergence / 100,
-                })
+                await self.hub.publish(
+                    "drift_detected",
+                    {
+                        "capability": cap_name,
+                        "drift_type": "behavioral_drift",
+                        "severity": divergence / 100,
+                    },
+                )
 
     # ------------------------------------------------------------------
     # Data assembly
@@ -356,10 +360,8 @@ class IntelligenceModule(Module):
         if not insights_dir.exists():
             return None
         import re
-        files = sorted(
-            f for f in insights_dir.glob("*.json")
-            if re.match(r"\d{4}-\d{2}-\d{2}\.json", f.name)
-        )
+
+        files = sorted(f for f in insights_dir.glob("*.json") if re.match(r"\d{4}-\d{2}-\d{2}\.json", f.name))
         if not files:
             return None
         try:

@@ -31,14 +31,16 @@ def mock_discovery_module():
 class TestGetCapabilityCandidates:
     def test_returns_only_candidates(self, api_hub, api_client):
         """Returns only capabilities with status=candidate."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "data": {
-                "lighting_control": {"status": "promoted", "source": "seed"},
-                "climate_sensors": {"status": "candidate", "source": "organic"},
-                "motion_tracking": {"status": "archived", "source": "organic"},
-                "power_monitoring": {"status": "candidate", "source": "organic"},
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "data": {
+                    "lighting_control": {"status": "promoted", "source": "seed"},
+                    "climate_sensors": {"status": "candidate", "source": "organic"},
+                    "motion_tracking": {"status": "archived", "source": "organic"},
+                    "power_monitoring": {"status": "candidate", "source": "organic"},
+                }
             }
-        })
+        )
 
         response = api_client.get("/api/capabilities/candidates")
         assert response.status_code == 200
@@ -68,12 +70,14 @@ class TestGetCapabilityCandidates:
 
     def test_returns_empty_when_no_candidates(self, api_hub, api_client):
         """Returns empty dict when all capabilities are promoted or archived."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "data": {
-                "lighting_control": {"status": "promoted"},
-                "motion_tracking": {"status": "archived"},
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "data": {
+                    "lighting_control": {"status": "promoted"},
+                    "motion_tracking": {"status": "archived"},
+                }
             }
-        })
+        )
 
         response = api_client.get("/api/capabilities/candidates")
         assert response.status_code == 200
@@ -127,11 +131,13 @@ class TestGetDiscoveryHistory:
 class TestPromoteCapability:
     def test_promotes_capability(self, api_hub, api_client):
         """Promotes a candidate capability and returns 200."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "data": {
-                "climate_sensors": {"status": "candidate", "source": "organic"},
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "data": {
+                    "climate_sensors": {"status": "candidate", "source": "organic"},
+                }
             }
-        })
+        )
         api_hub.cache.set = AsyncMock()
 
         response = api_client.put("/api/capabilities/climate_sensors/promote")
@@ -151,11 +157,13 @@ class TestPromoteCapability:
 
     def test_promote_unknown_capability_404(self, api_hub, api_client):
         """Returns 404 for unknown capability name."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "data": {
-                "climate_sensors": {"status": "candidate"},
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "data": {
+                    "climate_sensors": {"status": "candidate"},
+                }
             }
-        })
+        )
 
         response = api_client.put("/api/capabilities/nonexistent_cap/promote")
         assert response.status_code == 404
@@ -178,11 +186,13 @@ class TestPromoteCapability:
 class TestArchiveCapability:
     def test_archives_capability(self, api_hub, api_client):
         """Archives a capability and returns 200."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "data": {
-                "climate_sensors": {"status": "candidate", "source": "organic"},
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "data": {
+                    "climate_sensors": {"status": "candidate", "source": "organic"},
+                }
             }
-        })
+        )
         api_hub.cache.set = AsyncMock()
 
         response = api_client.put("/api/capabilities/climate_sensors/archive")
@@ -200,11 +210,13 @@ class TestArchiveCapability:
 
     def test_archive_unknown_capability_404(self, api_hub, api_client):
         """Returns 404 for unknown capability name."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "data": {
-                "climate_sensors": {"status": "candidate"},
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "data": {
+                    "climate_sensors": {"status": "candidate"},
+                }
             }
-        })
+        )
 
         response = api_client.put("/api/capabilities/nonexistent_cap/archive")
         assert response.status_code == 404

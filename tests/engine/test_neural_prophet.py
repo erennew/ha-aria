@@ -83,9 +83,7 @@ class TestNeuralProphetForecaster(unittest.TestCase):
         self.assertEqual(result["backend"], "neuralprophet")
         self.assertIn("mae", result)
         self.assertIn("mape", result)
-        self.assertTrue(
-            os.path.isfile(os.path.join(model_dir, "neuralprophet_power_watts.pkl"))
-        )
+        self.assertTrue(os.path.isfile(os.path.join(model_dir, "neuralprophet_power_watts.pkl")))
 
     def test_predict_returns_forecast(self):
         from aria.engine.models.neural_prophet_forecaster import NeuralProphetForecaster

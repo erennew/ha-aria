@@ -18,7 +18,6 @@ from aria.engine.collectors.extractors import (
     MediaCollector,
     SunCollector,
     VacuumCollector,
-    PresenceCollector,
 )
 
 from conftest import SAMPLE_STATES, EXTENDED_STATES

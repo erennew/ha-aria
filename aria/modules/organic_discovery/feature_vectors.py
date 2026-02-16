@@ -160,13 +160,15 @@ def build_feature_matrix(
         - feature_names: List of feature names in column order
     """
     # Collect categorical values for one-hot encoding
-    domains, device_classes, units, areas, manufacturers = (
-        _collect_categorical_values(entities, devices)
-    )
+    domains, device_classes, units, areas, manufacturers = _collect_categorical_values(entities, devices)
 
     # Build feature name index
     feature_names = _build_feature_names(
-        domains, device_classes, units, areas, manufacturers,
+        domains,
+        device_classes,
+        units,
+        areas,
+        manufacturers,
     )
 
     if not entities:

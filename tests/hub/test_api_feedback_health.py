@@ -1,6 +1,5 @@
 """Tests for GET /api/capabilities/feedback/health endpoint."""
 
-import pytest
 from unittest.mock import AsyncMock
 
 
@@ -25,6 +24,7 @@ class TestFeedbackHealth:
 
     def test_feedback_health_with_ml_feedback(self, api_hub, api_client):
         """Counts capabilities with ml_accuracy."""
+
         async def mock_get_cache(key):
             if key == "capabilities":
                 return {
@@ -47,6 +47,7 @@ class TestFeedbackHealth:
 
     def test_feedback_health_with_shadow_feedback(self, api_hub, api_client):
         """Counts capabilities with shadow_accuracy."""
+
         async def mock_get_cache(key):
             if key == "capabilities":
                 return {
@@ -69,6 +70,7 @@ class TestFeedbackHealth:
 
     def test_feedback_health_with_drift_flagged(self, api_hub, api_client):
         """Counts drift-flagged capabilities."""
+
         async def mock_get_cache(key):
             if key == "capabilities":
                 return {
@@ -92,6 +94,7 @@ class TestFeedbackHealth:
 
     def test_feedback_health_with_activity_labels(self, api_hub, api_client):
         """Includes label count and classifier status."""
+
         async def mock_get_cache(key):
             if key == "activity_labels":
                 return {
@@ -115,6 +118,7 @@ class TestFeedbackHealth:
 
     def test_feedback_health_with_automation_feedback(self, api_hub, api_client):
         """Includes suggestion count from automation feedback."""
+
         async def mock_get_cache(key):
             if key == "automation_feedback":
                 return {
@@ -137,6 +141,7 @@ class TestFeedbackHealth:
 
     def test_feedback_health_full(self, api_hub, api_client):
         """All channels populated returns complete picture."""
+
         async def mock_get_cache(key):
             if key == "capabilities":
                 return {

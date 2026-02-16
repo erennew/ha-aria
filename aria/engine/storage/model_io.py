@@ -42,4 +42,3 @@ class ModelIO:
     def model_exists(self, name: str) -> bool:
         """Check if a model file exists."""
         return (self.models_dir / f"{name}.pkl").is_file()
-

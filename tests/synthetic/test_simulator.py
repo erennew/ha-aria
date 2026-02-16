@@ -1,4 +1,5 @@
 """Tests for HouseholdSimulator and scenarios."""
+
 import pytest
 from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
 
@@ -60,9 +61,7 @@ class TestHouseholdSimulator:
 
         # Use (sin, cos) pairs since sin alone is not unique across all hours
         hour_encodings = [
-            (round(s["time_features"]["hour_sin"], 4),
-             round(s["time_features"]["hour_cos"], 4))
-            for s in snapshots
+            (round(s["time_features"]["hour_sin"], 4), round(s["time_features"]["hour_cos"], 4)) for s in snapshots
         ]
         assert len(set(hour_encodings)) == HOURS_PER_DAY
 
@@ -72,18 +71,17 @@ class TestHouseholdSimulator:
         snapshots = sim.generate()
 
         # Collect lights_on for hour=21 (night) vs hour=12 (midday)
-        night_lights = [s["lights"]["on"] for s in snapshots
-                        if s["time_features"]["is_night"]]
-        day_lights = [s["lights"]["on"] for s in snapshots
-                      if not s["time_features"]["is_night"]
-                      and not s["time_features"]["is_work_hours"]]
+        night_lights = [s["lights"]["on"] for s in snapshots if s["time_features"]["is_night"]]
+        day_lights = [
+            s["lights"]["on"]
+            for s in snapshots
+            if not s["time_features"]["is_night"] and not s["time_features"]["is_work_hours"]
+        ]
 
         if night_lights and day_lights:
             avg_night = sum(night_lights) / len(night_lights)
             avg_day = sum(day_lights) / len(day_lights)
-            assert avg_night >= avg_day, (
-                f"Night lights ({avg_night:.1f}) should >= day lights ({avg_day:.1f})"
-            )
+            assert avg_night >= avg_day, f"Night lights ({avg_night:.1f}) should >= day lights ({avg_day:.1f})"
 
     def test_useful_events_correlates_with_occupancy(self):
         """Vacation days should have fewer useful_events than occupied days."""
@@ -120,6 +118,5 @@ class TestHouseholdSimulator:
                     s = snapshots[snap_idx]
                     people_home = s["occupancy"].get("people_home", [])
                     assert len(people_home) == 0, (
-                        f"Day {day_idx} hour {INTRADAY_HOURS[hour_offset]}: "
-                        f"expected empty house, got {people_home}"
+                        f"Day {day_idx} hour {INTRADAY_HOURS[hour_offset]}: expected empty house, got {people_home}"
                     )

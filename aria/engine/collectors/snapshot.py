@@ -41,9 +41,7 @@ def _fetch_presence_cache():
     db_path = "/home/justin/ha-logs/intelligence/cache/hub.db"
     try:
         conn = sqlite3.connect(db_path, timeout=5)
-        cursor = conn.execute(
-            "SELECT data FROM cache WHERE category = ?", ("presence",)
-        )
+        cursor = conn.execute("SELECT data FROM cache WHERE category = ?", ("presence",))
         row = cursor.fetchone()
         conn.close()
         if row:

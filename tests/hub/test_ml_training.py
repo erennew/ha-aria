@@ -1324,7 +1324,8 @@ class TestIncrementalLightGBM:
         train_data = lgb.Dataset(X, y, free_raw_data=False)
         initial = lgb.train(
             {"objective": "regression", "verbose": -1},
-            train_data, num_boost_round=50,
+            train_data,
+            num_boost_round=50,
         )
         initial_trees = initial.num_trees()
         assert initial_trees == 50
@@ -1336,7 +1337,8 @@ class TestIncrementalLightGBM:
 
         incremental = lgb.train(
             {"objective": "regression", "verbose": -1},
-            new_data, num_boost_round=20,
+            new_data,
+            num_boost_round=20,
             init_model=initial,
         )
         # LightGBM init_model behavior varies by version — model should at
@@ -1346,6 +1348,7 @@ class TestIncrementalLightGBM:
     def test_should_full_retrain_logic(self):
         """When tree count exceeds max, should signal full retrain needed."""
         from aria.modules.ml_engine import should_full_retrain
+
         assert should_full_retrain(current_trees=510, max_trees=500) is True
         assert should_full_retrain(current_trees=400, max_trees=500) is False
 
@@ -1558,15 +1561,15 @@ class TestMLFeedbackToCapabilities:
         assert metadata == {"source": "ml_feedback"}
 
     @pytest.mark.asyncio
-    async def test_feedback_skips_when_no_capabilities_cache(
-        self, ml_engine_with_data, mock_hub
-    ):
+    async def test_feedback_skips_when_no_capabilities_cache(self, ml_engine_with_data, mock_hub):
         """Feedback method handles missing capabilities cache gracefully."""
-        mock_hub.get_cache_fresh = AsyncMock(return_value={
-            "data": {
-                "power_monitoring": {"available": True, "entities": ["sensor.power_1"]},
+        mock_hub.get_cache_fresh = AsyncMock(
+            return_value={
+                "data": {
+                    "power_monitoring": {"available": True, "entities": ["sensor.power_1"]},
+                }
             }
-        })
+        )
         # get_cache returns None for capabilities (simulating cache miss during feedback)
         mock_hub.get_cache = AsyncMock(return_value=None)
 
@@ -1578,9 +1581,7 @@ class TestMLFeedbackToCapabilities:
         assert len(cap_calls) == 0
 
     @pytest.mark.asyncio
-    async def test_feedback_creates_usefulness_components_if_missing(
-        self, ml_engine_with_data, mock_hub
-    ):
+    async def test_feedback_creates_usefulness_components_if_missing(self, ml_engine_with_data, mock_hub):
         """Feedback creates usefulness_components dict if capability lacks one."""
         caps_no_usefulness = {
             "data": {

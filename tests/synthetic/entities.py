@@ -1,4 +1,5 @@
 """Device roster and entity state generation for synthetic HA data."""
+
 from __future__ import annotations
 
 import math
@@ -86,158 +87,240 @@ class DeviceRoster:
         devices: list[Device] = []
 
         # 8 lights
-        for room in ["kitchen", "living_room", "bedroom", "office",
-                      "bathroom", "atrium", "garage", "porch"]:
-            devices.append(Device(
-                entity_id=f"light.{room}",
-                domain="light", device_class=None,
-                watts=60 if room != "porch" else 25,
-                rooms=[room],
-            ))
+        for room in ["kitchen", "living_room", "bedroom", "office", "bathroom", "atrium", "garage", "porch"]:
+            devices.append(
+                Device(
+                    entity_id=f"light.{room}",
+                    domain="light",
+                    device_class=None,
+                    watts=60 if room != "porch" else 25,
+                    rooms=[room],
+                )
+            )
 
         # 2 persons
         for name in ["justin", "lisa"]:
-            devices.append(Device(
-                entity_id=f"person.{name}",
-                domain="person", device_class=None,
-                watts=0, rooms=[],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"person.{name}",
+                    domain="person",
+                    device_class=None,
+                    watts=0,
+                    rooms=[],
+                )
+            )
 
         # 2 climate
         for room in ["bedroom", "living_room"]:
-            devices.append(Device(
-                entity_id=f"climate.{room}",
-                domain="climate", device_class=None,
-                watts=1500, rooms=[room],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"climate.{room}",
+                    domain="climate",
+                    device_class=None,
+                    watts=1500,
+                    rooms=[room],
+                )
+            )
 
         # 2 locks with batteries
         for loc in ["front_door", "back_door"]:
-            devices.append(Device(
-                entity_id=f"lock.{loc}",
-                domain="lock", device_class=None,
-                watts=0, rooms=["hallway"],
-                battery=True,
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"lock.{loc}",
+                    domain="lock",
+                    device_class=None,
+                    watts=0,
+                    rooms=["hallway"],
+                    battery=True,
+                )
+            )
 
         # 4 motion sensors
         for room in ["kitchen", "living_room", "bedroom", "hallway"]:
-            devices.append(Device(
-                entity_id=f"binary_sensor.{room}_motion",
-                domain="binary_sensor", device_class="motion",
-                watts=0, rooms=[room],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"binary_sensor.{room}_motion",
+                    domain="binary_sensor",
+                    device_class="motion",
+                    watts=0,
+                    rooms=[room],
+                )
+            )
 
         # 4 door/window sensors
         for name in ["front_door", "back_door", "garage_door", "kitchen_window"]:
             room = "kitchen" if "kitchen" in name else ("garage" if "garage" in name else "hallway")
-            devices.append(Device(
-                entity_id=f"binary_sensor.{name}",
-                domain="binary_sensor", device_class="door" if "door" in name else "window",
-                watts=0, rooms=[room],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"binary_sensor.{name}",
+                    domain="binary_sensor",
+                    device_class="door" if "door" in name else "window",
+                    watts=0,
+                    rooms=[room],
+                )
+            )
 
         # 1 power sensor
-        devices.append(Device(
-            entity_id="sensor.total_power",
-            domain="sensor", device_class="power",
-            watts=0, rooms=[],
-        ))
+        devices.append(
+            Device(
+                entity_id="sensor.total_power",
+                domain="sensor",
+                device_class="power",
+                watts=0,
+                rooms=[],
+            )
+        )
 
         # 3 temperature sensors
         for loc in ["bedroom", "living_room", "outside"]:
-            devices.append(Device(
-                entity_id=f"sensor.{loc}_temperature",
-                domain="sensor", device_class="temperature",
-                watts=0, rooms=[loc] if loc != "outside" else [],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"sensor.{loc}_temperature",
+                    domain="sensor",
+                    device_class="temperature",
+                    watts=0,
+                    rooms=[loc] if loc != "outside" else [],
+                )
+            )
 
         # 2 battery sensors (for locks)
         for loc in ["front_door", "back_door"]:
-            devices.append(Device(
-                entity_id=f"sensor.{loc}_lock_battery",
-                domain="sensor", device_class="battery",
-                watts=0, rooms=["hallway"],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"sensor.{loc}_lock_battery",
+                    domain="sensor",
+                    device_class="battery",
+                    watts=0,
+                    rooms=["hallway"],
+                )
+            )
 
         # 2 media players
         for room in ["living_room", "bedroom"]:
-            devices.append(Device(
-                entity_id=f"media_player.{room}",
-                domain="media_player", device_class=None,
-                watts=80, rooms=[room],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"media_player.{room}",
+                    domain="media_player",
+                    device_class=None,
+                    watts=80,
+                    rooms=[room],
+                )
+            )
 
         # 3 device trackers
         for name in ["justin_iphone", "lisa_iphone", "justin_macbook"]:
-            devices.append(Device(
-                entity_id=f"device_tracker.{name}",
-                domain="device_tracker", device_class=None,
-                watts=0, rooms=[],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"device_tracker.{name}",
+                    domain="device_tracker",
+                    device_class=None,
+                    watts=0,
+                    rooms=[],
+                )
+            )
 
         # 3 switches
-        devices.append(Device(
-            entity_id="switch.coffee_maker",
-            domain="switch", device_class=None,
-            watts=900, rooms=["kitchen"],
-        ))
-        devices.append(Device(
-            entity_id="switch.office_fan",
-            domain="switch", device_class=None,
-            watts=45, rooms=["office"],
-        ))
-        devices.append(Device(
-            entity_id="switch.garage_opener",
-            domain="switch", device_class=None,
-            watts=200, rooms=["garage"],
-        ))
+        devices.append(
+            Device(
+                entity_id="switch.coffee_maker",
+                domain="switch",
+                device_class=None,
+                watts=900,
+                rooms=["kitchen"],
+            )
+        )
+        devices.append(
+            Device(
+                entity_id="switch.office_fan",
+                domain="switch",
+                device_class=None,
+                watts=45,
+                rooms=["office"],
+            )
+        )
+        devices.append(
+            Device(
+                entity_id="switch.garage_opener",
+                domain="switch",
+                device_class=None,
+                watts=200,
+                rooms=["garage"],
+            )
+        )
 
         # 4 automations
         for name in ["arrive_justin", "arrive_lisa", "bedtime", "morning_lights"]:
-            devices.append(Device(
-                entity_id=f"automation.{name}",
-                domain="automation", device_class=None,
-                watts=0, rooms=[],
-            ))
+            devices.append(
+                Device(
+                    entity_id=f"automation.{name}",
+                    domain="automation",
+                    device_class=None,
+                    watts=0,
+                    rooms=[],
+                )
+            )
 
         # 3 EV sensors
-        devices.append(Device(
-            entity_id="sensor.luda_battery",
-            domain="sensor", device_class="battery",
-            watts=0, rooms=["garage"],
-        ))
-        devices.append(Device(
-            entity_id="sensor.luda_charger_power",
-            domain="sensor", device_class="power",
-            watts=0, rooms=["garage"],
-        ))
-        devices.append(Device(
-            entity_id="sensor.luda_range",
-            domain="sensor", device_class="distance",
-            watts=0, rooms=["garage"],
-        ))
+        devices.append(
+            Device(
+                entity_id="sensor.luda_battery",
+                domain="sensor",
+                device_class="battery",
+                watts=0,
+                rooms=["garage"],
+            )
+        )
+        devices.append(
+            Device(
+                entity_id="sensor.luda_charger_power",
+                domain="sensor",
+                device_class="power",
+                watts=0,
+                rooms=["garage"],
+            )
+        )
+        devices.append(
+            Device(
+                entity_id="sensor.luda_range",
+                domain="sensor",
+                device_class="distance",
+                watts=0,
+                rooms=["garage"],
+            )
+        )
 
         # 1 sun
-        devices.append(Device(
-            entity_id="sun.sun",
-            domain="sun", device_class=None,
-            watts=0, rooms=[],
-        ))
+        devices.append(
+            Device(
+                entity_id="sun.sun",
+                domain="sun",
+                device_class=None,
+                watts=0,
+                rooms=[],
+            )
+        )
 
         # 1 vacuum
-        devices.append(Device(
-            entity_id="vacuum.roborock",
-            domain="vacuum", device_class=None,
-            watts=65, rooms=["living_room"],
-        ))
+        devices.append(
+            Device(
+                entity_id="vacuum.roborock",
+                domain="vacuum",
+                device_class=None,
+                watts=65,
+                rooms=["living_room"],
+            )
+        )
 
         # 1 cover
-        devices.append(Device(
-            entity_id="cover.garage_door",
-            domain="cover", device_class="garage",
-            watts=150, rooms=["garage"],
-        ))
+        devices.append(
+            Device(
+                entity_id="cover.garage_door",
+                domain="cover",
+                device_class="garage",
+                watts=150,
+                rooms=["garage"],
+            )
+        )
 
         return cls(devices)
 
@@ -289,9 +372,7 @@ class EntityStateGenerator:
                     break
             person_locations[person.name] = current_room
 
-        occupied_rooms = {
-            room for room in person_locations.values() if room != "away"
-        }
+        occupied_rooms = {room for room in person_locations.values() if room != "away"}
         anyone_home = len(occupied_rooms) > 0
         late_night = hour >= 23 or hour < 5
 
@@ -300,8 +381,15 @@ class EntityStateGenerator:
 
         for device in self.roster.devices:
             state = self._generate_device_state(
-                device, rng, hour, is_dark, is_weekend,
-                person_locations, occupied_rooms, anyone_home, late_night,
+                device,
+                rng,
+                hour,
+                is_dark,
+                is_weekend,
+                person_locations,
+                occupied_rooms,
+                anyone_home,
+                late_night,
             )
             states.append(state)
             # Track power for active devices
@@ -394,8 +482,9 @@ class EntityStateGenerator:
             room_occupied = any(r in occupied_rooms for r in device.rooms)
             evening = 18 <= hour <= 23
             if room_occupied and evening and rng.random() < 0.5:
-                return device.to_ha_state("playing", media_content_type="music",
-                                          volume_level=round(rng.uniform(0.2, 0.6), 2))
+                return device.to_ha_state(
+                    "playing", media_content_type="music", volume_level=round(rng.uniform(0.2, 0.6), 2)
+                )
             return device.to_ha_state("idle")
 
         # --- Switch ---
@@ -455,10 +544,10 @@ class EntityStateGenerator:
         # --- Sun ---
         if domain == "sun":
             if is_dark:
-                return device.to_ha_state("below_horizon",
-                                          elevation=round(-5 - rng.random() * 10, 1))
-            return device.to_ha_state("above_horizon",
-                                      elevation=round(10 + 30 * math.sin((hour - 6) * math.pi / 12), 1))
+                return device.to_ha_state("below_horizon", elevation=round(-5 - rng.random() * 10, 1))
+            return device.to_ha_state(
+                "above_horizon", elevation=round(10 + 30 * math.sin((hour - 6) * math.pi / 12), 1)
+            )
 
         # --- Vacuum ---
         if domain == "vacuum":

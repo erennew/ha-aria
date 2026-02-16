@@ -1,4 +1,5 @@
 """Tests for weather profile generation."""
+
 from tests.synthetic.weather import WeatherProfile
 
 

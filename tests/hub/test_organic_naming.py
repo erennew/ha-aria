@@ -8,6 +8,7 @@ from aria.modules.organic_discovery.naming import heuristic_name, heuristic_desc
 
 # --- Fixtures ---
 
+
 def _cluster(
     entity_ids=None,
     domains=None,
@@ -29,6 +30,7 @@ def _cluster(
 
 
 # --- heuristic_name tests ---
+
 
 class TestHeuristicName:
     """Tests for heuristic_name."""
@@ -163,6 +165,7 @@ class TestHeuristicName:
 
 
 # --- heuristic_description tests ---
+
 
 class TestHeuristicDescription:
     """Tests for heuristic_description."""

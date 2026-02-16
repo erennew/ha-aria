@@ -1,18 +1,17 @@
 """Tests for device roster and entity state generation."""
+
 from tests.synthetic.entities import Device, DeviceRoster, EntityStateGenerator
 from tests.synthetic.people import Person, Schedule
 
 
 class TestDevice:
     def test_device_has_required_fields(self):
-        d = Device(entity_id="light.kitchen", domain="light", device_class=None,
-                   watts=60, rooms=["kitchen"])
+        d = Device(entity_id="light.kitchen", domain="light", device_class=None, watts=60, rooms=["kitchen"])
         assert d.entity_id == "light.kitchen"
         assert d.domain == "light"
 
     def test_device_state_for_light_on(self):
-        d = Device(entity_id="light.kitchen", domain="light", device_class=None,
-                   watts=60, rooms=["kitchen"])
+        d = Device(entity_id="light.kitchen", domain="light", device_class=None, watts=60, rooms=["kitchen"])
         state = d.to_ha_state("on", brightness=180)
         assert state["entity_id"] == "light.kitchen"
         assert state["state"] == "on"
@@ -20,8 +19,7 @@ class TestDevice:
         assert state["attributes"]["friendly_name"] == "Kitchen Light"
 
     def test_device_state_for_sensor(self):
-        d = Device(entity_id="sensor.power_consumption", domain="sensor",
-                   device_class="power", watts=0, rooms=[])
+        d = Device(entity_id="sensor.power_consumption", domain="sensor", device_class="power", watts=0, rooms=[])
         state = d.to_ha_state("156.5")
         assert state["state"] == "156.5"
         assert state["attributes"]["device_class"] == "power"

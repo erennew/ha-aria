@@ -1,6 +1,5 @@
 """Tests for /api/automations/feedback endpoints."""
 
-import pytest
 from unittest.mock import AsyncMock
 
 
@@ -12,11 +11,14 @@ class TestPostAutomationFeedback:
         api_hub.get_cache = AsyncMock(return_value=None)
         api_hub.set_cache = AsyncMock(return_value=1)
 
-        resp = api_client.post("/api/automations/feedback", json={
-            "suggestion_id": "sug-001",
-            "capability_source": "lighting_control",
-            "user_action": "accepted",
-        })
+        resp = api_client.post(
+            "/api/automations/feedback",
+            json={
+                "suggestion_id": "sug-001",
+                "capability_source": "lighting_control",
+                "user_action": "accepted",
+            },
+        )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -40,11 +42,14 @@ class TestPostAutomationFeedback:
         api_hub.get_cache = AsyncMock(return_value=None)
         api_hub.set_cache = AsyncMock(return_value=1)
 
-        resp = api_client.post("/api/automations/feedback", json={
-            "suggestion_id": "sug-002",
-            "capability_source": "climate_control",
-            "user_action": "rejected",
-        })
+        resp = api_client.post(
+            "/api/automations/feedback",
+            json={
+                "suggestion_id": "sug-002",
+                "capability_source": "climate_control",
+                "user_action": "rejected",
+            },
+        )
 
         assert resp.status_code == 200
         written_data = api_hub.set_cache.call_args[0][1]
@@ -59,11 +64,14 @@ class TestPostAutomationFeedback:
         api_hub.get_cache = AsyncMock(return_value=None)
         api_hub.set_cache = AsyncMock(return_value=1)
 
-        resp = api_client.post("/api/automations/feedback", json={
-            "suggestion_id": "sug-003",
-            "capability_source": "lighting_control",
-            "user_action": "modified",
-        })
+        resp = api_client.post(
+            "/api/automations/feedback",
+            json={
+                "suggestion_id": "sug-003",
+                "capability_source": "lighting_control",
+                "user_action": "modified",
+            },
+        )
 
         assert resp.status_code == 200
         written_data = api_hub.set_cache.call_args[0][1]
@@ -77,11 +85,14 @@ class TestPostAutomationFeedback:
         api_hub.get_cache = AsyncMock(return_value=None)
         api_hub.set_cache = AsyncMock(return_value=1)
 
-        resp = api_client.post("/api/automations/feedback", json={
-            "suggestion_id": "sug-004",
-            "capability_source": "lighting_control",
-            "user_action": "ignored",
-        })
+        resp = api_client.post(
+            "/api/automations/feedback",
+            json={
+                "suggestion_id": "sug-004",
+                "capability_source": "lighting_control",
+                "user_action": "ignored",
+            },
+        )
 
         assert resp.status_code == 200
         written_data = api_hub.set_cache.call_args[0][1]
@@ -92,20 +103,26 @@ class TestPostAutomationFeedback:
 
     def test_invalid_user_action_returns_400(self, api_hub, api_client):
         """Invalid user_action returns 400."""
-        resp = api_client.post("/api/automations/feedback", json={
-            "suggestion_id": "sug-005",
-            "capability_source": "lighting_control",
-            "user_action": "invalid_action",
-        })
+        resp = api_client.post(
+            "/api/automations/feedback",
+            json={
+                "suggestion_id": "sug-005",
+                "capability_source": "lighting_control",
+                "user_action": "invalid_action",
+            },
+        )
 
         assert resp.status_code == 400
         assert "Invalid user_action" in resp.json()["error"]
 
     def test_missing_fields_returns_400(self, api_hub, api_client):
         """Missing required fields returns 400."""
-        resp = api_client.post("/api/automations/feedback", json={
-            "suggestion_id": "sug-006",
-        })
+        resp = api_client.post(
+            "/api/automations/feedback",
+            json={
+                "suggestion_id": "sug-006",
+            },
+        )
 
         assert resp.status_code == 400
         assert "Missing required fields" in resp.json()["error"]
@@ -134,11 +151,14 @@ class TestPostAutomationFeedback:
         api_hub.get_cache = AsyncMock(return_value=existing_data)
         api_hub.set_cache = AsyncMock(return_value=2)
 
-        resp = api_client.post("/api/automations/feedback", json={
-            "suggestion_id": "sug-new",
-            "capability_source": "lighting_control",
-            "user_action": "rejected",
-        })
+        resp = api_client.post(
+            "/api/automations/feedback",
+            json={
+                "suggestion_id": "sug-new",
+                "capability_source": "lighting_control",
+                "user_action": "rejected",
+            },
+        )
 
         assert resp.status_code == 200
         written_data = api_hub.set_cache.call_args[0][1]
@@ -202,11 +222,14 @@ class TestGetAutomationFeedback:
         api_hub.get_cache = AsyncMock(return_value=None)
         api_hub.set_cache = AsyncMock(return_value=1)
 
-        api_client.post("/api/automations/feedback", json={
-            "suggestion_id": "sug-roundtrip",
-            "capability_source": "climate_control",
-            "user_action": "accepted",
-        })
+        api_client.post(
+            "/api/automations/feedback",
+            json={
+                "suggestion_id": "sug-roundtrip",
+                "capability_source": "climate_control",
+                "user_action": "accepted",
+            },
+        )
 
         # Capture what was written
         written_data = api_hub.set_cache.call_args[0][1]

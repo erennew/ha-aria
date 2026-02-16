@@ -462,6 +462,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         if not module:
             raise HTTPException(status_code=404, detail="Organic discovery module not loaded")
         import asyncio
+
         asyncio.create_task(module.run_discovery())
         return {"status": "started"}
 
@@ -511,6 +512,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         """List all declared capabilities from the code registry."""
         from aria.capabilities import CapabilityRegistry
         from dataclasses import asdict
+
         registry = CapabilityRegistry()
         registry.collect_from_modules()
         caps = registry.list_all()
@@ -521,26 +523,20 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         return {
             "capabilities": [asdict(c) for c in caps],
             "total": len(caps),
-            "by_layer": {
-                lyr: len([c for c in caps if c.layer == lyr])
-                for lyr in sorted({c.layer for c in caps})
-            },
-            "by_status": {
-                st: len([c for c in caps if c.status == st])
-                for st in sorted({c.status for c in caps})
-            },
+            "by_layer": {lyr: len([c for c in caps if c.layer == lyr]) for lyr in sorted({c.layer for c in caps})},
+            "by_status": {st: len([c for c in caps if c.status == st]) for st in sorted({c.status for c in caps})},
         }
 
     @router.get("/api/capabilities/registry/graph")
     async def capabilities_registry_graph():
         """Dependency graph of all registered capabilities."""
         from aria.capabilities import CapabilityRegistry
+
         registry = CapabilityRegistry()
         registry.collect_from_modules()
         graph = registry.dependency_graph()
         nodes = [
-            {"id": cap.id, "name": cap.name, "layer": cap.layer, "status": cap.status}
-            for cap in registry.list_all()
+            {"id": cap.id, "name": cap.name, "layer": cap.layer, "status": cap.status} for cap in registry.list_all()
         ]
         edges = []
         for cap_id, deps in graph.items():
@@ -552,10 +548,11 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
     async def capabilities_registry_health():
         """Runtime health per capability — checks module status from hub."""
         from aria.capabilities import CapabilityRegistry
+
         registry = CapabilityRegistry()
         registry.collect_from_modules()
         module_status = {}
-        if hasattr(hub, 'module_status'):
+        if hasattr(hub, "module_status"):
             module_status = dict(hub.module_status)
         return registry.health(module_status)
 
@@ -564,6 +561,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         """Get a single capability by ID from the code registry."""
         from aria.capabilities import CapabilityRegistry
         from dataclasses import asdict
+
         registry = CapabilityRegistry()
         registry.collect_from_modules()
         cap = registry.get(capability_id)
@@ -607,12 +605,15 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         }
 
         # Update per-capability counters
-        cap_stats = feedback_data["per_capability"].get(capability_source, {
-            "suggested": 0,
-            "accepted": 0,
-            "rejected": 0,
-            "acceptance_rate": 0.0,
-        })
+        cap_stats = feedback_data["per_capability"].get(
+            capability_source,
+            {
+                "suggested": 0,
+                "accepted": 0,
+                "rejected": 0,
+                "acceptance_rate": 0.0,
+            },
+        )
         cap_stats["suggested"] = cap_stats.get("suggested", 0) + 1
         if user_action == "accepted":
             cap_stats["accepted"] = cap_stats.get("accepted", 0) + 1
@@ -823,10 +824,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             # when in backtest stage. The backtest gate was designed for a holdout
             # evaluation pipeline that was never built — shadow accuracy is the
             # best available proxy for prediction quality during backtest stage.
-            if (
-                pipeline.get("current_stage") == "backtest"
-                and pipeline.get("backtest_accuracy") is None
-            ):
+            if pipeline.get("current_stage") == "backtest" and pipeline.get("backtest_accuracy") is None:
                 try:
                     bridge_stats = await hub.cache.get_accuracy_stats()
                     shadow_acc = bridge_stats.get("overall_accuracy", 0) / 100.0
@@ -1097,6 +1095,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         if data is None:
             raise HTTPException(status_code=404, detail="Thumbnail not found")
         from fastapi.responses import Response
+
         return Response(content=data, media_type="image/jpeg")
 
     @router.get("/api/frigate/snapshot/{event_id}")
@@ -1109,6 +1108,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         if data is None:
             raise HTTPException(status_code=404, detail="Snapshot not found")
         from fastapi.responses import Response
+
         return Response(content=data, media_type="image/jpeg")
 
     # WebSocket endpoint (auth handled inline — FastAPI dependency injection

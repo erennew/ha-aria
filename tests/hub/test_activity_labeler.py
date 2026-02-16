@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -369,7 +368,7 @@ class TestContextToFeatures:
         features = labeler._context_to_features(ctx)
         assert len(features) == 10
         assert features[8] == 0.85  # presence_probability
-        assert features[9] == 3.0   # occupied_room_count
+        assert features[9] == 3.0  # occupied_room_count
 
     def test_context_to_features_presence_defaults(self, labeler):
         """Presence features default to 0 when not in context."""
@@ -436,13 +435,10 @@ class TestIntelligenceFeatureExtraction:
     def test_extracts_anomaly_nearby(self, labeler):
         """anomaly_nearby=1 when anomaly within last hour."""
         from datetime import datetime, timedelta
+
         recent_time = (datetime.now() - timedelta(minutes=30)).isoformat()
         intel_data = {
-            "sequence_anomalies": {
-                "anomalies": [
-                    {"time_end": recent_time, "description": "unusual pattern"}
-                ]
-            }
+            "sequence_anomalies": {"anomalies": [{"time_end": recent_time, "description": "unusual pattern"}]}
         }
         result = labeler._extract_intelligence_features(intel_data)
         assert result["anomaly_nearby"] == 1
@@ -450,14 +446,9 @@ class TestIntelligenceFeatureExtraction:
     def test_anomaly_not_nearby_when_old(self, labeler):
         """anomaly_nearby=0 when anomaly older than 1 hour."""
         from datetime import datetime, timedelta
+
         old_time = (datetime.now() - timedelta(hours=2)).isoformat()
-        intel_data = {
-            "sequence_anomalies": {
-                "anomalies": [
-                    {"time_end": old_time, "description": "old pattern"}
-                ]
-            }
-        }
+        intel_data = {"sequence_anomalies": {"anomalies": [{"time_end": old_time, "description": "old pattern"}]}}
         result = labeler._extract_intelligence_features(intel_data)
         assert result["anomaly_nearby"] == 0
 
@@ -495,6 +486,7 @@ class TestPeriodicPredictIntelligence:
     async def test_periodic_predict_includes_intelligence_features(self, labeler, hub):
         """_periodic_predict merges intelligence features into context."""
         from datetime import datetime, timedelta
+
         recent_time = (datetime.now() - timedelta(minutes=30)).isoformat()
 
         hub._cache["intelligence"] = {
@@ -504,11 +496,7 @@ class TestPeriodicPredictIntelligence:
                         {"entity_a": "light.a", "entity_b": "light.b", "strength": "strong"},
                     ]
                 },
-                "sequence_anomalies": {
-                    "anomalies": [
-                        {"time_end": recent_time, "description": "test"}
-                    ]
-                },
+                "sequence_anomalies": {"anomalies": [{"time_end": recent_time, "description": "test"}]},
                 "power_profiles": {
                     "outlets": {
                         "switch.a": {"is_active": True},
@@ -519,9 +507,17 @@ class TestPeriodicPredictIntelligence:
 
         # Mock predict_activity to capture the context
         captured_context = {}
+
         async def mock_predict(ctx):
             captured_context.update(ctx)
-            return {"predicted": "relaxing", "confidence": 0.5, "method": "ollama", "sensor_context": ctx, "predicted_at": "now"}
+            return {
+                "predicted": "relaxing",
+                "confidence": 0.5,
+                "method": "ollama",
+                "sensor_context": ctx,
+                "predicted_at": "now",
+            }
+
         labeler.predict_activity = mock_predict
 
         await labeler._periodic_predict()
@@ -547,9 +543,17 @@ class TestPeriodicPredictIntelligence:
         }
 
         captured_context = {}
+
         async def mock_predict(ctx):
             captured_context.update(ctx)
-            return {"predicted": "cooking", "confidence": 0.8, "method": "ollama", "sensor_context": ctx, "predicted_at": "now"}
+            return {
+                "predicted": "cooking",
+                "confidence": 0.8,
+                "method": "ollama",
+                "sensor_context": ctx,
+                "predicted_at": "now",
+            }
+
         labeler.predict_activity = mock_predict
 
         await labeler._periodic_predict()
@@ -561,9 +565,17 @@ class TestPeriodicPredictIntelligence:
     async def test_periodic_predict_no_presence_cache(self, labeler, hub):
         """_periodic_predict works without presence cache (defaults to 0)."""
         captured_context = {}
+
         async def mock_predict(ctx):
             captured_context.update(ctx)
-            return {"predicted": "relaxing", "confidence": 0.5, "method": "ollama", "sensor_context": ctx, "predicted_at": "now"}
+            return {
+                "predicted": "relaxing",
+                "confidence": 0.5,
+                "method": "ollama",
+                "sensor_context": ctx,
+                "predicted_at": "now",
+            }
+
         labeler.predict_activity = mock_predict
 
         await labeler._periodic_predict()
@@ -591,16 +603,18 @@ class TestInitialize:
         labels = []
         for i in range(CLASSIFIER_THRESHOLD):
             activity = "cooking" if i % 2 == 0 else "sleeping"
-            labels.append(make_label(
-                predicted=activity,
-                actual=activity,
-                source="confirmed",
-                context=make_context(
-                    power_watts=400.0 if activity == "cooking" else 50.0,
-                    lights_on=3 if activity == "cooking" else 0,
-                    hour=18 if activity == "cooking" else 23,
-                ),
-            ))
+            labels.append(
+                make_label(
+                    predicted=activity,
+                    actual=activity,
+                    source="confirmed",
+                    context=make_context(
+                        power_watts=400.0 if activity == "cooking" else 50.0,
+                        lights_on=3 if activity == "cooking" else 0,
+                        hour=18 if activity == "cooking" else 23,
+                    ),
+                )
+            )
 
         hub._cache["activity_labels"] = {
             "data": {

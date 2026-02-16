@@ -55,7 +55,8 @@ def detect_contextual_anomalies(snapshot_features, model_dir):
             logger.warning(
                 "Dimension mismatch with autoencoder features "
                 "(model expects %d, got %d) — falling back to base features",
-                model.n_features_in_, X.shape[1],
+                model.n_features_in_,
+                X.shape[1],
             )
             X = X_original
             score = float(model.decision_function(X)[0])

@@ -1,4 +1,5 @@
 """Shared fixtures for integration tests."""
+
 import pytest
 from tests.synthetic.simulator import HouseholdSimulator
 from tests.synthetic.pipeline import PipelineRunner

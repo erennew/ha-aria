@@ -22,7 +22,9 @@ from aria.engine.models.device_failure import (
 from aria.engine.config import HolidayConfig, PathConfig
 from aria.engine.collectors.snapshot import build_empty_snapshot
 
-import importlib.util, pathlib
+import importlib.util
+import pathlib
+
 _spec = importlib.util.spec_from_file_location(
     "engine_conftest",
     pathlib.Path(__file__).parent / "conftest.py",

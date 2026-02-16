@@ -1,4 +1,5 @@
 """Tier 1: ML model competence tests against realistic synthetic data."""
+
 from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
 from tests.synthetic.pipeline import PipelineRunner
 
@@ -64,8 +65,7 @@ class TestModelsGeneralize:
         # but the majority should not be wildly negative.
         reasonable = [m for m, r2 in r2_values.items() if r2 > -1.0]
         assert len(reasonable) >= len(r2_values) / 2, (
-            f"Too many metrics with severe R2: "
-            f"{({m: r2 for m, r2 in r2_values.items() if r2 <= -1.0})}"
+            f"Too many metrics with severe R2: { ({m: r2 for m, r2 in r2_values.items() if r2 <= -1.0}) }"
         )
 
 

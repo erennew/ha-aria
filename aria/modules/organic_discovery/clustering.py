@@ -34,9 +34,7 @@ def cluster_entities(
         ValueError: If matrix row count doesn't match entity_ids length.
     """
     if matrix.shape[0] != len(entity_ids):
-        raise ValueError(
-            f"Matrix has {matrix.shape[0]} rows but got {len(entity_ids)} entity_ids"
-        )
+        raise ValueError(f"Matrix has {matrix.shape[0]} rows but got {len(entity_ids)} entity_ids")
 
     # Edge case: empty or too-small input
     if matrix.shape[0] < min_cluster_size:
@@ -78,10 +76,12 @@ def cluster_entities(
             # Single cluster — silhouette is undefined, report 0.0
             avg_silhouette = 0.0
 
-        clusters.append({
-            "cluster_id": int(label),
-            "entity_ids": member_ids,
-            "silhouette": avg_silhouette,
-        })
+        clusters.append(
+            {
+                "cluster_id": int(label),
+                "entity_ids": member_ids,
+                "silhouette": avg_silhouette,
+            }
+        )
 
     return clusters

@@ -1,4 +1,5 @@
 """Household scenario definitions."""
+
 from __future__ import annotations
 
 from tests.synthetic.people import Person, Schedule

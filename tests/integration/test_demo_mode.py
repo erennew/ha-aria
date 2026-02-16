@@ -1,4 +1,5 @@
 """Tests for aria demo mode CLI integration."""
+
 from tests.demo.generate import generate_checkpoint
 from tests.synthetic.simulator import INTRADAY_HOURS
 

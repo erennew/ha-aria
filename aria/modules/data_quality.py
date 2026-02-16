@@ -286,7 +286,12 @@ class DataQualityModule(Module):
         # Unavailable beyond grace period
         unavailable_hours = metrics.get("unavailable_since_hours")
         if unavailable_grace_hours and unavailable_hours is not None and unavailable_hours > unavailable_grace_hours:
-            return (1, "auto_excluded", f"Unavailable for {int(unavailable_hours)}h (grace: {unavailable_grace_hours}h)", "")
+            return (
+                1,
+                "auto_excluded",
+                f"Unavailable for {int(unavailable_hours)}h (grace: {unavailable_grace_hours}h)",
+                "",
+            )
 
         # Polling noise: high rate + very few unique states
         if event_rate > noise_threshold and unique_states < 3:

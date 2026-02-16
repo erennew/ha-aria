@@ -1,4 +1,5 @@
 """HouseholdSimulator — top-level entry point for synthetic data generation."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -57,9 +58,7 @@ class HouseholdSimulator:
 
         return snapshots
 
-    def _get_people_for_day(
-        self, base_people: list[Person], config: dict, day: int, is_weekend: bool
-    ) -> list[Person]:
+    def _get_people_for_day(self, base_people: list[Person], config: dict, day: int, is_weekend: bool) -> list[Person]:
         people = list(base_people)
 
         vacation_days = config.get("vacation_days")
@@ -80,11 +79,7 @@ class HouseholdSimulator:
         wfh_start = config.get("wfh_start_day")
         if wfh_person and wfh_start and day >= wfh_start and not is_weekend:
             wfh_sched = Schedule(wake=7, sleep=23, depart=None, arrive=None)
-            people = [
-                Person(p.name, wfh_sched, p.schedule_weekend)
-                if p.name == wfh_person else p
-                for p in people
-            ]
+            people = [Person(p.name, wfh_sched, p.schedule_weekend) if p.name == wfh_person else p for p in people]
 
         return people
 

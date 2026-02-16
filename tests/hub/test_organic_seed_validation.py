@@ -1,4 +1,5 @@
 """Tests for seed capability validation against discovered clusters."""
+
 import pytest
 from aria.modules.organic_discovery.seed_validation import validate_seeds, jaccard_similarity
 

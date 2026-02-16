@@ -30,14 +30,12 @@ def validate_snapshot(snapshot: Dict) -> List[str]:
 
     if total < MIN_ENTITY_COUNT:
         errors.append(
-            f"Entities count too low: {total} (min {MIN_ENTITY_COUNT}). "
-            "HA may have been down during snapshot."
+            f"Entities count too low: {total} (min {MIN_ENTITY_COUNT}). HA may have been down during snapshot."
         )
 
     if total > 0 and unavailable / total > MAX_UNAVAILABLE_RATIO:
         errors.append(
-            f"High unavailable ratio: {unavailable}/{total} "
-            f"({unavailable/total:.0%}). HA may have been restarting."
+            f"High unavailable ratio: {unavailable}/{total} ({unavailable / total:.0%}). HA may have been restarting."
         )
 
     return errors

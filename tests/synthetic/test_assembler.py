@@ -1,4 +1,5 @@
 """Tests for snapshot assembler using real ARIA collectors."""
+
 import pytest
 from tests.synthetic.assembler import SnapshotAssembler
 from tests.synthetic.entities import DeviceRoster
@@ -66,6 +67,7 @@ class TestSnapshotAssembler:
     def test_snapshots_compatible_with_training(self, assembler):
         """Snapshots should work with build_training_data()."""
         from aria.engine.features.vector_builder import build_training_data
+
         snapshots = assembler.build_daily_series(days=14, start_date="2026-02-01")
         names, X, targets = build_training_data(snapshots)
         assert len(names) > 0

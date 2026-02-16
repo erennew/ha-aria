@@ -976,12 +976,14 @@ class ShadowEngine(Module):
                     self._thompson.record_outcome(context, success=(outcome == "correct"))
 
                 # Track resolved prediction for feedback computation
-                self._recent_resolved.append({
-                    "id": pred_id,
-                    "predictions": prediction.get("predictions", []),
-                    "outcome": outcome,
-                    "actual": actual_data,
-                })
+                self._recent_resolved.append(
+                    {
+                        "id": pred_id,
+                        "predictions": prediction.get("predictions", []),
+                        "outcome": outcome,
+                        "actual": actual_data,
+                    }
+                )
 
                 self.logger.debug(f"Resolved {pred_id[:8]}: {outcome} ({len(actual_events)} events in window)")
             except Exception as e:
@@ -1169,9 +1171,7 @@ class ShadowEngine(Module):
 
         if updated:
             await self.hub.set_cache("capabilities", caps_data, {"source": "shadow_feedback"})
-            self.logger.debug(
-                f"Wrote shadow feedback for {len(hit_rates)} capabilities"
-            )
+            self.logger.debug(f"Wrote shadow feedback for {len(hit_rates)} capabilities")
 
         # Clear resolved buffer after writing feedback
         self._recent_resolved.clear()

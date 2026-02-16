@@ -304,12 +304,14 @@ class TestValidateAll:
     def test_validate_all_combines_checks(self):
         """Cap with fake config key + fake test path + missing dep should produce >=3 issues."""
         reg = CapabilityRegistry()
-        reg.register(_make_cap(
-            id="broken",
-            config_keys=["fake.config.key"],
-            test_paths=["tests/does_not_exist.py"],
-            depends_on=["missing_dep"],
-        ))
+        reg.register(
+            _make_cap(
+                id="broken",
+                config_keys=["fake.config.key"],
+                test_paths=["tests/does_not_exist.py"],
+                depends_on=["missing_dep"],
+            )
+        )
         issues = reg.validate_all()
         assert len(issues) >= 3
         assert any("fake.config.key" in i for i in issues)
@@ -329,9 +331,15 @@ class TestCollectFromModules:
         hub_caps = registry.list_by_layer("hub")
         hub_module_ids = {c.module for c in hub_caps}
         expected = {
-            "discovery", "ml_engine", "pattern_recognition", "orchestrator",
-            "shadow_engine", "data_quality", "organic_discovery",
-            "intelligence", "activity_monitor",
+            "discovery",
+            "ml_engine",
+            "pattern_recognition",
+            "orchestrator",
+            "shadow_engine",
+            "data_quality",
+            "organic_discovery",
+            "intelligence",
+            "activity_monitor",
         }
         assert expected.issubset(hub_module_ids), f"Missing: {expected - hub_module_ids}"
 
@@ -345,7 +353,7 @@ class TestCollectFromModules:
         registry = CapabilityRegistry()
         registry.collect_from_modules()
         issues = registry.validate_all()
-        assert issues == [], f"Validation issues:\n" + "\n".join(issues)
+        assert issues == [], "Validation issues:\n" + "\n".join(issues)
 
     def test_total_capability_count(self):
         registry = CapabilityRegistry()
@@ -363,7 +371,9 @@ class TestCapabilitiesCLI:
     def test_list_command(self):
         result = subprocess.run(
             [sys.executable, "-m", "aria.cli", "capabilities", "list"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=PROJECT_ROOT,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -373,7 +383,9 @@ class TestCapabilitiesCLI:
     def test_list_layer_filter(self):
         result = subprocess.run(
             [sys.executable, "-m", "aria.cli", "capabilities", "list", "--layer", "engine"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=PROJECT_ROOT,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -383,7 +395,9 @@ class TestCapabilitiesCLI:
     def test_list_status_filter(self):
         result = subprocess.run(
             [sys.executable, "-m", "aria.cli", "capabilities", "list", "--status", "stable"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=PROJECT_ROOT,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -392,7 +406,9 @@ class TestCapabilitiesCLI:
     def test_list_verbose(self):
         result = subprocess.run(
             [sys.executable, "-m", "aria.cli", "capabilities", "list", "--verbose"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=PROJECT_ROOT,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -401,7 +417,9 @@ class TestCapabilitiesCLI:
     def test_verify_command(self):
         result = subprocess.run(
             [sys.executable, "-m", "aria.cli", "capabilities", "verify"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=PROJECT_ROOT,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -409,7 +427,9 @@ class TestCapabilitiesCLI:
     def test_export_json(self):
         result = subprocess.run(
             [sys.executable, "-m", "aria.cli", "capabilities", "export"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=PROJECT_ROOT,
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
@@ -457,6 +477,7 @@ class TestDemandSignalDeclarations:
 
     def test_ml_engine_declares_demand_signals(self):
         from aria.modules.ml_engine import MLEngine
+
         caps = MLEngine.CAPABILITIES
         assert any(len(c.demand_signals) > 0 for c in caps)
         # Check the first demand signal has required fields
@@ -466,6 +487,7 @@ class TestDemandSignalDeclarations:
 
     def test_shadow_engine_declares_demand_signals(self):
         from aria.modules.shadow_engine import ShadowEngine
+
         caps = ShadowEngine.CAPABILITIES
         assert any(len(c.demand_signals) > 0 for c in caps)
 

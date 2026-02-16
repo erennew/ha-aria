@@ -14,8 +14,7 @@ class TestReferenceModel:
         hub.cache = AsyncMock()
         hub.cache.get_config_value = AsyncMock(return_value="true")
         module = MLEngine.__new__(MLEngine)
-        assert hasattr(module, "_train_reference_model"), \
-            "MLEngine should have _train_reference_model method"
+        assert hasattr(module, "_train_reference_model"), "MLEngine should have _train_reference_model method"
 
     async def test_comparison_logic(self):
         """Test accuracy comparison between primary and reference."""

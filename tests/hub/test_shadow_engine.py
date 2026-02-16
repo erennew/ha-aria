@@ -1722,16 +1722,19 @@ class TestCapabilityFeedback:
     async def test_write_feedback_updates_capabilities(self, engine, hub):
         """Should write shadow_accuracy to each capability with prediction data."""
         # Set up capabilities cache with entities
-        await hub.set_cache("capabilities", {
-            "lighting": {
-                "name": "Lighting",
-                "entities": ["light.kitchen", "light.bedroom"],
+        await hub.set_cache(
+            "capabilities",
+            {
+                "lighting": {
+                    "name": "Lighting",
+                    "entities": ["light.kitchen", "light.bedroom"],
+                },
+                "media": {
+                    "name": "Media",
+                    "entities": ["media_player.tv", "media_player.speaker"],
+                },
             },
-            "media": {
-                "name": "Media",
-                "entities": ["media_player.tv", "media_player.speaker"],
-            },
-        })
+        )
 
         # Populate recent resolved with predictions involving light domain
         engine._recent_resolved = [
@@ -1778,12 +1781,15 @@ class TestCapabilityFeedback:
     @pytest.mark.asyncio
     async def test_write_feedback_clears_recent_resolved(self, engine, hub):
         """After writing feedback, _recent_resolved should be cleared."""
-        await hub.set_cache("capabilities", {
-            "lighting": {
-                "name": "Lighting",
-                "entities": ["light.kitchen"],
+        await hub.set_cache(
+            "capabilities",
+            {
+                "lighting": {
+                    "name": "Lighting",
+                    "entities": ["light.kitchen"],
+                },
             },
-        })
+        )
 
         engine._recent_resolved = [
             {
@@ -1818,12 +1824,15 @@ class TestCapabilityFeedback:
     @pytest.mark.asyncio
     async def test_write_feedback_no_resolved_predictions(self, engine, hub):
         """Should be a no-op when no predictions have been resolved."""
-        await hub.set_cache("capabilities", {
-            "lighting": {
-                "name": "Lighting",
-                "entities": ["light.kitchen"],
+        await hub.set_cache(
+            "capabilities",
+            {
+                "lighting": {
+                    "name": "Lighting",
+                    "entities": ["light.kitchen"],
+                },
             },
-        })
+        )
 
         engine._recent_resolved = []
         await engine._write_feedback_to_capabilities()
@@ -1835,12 +1844,15 @@ class TestCapabilityFeedback:
     @pytest.mark.asyncio
     async def test_write_feedback_no_entity_overlap(self, engine, hub):
         """Capabilities with no entity overlap should not get shadow_accuracy."""
-        await hub.set_cache("capabilities", {
-            "climate": {
-                "name": "Climate",
-                "entities": ["climate.thermostat"],
+        await hub.set_cache(
+            "capabilities",
+            {
+                "climate": {
+                    "name": "Climate",
+                    "entities": ["climate.thermostat"],
+                },
             },
-        })
+        )
 
         engine._recent_resolved = [
             {
@@ -1966,21 +1978,26 @@ class TestCapabilityFeedback:
     @pytest.mark.asyncio
     async def test_write_feedback_routine_trigger_domains(self, engine, hub):
         """Should match routine_trigger expected_domains to capabilities."""
-        await hub.set_cache("capabilities", {
-            "media": {
-                "name": "Media",
-                "entities": ["media_player.tv"],
+        await hub.set_cache(
+            "capabilities",
+            {
+                "media": {
+                    "name": "Media",
+                    "entities": ["media_player.tv"],
+                },
             },
-        })
+        )
 
         engine._recent_resolved = [
             {
                 "id": "pred-rt",
-                "predictions": [{
-                    "type": "routine_trigger",
-                    "predicted": "Evening Routine",
-                    "expected_domains": ["media_player", "light"],
-                }],
+                "predictions": [
+                    {
+                        "type": "routine_trigger",
+                        "predicted": "Evening Routine",
+                        "expected_domains": ["media_player", "light"],
+                    }
+                ],
                 "outcome": "correct",
                 "actual": {"event_count": 3, "domains": ["media_player", "light"], "rooms": []},
             },
@@ -1991,4 +2008,3 @@ class TestCapabilityFeedback:
         caps = await hub.get_cache("capabilities")
         assert "shadow_accuracy" in caps["data"]["media"]
         assert caps["data"]["media"]["shadow_accuracy"]["hit_rate"] == 1.0
-

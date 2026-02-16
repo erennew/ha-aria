@@ -87,17 +87,18 @@ class TestInitialize:
     async def test_loads_settings_from_cache(self, mock_hub, module):
         custom_settings = {**DEFAULT_SETTINGS, "autonomy_mode": "autonomous"}
         mock_hub.get_cache.side_effect = lambda key: (
-            _make_cache_entry(custom_settings) if key == "discovery_settings" else
-            _make_cache_entry([]) if key == "discovery_history" else None
+            _make_cache_entry(custom_settings)
+            if key == "discovery_settings"
+            else _make_cache_entry([])
+            if key == "discovery_history"
+            else None
         )
         await module.initialize()
         assert module.settings["autonomy_mode"] == "autonomous"
 
     async def test_loads_history_from_cache(self, mock_hub, module):
         history = [{"timestamp": "2026-02-14", "clusters": 3}]
-        mock_hub.get_cache.side_effect = lambda key: (
-            _make_cache_entry(history) if key == "discovery_history" else None
-        )
+        mock_hub.get_cache.side_effect = lambda key: _make_cache_entry(history) if key == "discovery_history" else None
         await module.initialize()
         assert module.history == history
 
@@ -164,29 +165,31 @@ class TestRunDiscovery:
         }.get(key)
 
         # Patch clustering to return a simple cluster
-        with patch(
-            "aria.modules.organic_discovery.module.cluster_entities",
-            return_value=[{
-                "cluster_id": 0,
-                "entity_ids": ["light.living_room", "light.bedroom", "switch.fan"],
-                "silhouette": 0.5,
-            }],
-        ), patch(
-            "aria.modules.organic_discovery.module.build_feature_matrix",
-            return_value=(
-                __import__("numpy").zeros((3, 5)),
-                ["light.living_room", "light.bedroom", "switch.fan"],
-                ["f1", "f2", "f3", "f4", "f5"],
+        with (
+            patch(
+                "aria.modules.organic_discovery.module.cluster_entities",
+                return_value=[
+                    {
+                        "cluster_id": 0,
+                        "entity_ids": ["light.living_room", "light.bedroom", "switch.fan"],
+                        "silhouette": 0.5,
+                    }
+                ],
+            ),
+            patch(
+                "aria.modules.organic_discovery.module.build_feature_matrix",
+                return_value=(
+                    __import__("numpy").zeros((3, 5)),
+                    ["light.living_room", "light.bedroom", "switch.fan"],
+                    ["f1", "f2", "f3", "f4", "f5"],
+                ),
             ),
         ):
             await module.initialize()
             await module.run_discovery()
 
         # Should have called set_cache for capabilities
-        cap_calls = [
-            c for c in mock_hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in mock_hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         assert len(cap_calls) >= 1
 
         # The capabilities data should include the seed
@@ -211,10 +214,7 @@ class TestRunDiscovery:
         await module.initialize()
         await module.run_discovery()
 
-        cap_calls = [
-            c for c in mock_hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in mock_hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         assert len(cap_calls) >= 1
         written_caps = cap_calls[-1][0][1]
         assert "lighting" in written_caps
@@ -235,10 +235,7 @@ class TestRunDiscovery:
         await module.initialize()
         await module.run_discovery()
 
-        pub_calls = [
-            c for c in mock_hub.publish.call_args_list
-            if c[0][0] == "organic_discovery_complete"
-        ]
+        pub_calls = [c for c in mock_hub.publish.call_args_list if c[0][0] == "organic_discovery_complete"]
         assert len(pub_calls) >= 1
 
     async def test_records_history(self, mock_hub, module):
@@ -287,32 +284,32 @@ class TestAutonomyModes:
             "discovery_history": None,
         }.get(key)
 
-        with patch(
-            "aria.modules.organic_discovery.module.cluster_entities",
-            return_value=[{
-                "cluster_id": 0,
-                "entity_ids": ["light.living_room", "light.bedroom", "switch.fan"],
-                "silhouette": 0.7,
-            }],
-        ), patch(
-            "aria.modules.organic_discovery.module.build_feature_matrix",
-            return_value=(
-                __import__("numpy").zeros((3, 5)),
-                ["light.living_room", "light.bedroom", "switch.fan"],
-                ["f1", "f2", "f3", "f4", "f5"],
+        with (
+            patch(
+                "aria.modules.organic_discovery.module.cluster_entities",
+                return_value=[
+                    {
+                        "cluster_id": 0,
+                        "entity_ids": ["light.living_room", "light.bedroom", "switch.fan"],
+                        "silhouette": 0.7,
+                    }
+                ],
+            ),
+            patch(
+                "aria.modules.organic_discovery.module.build_feature_matrix",
+                return_value=(
+                    __import__("numpy").zeros((3, 5)),
+                    ["light.living_room", "light.bedroom", "switch.fan"],
+                    ["f1", "f2", "f3", "f4", "f5"],
+                ),
             ),
         ):
             await module.initialize()
             await module.run_discovery()
 
-        cap_calls = [
-            c for c in mock_hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in mock_hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         written_caps = cap_calls[-1][0][1]
-        organic_caps = {
-            k: v for k, v in written_caps.items() if v.get("source") == "organic"
-        }
+        organic_caps = {k: v for k, v in written_caps.items() if v.get("source") == "organic"}
         # In suggest_and_wait mode, no organic capabilities should be promoted
         assert len(organic_caps) > 0, "Expected at least one organic capability"
         promoted = [c for c in organic_caps.values() if c["status"] == "promoted"]
@@ -345,37 +342,39 @@ class TestAutonomyModes:
         }.get(key)
 
         # Patch scoring to return high score and naming to return predictable name
-        with patch(
-            "aria.modules.organic_discovery.module.cluster_entities",
-            return_value=[{
-                "cluster_id": 0,
-                "entity_ids": ["light.living_room", "light.bedroom", "switch.fan"],
-                "silhouette": 0.8,
-            }],
-        ), patch(
-            "aria.modules.organic_discovery.module.build_feature_matrix",
-            return_value=(
-                __import__("numpy").zeros((3, 5)),
-                ["light.living_room", "light.bedroom", "switch.fan"],
-                ["f1", "f2", "f3", "f4", "f5"],
+        with (
+            patch(
+                "aria.modules.organic_discovery.module.cluster_entities",
+                return_value=[
+                    {
+                        "cluster_id": 0,
+                        "entity_ids": ["light.living_room", "light.bedroom", "switch.fan"],
+                        "silhouette": 0.8,
+                    }
+                ],
             ),
-        ), patch(
-            "aria.modules.organic_discovery.module.compute_usefulness",
-            return_value=75,
-        ), patch(
-            "aria.modules.organic_discovery.module.heuristic_name",
-            return_value=cap_name,
+            patch(
+                "aria.modules.organic_discovery.module.build_feature_matrix",
+                return_value=(
+                    __import__("numpy").zeros((3, 5)),
+                    ["light.living_room", "light.bedroom", "switch.fan"],
+                    ["f1", "f2", "f3", "f4", "f5"],
+                ),
+            ),
+            patch(
+                "aria.modules.organic_discovery.module.compute_usefulness",
+                return_value=75,
+            ),
+            patch(
+                "aria.modules.organic_discovery.module.heuristic_name",
+                return_value=cap_name,
+            ),
         ):
             await module.run_discovery()
 
-        cap_calls = [
-            c for c in mock_hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in mock_hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         written_caps = cap_calls[-1][0][1]
-        organic_caps = {
-            k: v for k, v in written_caps.items() if v.get("source") == "organic"
-        }
+        organic_caps = {k: v for k, v in written_caps.items() if v.get("source") == "organic"}
         # At least one should be promoted at threshold
         promoted = [c for c in organic_caps.values() if c["status"] == "promoted"]
         assert len(promoted) >= 1, (
@@ -399,38 +398,37 @@ class TestAutonomyModes:
             "discovery_history": None,
         }.get(key)
 
-        with patch(
-            "aria.modules.organic_discovery.module.cluster_entities",
-            return_value=[{
-                "cluster_id": 0,
-                "entity_ids": ["light.living_room", "light.bedroom", "switch.fan"],
-                "silhouette": 0.5,
-            }],
-        ), patch(
-            "aria.modules.organic_discovery.module.build_feature_matrix",
-            return_value=(
-                __import__("numpy").zeros((3, 5)),
-                ["light.living_room", "light.bedroom", "switch.fan"],
-                ["f1", "f2", "f3", "f4", "f5"],
+        with (
+            patch(
+                "aria.modules.organic_discovery.module.cluster_entities",
+                return_value=[
+                    {
+                        "cluster_id": 0,
+                        "entity_ids": ["light.living_room", "light.bedroom", "switch.fan"],
+                        "silhouette": 0.5,
+                    }
+                ],
             ),
-        ), patch(
-            "aria.modules.organic_discovery.module.compute_usefulness",
-            return_value=35,  # above 30 autonomous threshold
+            patch(
+                "aria.modules.organic_discovery.module.build_feature_matrix",
+                return_value=(
+                    __import__("numpy").zeros((3, 5)),
+                    ["light.living_room", "light.bedroom", "switch.fan"],
+                    ["f1", "f2", "f3", "f4", "f5"],
+                ),
+            ),
+            patch(
+                "aria.modules.organic_discovery.module.compute_usefulness",
+                return_value=35,  # above 30 autonomous threshold
+            ),
         ):
             await module.run_discovery()
 
-        cap_calls = [
-            c for c in mock_hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in mock_hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         written_caps = cap_calls[-1][0][1]
-        organic_caps = {
-            k: v for k, v in written_caps.items() if v.get("source") == "organic"
-        }
+        organic_caps = {k: v for k, v in written_caps.items() if v.get("source") == "organic"}
         promoted = [c for c in organic_caps.values() if c["status"] == "promoted"]
-        assert len(promoted) >= 1, (
-            "autonomous mode should promote at lower threshold (>=30)"
-        )
+        assert len(promoted) >= 1, "autonomous mode should promote at lower threshold (>=30)"
         # Verify promotion happened despite the configured threshold being 50
         for cap in promoted:
             assert cap["source"] == "organic"
@@ -459,25 +457,26 @@ class TestBehavioralDiscovery:
             "discovery_history": None,
         }.get(key)
 
-        with patch(
-            "aria.modules.organic_discovery.module.cluster_entities",
-            return_value=[],
-        ), patch(
-            "aria.modules.organic_discovery.module.build_feature_matrix",
-            return_value=(
-                __import__("numpy").zeros((3, 5)),
-                ["light.living_room", "light.bedroom", "switch.fan"],
-                ["f1", "f2", "f3", "f4", "f5"],
+        with (
+            patch(
+                "aria.modules.organic_discovery.module.cluster_entities",
+                return_value=[],
             ),
-        ), patch.object(module, '_load_logbook', return_value=mock_logbook):
+            patch(
+                "aria.modules.organic_discovery.module.build_feature_matrix",
+                return_value=(
+                    __import__("numpy").zeros((3, 5)),
+                    ["light.living_room", "light.bedroom", "switch.fan"],
+                    ["f1", "f2", "f3", "f4", "f5"],
+                ),
+            ),
+            patch.object(module, "_load_logbook", return_value=mock_logbook),
+        ):
             await module.initialize()
             await module.run_discovery()
 
         # Should have written capabilities to cache
-        cap_calls = [
-            c for c in mock_hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in mock_hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         assert len(cap_calls) >= 1
 
         # Verify behavioral capabilities were discovered from the logbook data
@@ -497,7 +496,7 @@ class TestBehavioralDiscovery:
             "discovery_history": None,
         }.get(key)
 
-        with patch.object(module, '_load_logbook', return_value=[]):
+        with patch.object(module, "_load_logbook", return_value=[]):
             await module.initialize()
             result = await module.run_discovery()
 
@@ -523,36 +522,37 @@ class TestBehavioralDiscovery:
         }.get(key)
 
         # Patch domain clustering to return nothing so only behavioral caps appear
-        with patch(
-            "aria.modules.organic_discovery.module.cluster_entities",
-            return_value=[],
-        ), patch(
-            "aria.modules.organic_discovery.module.build_feature_matrix",
-            return_value=(
-                __import__("numpy").zeros((3, 5)),
-                ["light.living_room", "light.bedroom", "switch.fan"],
-                ["f1", "f2", "f3", "f4", "f5"],
+        with (
+            patch(
+                "aria.modules.organic_discovery.module.cluster_entities",
+                return_value=[],
             ),
-        ), patch(
-            "aria.modules.organic_discovery.module.cluster_behavioral",
-            return_value=[{
-                "cluster_id": 0,
-                "entity_ids": ["light.room_0", "light.room_1", "light.room_2"],
-                "silhouette": 0.6,
-                "temporal_pattern": {"peak_hours": [19], "weekday_bias": 0.7},
-            }],
-        ), patch.object(module, '_load_logbook', return_value=mock_logbook):
+            patch(
+                "aria.modules.organic_discovery.module.build_feature_matrix",
+                return_value=(
+                    __import__("numpy").zeros((3, 5)),
+                    ["light.living_room", "light.bedroom", "switch.fan"],
+                    ["f1", "f2", "f3", "f4", "f5"],
+                ),
+            ),
+            patch(
+                "aria.modules.organic_discovery.module.cluster_behavioral",
+                return_value=[
+                    {
+                        "cluster_id": 0,
+                        "entity_ids": ["light.room_0", "light.room_1", "light.room_2"],
+                        "silhouette": 0.6,
+                        "temporal_pattern": {"peak_hours": [19], "weekday_bias": 0.7},
+                    }
+                ],
+            ),
+            patch.object(module, "_load_logbook", return_value=mock_logbook),
+        ):
             await module.run_discovery()
 
-        cap_calls = [
-            c for c in mock_hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in mock_hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         written_caps = cap_calls[-1][0][1]
-        behavioral_caps = {
-            k: v for k, v in written_caps.items()
-            if v.get("layer") == "behavioral"
-        }
+        behavioral_caps = {k: v for k, v in written_caps.items() if v.get("layer") == "behavioral"}
         # Behavioral capabilities must exist and have layer="behavioral"
         assert len(behavioral_caps) >= 1, "Expected at least one behavioral capability"
         for name, cap in behavioral_caps.items():
@@ -579,21 +579,21 @@ class TestDriftDetection:
         """Drift event flags capability for re-discovery."""
         module = _make_module()
         # Seed capabilities cache
-        module.hub.get_cache.return_value = _make_cache_entry({
-            "climate": {"available": True, "entities": ["sensor.temp"], "status": "promoted"}
-        })
+        module.hub.get_cache.return_value = _make_cache_entry(
+            {"climate": {"available": True, "entities": ["sensor.temp"], "status": "promoted"}}
+        )
 
-        await module.on_event("drift_detected", {
-            "capability": "climate",
-            "drift_type": "behavioral_drift",
-            "severity": 0.8,
-        })
+        await module.on_event(
+            "drift_detected",
+            {
+                "capability": "climate",
+                "drift_type": "behavioral_drift",
+                "severity": 0.8,
+            },
+        )
 
         # Verify set_cache was called with the flagged capability
-        cap_calls = [
-            c for c in module.hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in module.hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         assert len(cap_calls) >= 1
         written_caps = cap_calls[-1][0][1]
         assert written_caps["climate"]["drift_flagged"] is True
@@ -603,29 +603,25 @@ class TestDriftDetection:
     async def test_drift_ignores_unknown_capability(self):
         """Drift for non-existent capability is silently ignored."""
         module = _make_module()
-        module.hub.get_cache.return_value = _make_cache_entry({
-            "climate": {"available": True}
-        })
+        module.hub.get_cache.return_value = _make_cache_entry({"climate": {"available": True}})
 
-        await module.on_event("drift_detected", {
-            "capability": "nonexistent",
-            "severity": 0.5,
-        })
+        await module.on_event(
+            "drift_detected",
+            {
+                "capability": "nonexistent",
+                "severity": 0.5,
+            },
+        )
 
         # set_cache should NOT have been called for capabilities
-        cap_calls = [
-            c for c in module.hub.set_cache.call_args_list
-            if c[0][0] == "capabilities"
-        ]
+        cap_calls = [c for c in module.hub.set_cache.call_args_list if c[0][0] == "capabilities"]
         assert len(cap_calls) == 0
 
     @pytest.mark.asyncio
     async def test_drift_ignores_non_drift_events(self):
         """Non-drift events are ignored."""
         module = _make_module()
-        module.hub.get_cache.return_value = _make_cache_entry({
-            "climate": {"available": True}
-        })
+        module.hub.get_cache.return_value = _make_cache_entry({"climate": {"available": True}})
 
         await module.on_event("state_changed", {"entity_id": "sensor.temp"})
 
@@ -747,21 +743,19 @@ class TestDemandAlignment:
     def test_full_match_gets_max_bonus(self):
         module = _make_module()
         from aria.capabilities import DemandSignal
+
         demands = [DemandSignal(entity_domains=["sensor"], device_classes=["power"], min_entities=3)]
-        entities = [
-            {"entity_id": f"sensor.power_{i}", "domain": "sensor", "device_class": "power"}
-            for i in range(5)
-        ]
+        entities = [{"entity_id": f"sensor.power_{i}", "domain": "sensor", "device_class": "power"} for i in range(5)]
         bonus = module._compute_demand_alignment(entities, demands)
         assert bonus == 0.2
 
     def test_domain_match_only(self):
         module = _make_module()
         from aria.capabilities import DemandSignal
+
         demands = [DemandSignal(entity_domains=["sensor"], device_classes=["power"], min_entities=3)]
         entities = [
-            {"entity_id": f"sensor.temp_{i}", "domain": "sensor", "device_class": "temperature"}
-            for i in range(5)
+            {"entity_id": f"sensor.temp_{i}", "domain": "sensor", "device_class": "temperature"} for i in range(5)
         ]
         bonus = module._compute_demand_alignment(entities, demands)
         assert bonus == 0.05
@@ -769,6 +763,7 @@ class TestDemandAlignment:
     def test_no_match(self):
         module = _make_module()
         from aria.capabilities import DemandSignal
+
         demands = [DemandSignal(entity_domains=["sensor"], device_classes=["power"], min_entities=3)]
         entities = [{"entity_id": "light.lamp", "domain": "light", "device_class": ""}]
         bonus = module._compute_demand_alignment(entities, demands)
@@ -782,11 +777,9 @@ class TestDemandAlignment:
     def test_domain_and_class_match_below_size(self):
         module = _make_module()
         from aria.capabilities import DemandSignal
+
         demands = [DemandSignal(entity_domains=["sensor"], device_classes=["power"], min_entities=10)]
-        entities = [
-            {"entity_id": f"sensor.power_{i}", "domain": "sensor", "device_class": "power"}
-            for i in range(3)
-        ]
+        entities = [{"entity_id": f"sensor.power_{i}", "domain": "sensor", "device_class": "power"} for i in range(3)]
         bonus = module._compute_demand_alignment(entities, demands)
         assert bonus == 0.1  # domain + class match but below size threshold
 
@@ -803,9 +796,7 @@ class TestUpdateSettings:
         await module.update_settings({"naming_backend": "ollama"})
         assert module.settings["naming_backend"] == "ollama"
         # Verify cache was written
-        mock_hub.set_cache.assert_called_with(
-            "discovery_settings", module.settings, {"source": "settings_update"}
-        )
+        mock_hub.set_cache.assert_called_with("discovery_settings", module.settings, {"source": "settings_update"})
 
     async def test_update_settings_rejects_invalid_backend(self, mock_hub, module):
         """Invalid naming_backend should raise ValueError."""

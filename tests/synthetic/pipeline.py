@@ -3,6 +3,7 @@
 Runs save → baselines → features → train → predict → score in a temp directory,
 using real ARIA engine code at every step.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -66,13 +67,15 @@ class PipelineRunner:
 
         for metric_name, y_values in targets.items():
             if len(y_values) < self.config.model.min_training_samples:
-                results[metric_name] = {
-                    "error": f"insufficient data ({len(y_values)} samples)"
-                }
+                results[metric_name] = {"error": f"insufficient data ({len(y_values)} samples)"}
                 continue
             result = train_continuous_model(
-                metric_name, feature_names, X, y_values,
-                models_dir, self.config.model,
+                metric_name,
+                feature_names,
+                X,
+                y_values,
+                models_dir,
+                self.config.model,
             )
             results[metric_name] = result
 
@@ -98,9 +101,7 @@ class PipelineRunner:
 
         # Try ML predictions if models were trained
         ml_predictions = None
-        if self._training_results and any(
-            "error" not in v for v in self._training_results.values()
-        ):
+        if self._training_results and any("error" not in v for v in self._training_results.values()):
             # Use the last snapshot as input for ML prediction
             ml_predictions = predict_with_ml(
                 self.snapshots[-1],

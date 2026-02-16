@@ -23,11 +23,11 @@ class TestCapabilityRegistryIntegration:
 
         # Full validation should pass
         issues = registry.validate_all()
-        assert issues == [], f"Validation issues:\n" + "\n".join(issues)
+        assert issues == [], "Validation issues:\n" + "\n".join(issues)
 
         # Dependency graph should have no cycles
         dep_issues = registry.validate_deps()
-        assert dep_issues == [], f"Dep issues:\n" + "\n".join(dep_issues)
+        assert dep_issues == [], "Dep issues:\n" + "\n".join(dep_issues)
 
     def test_every_hub_module_has_capability(self):
         """No hub module should be missing a capability declaration."""
@@ -42,9 +42,15 @@ class TestCapabilityRegistryIntegration:
         from aria.modules.activity_monitor import ActivityMonitor
 
         for module_cls in [
-            DiscoveryModule, MLEngine, PatternRecognition, OrchestratorModule,
-            ShadowEngine, DataQualityModule, OrganicDiscoveryModule,
-            IntelligenceModule, ActivityMonitor,
+            DiscoveryModule,
+            MLEngine,
+            PatternRecognition,
+            OrchestratorModule,
+            ShadowEngine,
+            DataQualityModule,
+            OrganicDiscoveryModule,
+            IntelligenceModule,
+            ActivityMonitor,
         ]:
             caps = getattr(module_cls, "CAPABILITIES", [])
             assert len(caps) > 0, f"{module_cls.__name__} has no CAPABILITIES declared"
@@ -57,7 +63,9 @@ class TestCapabilityRegistryIntegration:
 
         result = subprocess.run(
             [sys.executable, "-m", "aria.cli", "capabilities", "verify"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=str(Path(__file__).parent.parent.parent),
         )
         assert result.returncode == 0, f"verify failed: {result.stderr}"
@@ -71,7 +79,9 @@ class TestCapabilityRegistryIntegration:
 
         result = subprocess.run(
             [sys.executable, "-m", "aria.cli", "capabilities", "export"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
             cwd=str(Path(__file__).parent.parent.parent),
         )
         assert result.returncode == 0

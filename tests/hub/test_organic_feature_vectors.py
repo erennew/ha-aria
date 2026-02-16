@@ -64,10 +64,8 @@ class TestBuildFeatureMatrix:
         """Matrix has n_entities rows and n_features columns."""
         entities = [
             make_entity("light.living_room", device_id="dev1"),
-            make_entity("sensor.temperature", device_id="dev2",
-                        device_class="temperature", unit_of_measurement="°C"),
-            make_entity("binary_sensor.motion", device_id="dev1",
-                        device_class="motion"),
+            make_entity("sensor.temperature", device_id="dev2", device_class="temperature", unit_of_measurement="°C"),
+            make_entity("binary_sensor.motion", device_id="dev1", device_class="motion"),
         ]
         devices = {
             "dev1": make_device("dev1", area_id="living_room", manufacturer="Philips"),
@@ -80,7 +78,10 @@ class TestBuildFeatureMatrix:
         }
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, devices, {}, activity_rates,
+            entities,
+            devices,
+            {},
+            activity_rates,
         )
 
         assert isinstance(matrix, np.ndarray)
@@ -108,7 +109,10 @@ class TestBuildFeatureMatrix:
         ]
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, {}, {}, {},
+            entities,
+            {},
+            {},
+            {},
         )
 
         # Find domain feature columns
@@ -140,7 +144,10 @@ class TestBuildFeatureMatrix:
         }
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, {}, {}, activity_rates,
+            entities,
+            {},
+            {},
+            activity_rates,
         )
 
         assert "avg_daily_changes" in feature_names
@@ -169,7 +176,10 @@ class TestBuildFeatureMatrix:
         devices = {}  # empty device registry
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, devices, {}, {},
+            entities,
+            devices,
+            {},
+            {},
         )
 
         # Should still produce valid matrix
@@ -194,7 +204,10 @@ class TestBuildFeatureMatrix:
         }
 
         matrix, _, feature_names = build_feature_matrix(
-            entities, devices, {}, {},
+            entities,
+            devices,
+            {},
+            {},
         )
 
         [f for f in feature_names if f.startswith("area_")]
@@ -212,7 +225,10 @@ class TestBuildFeatureMatrix:
         }
 
         matrix, _, feature_names = build_feature_matrix(
-            entities, devices, {}, {},
+            entities,
+            devices,
+            {},
+            {},
         )
 
         assert "area_kitchen" in feature_names
@@ -231,7 +247,10 @@ class TestBuildFeatureMatrix:
         }
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, devices, {}, {},
+            entities,
+            devices,
+            {},
+            {},
         )
 
         assert "manufacturer_Philips" in feature_names
@@ -250,7 +269,10 @@ class TestBuildFeatureMatrix:
         ]
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, {}, {}, {},
+            entities,
+            {},
+            {},
+            {},
         )
 
         assert "state_cardinality" in feature_names
@@ -271,7 +293,10 @@ class TestBuildFeatureMatrix:
         ]
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, {}, {}, {},
+            entities,
+            {},
+            {},
+            {},
         )
 
         assert "available" in feature_names
@@ -282,20 +307,29 @@ class TestBuildFeatureMatrix:
     def test_capability_flags(self):
         """Capability flags are set from entity attributes."""
         entities = [
-            make_entity("light.rgb", attributes={
-                "brightness": 200,
-                "color_temp": 350,
-                "rgb_color": [255, 0, 0],
-            }),
-            make_entity("climate.hvac", attributes={
-                "hvac_modes": ["heat", "cool"],
-                "temperature": 21,
-            }),
+            make_entity(
+                "light.rgb",
+                attributes={
+                    "brightness": 200,
+                    "color_temp": 350,
+                    "rgb_color": [255, 0, 0],
+                },
+            ),
+            make_entity(
+                "climate.hvac",
+                attributes={
+                    "hvac_modes": ["heat", "cool"],
+                    "temperature": 21,
+                },
+            ),
             make_entity("sensor.basic"),
         ]
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, {}, {}, {},
+            entities,
+            {},
+            {},
+            {},
         )
 
         # Light capabilities
@@ -322,7 +356,10 @@ class TestBuildFeatureMatrix:
         ]
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, {}, {}, {},
+            entities,
+            {},
+            {},
+            {},
         )
 
         assert "device_class_temperature" in feature_names
@@ -340,7 +377,10 @@ class TestBuildFeatureMatrix:
         ]
 
         matrix, entity_ids, feature_names = build_feature_matrix(
-            entities, {}, {}, {},
+            entities,
+            {},
+            {},
+            {},
         )
 
         assert "unit_W" in feature_names

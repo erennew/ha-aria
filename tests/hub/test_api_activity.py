@@ -1,6 +1,5 @@
 """Tests for /api/activity/* endpoints."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 
@@ -21,16 +20,18 @@ class TestGetCurrentActivity:
 
     def test_get_current_activity_with_data(self, api_hub, api_client):
         """Returns cached current activity."""
-        api_hub.get_cache = AsyncMock(return_value={
-            "data": {
-                "current_activity": {
-                    "predicted": "sleeping",
-                    "confidence": 0.85,
-                    "method": "classifier",
-                    "sensor_context": {"bedroom_motion": False},
+        api_hub.get_cache = AsyncMock(
+            return_value={
+                "data": {
+                    "current_activity": {
+                        "predicted": "sleeping",
+                        "confidence": 0.85,
+                        "method": "classifier",
+                        "sensor_context": {"bedroom_motion": False},
+                    }
                 }
             }
-        })
+        )
 
         resp = api_client.get("/api/activity/current")
 
@@ -46,22 +47,27 @@ class TestPostActivityLabel:
 
     def test_post_activity_label_confirmed(self, api_hub, api_client):
         """Confirmed label when predicted == actual."""
-        api_hub.get_cache = AsyncMock(return_value={
-            "data": {
-                "current_activity": {
-                    "predicted": "cooking",
-                    "confidence": 0.7,
-                    "sensor_context": {"kitchen_motion": True},
+        api_hub.get_cache = AsyncMock(
+            return_value={
+                "data": {
+                    "current_activity": {
+                        "predicted": "cooking",
+                        "confidence": 0.7,
+                        "sensor_context": {"kitchen_motion": True},
+                    }
                 }
             }
-        })
+        )
         mock_labeler = MagicMock()
         mock_labeler.record_label = AsyncMock(return_value={"total_labels": 1})
         api_hub.modules["activity_labeler"] = mock_labeler
 
-        resp = api_client.post("/api/activity/label", json={
-            "actual_activity": "cooking",
-        })
+        resp = api_client.post(
+            "/api/activity/label",
+            json={
+                "actual_activity": "cooking",
+            },
+        )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -73,22 +79,27 @@ class TestPostActivityLabel:
 
     def test_post_activity_label_corrected(self, api_hub, api_client):
         """Corrected label when predicted != actual."""
-        api_hub.get_cache = AsyncMock(return_value={
-            "data": {
-                "current_activity": {
-                    "predicted": "sleeping",
-                    "confidence": 0.6,
-                    "sensor_context": {"bedroom_motion": True},
+        api_hub.get_cache = AsyncMock(
+            return_value={
+                "data": {
+                    "current_activity": {
+                        "predicted": "sleeping",
+                        "confidence": 0.6,
+                        "sensor_context": {"bedroom_motion": True},
+                    }
                 }
             }
-        })
+        )
         mock_labeler = MagicMock()
         mock_labeler.record_label = AsyncMock(return_value={"total_labels": 2})
         api_hub.modules["activity_labeler"] = mock_labeler
 
-        resp = api_client.post("/api/activity/label", json={
-            "actual_activity": "reading",
-        })
+        resp = api_client.post(
+            "/api/activity/label",
+            json={
+                "actual_activity": "reading",
+            },
+        )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -107,21 +118,26 @@ class TestPostActivityLabel:
 
     def test_post_activity_label_no_labeler_module(self, api_hub, api_client):
         """Records label even without labeler module loaded."""
-        api_hub.get_cache = AsyncMock(return_value={
-            "data": {
-                "current_activity": {
-                    "predicted": "away",
-                    "confidence": 0.9,
-                    "sensor_context": {},
+        api_hub.get_cache = AsyncMock(
+            return_value={
+                "data": {
+                    "current_activity": {
+                        "predicted": "away",
+                        "confidence": 0.9,
+                        "sensor_context": {},
+                    }
                 }
             }
-        })
+        )
         # No labeler module registered
         api_hub.modules = {}
 
-        resp = api_client.post("/api/activity/label", json={
-            "actual_activity": "away",
-        })
+        resp = api_client.post(
+            "/api/activity/label",
+            json={
+                "actual_activity": "away",
+            },
+        )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -151,12 +167,14 @@ class TestGetActivityLabels:
             {"predicted": "cooking", "actual": "eating", "source": "corrected"},
             {"predicted": "away", "actual": "away", "source": "confirmed"},
         ]
-        api_hub.get_cache = AsyncMock(return_value={
-            "data": {
-                "labels": labels,
-                "label_stats": {"total_labels": 3, "classifier_ready": False},
+        api_hub.get_cache = AsyncMock(
+            return_value={
+                "data": {
+                    "labels": labels,
+                    "label_stats": {"total_labels": 3, "classifier_ready": False},
+                }
             }
-        })
+        )
 
         resp = api_client.get("/api/activity/labels")
 
@@ -182,15 +200,17 @@ class TestGetActivityStats:
 
     def test_get_activity_stats(self, api_hub, api_client):
         """Returns label stats from cache."""
-        api_hub.get_cache = AsyncMock(return_value={
-            "data": {
-                "label_stats": {
-                    "total_labels": 25,
-                    "classifier_ready": True,
-                    "accuracy": 0.88,
+        api_hub.get_cache = AsyncMock(
+            return_value={
+                "data": {
+                    "label_stats": {
+                        "total_labels": 25,
+                        "classifier_ready": True,
+                        "accuracy": 0.88,
+                    }
                 }
             }
-        })
+        )
 
         resp = api_client.get("/api/activity/stats")
 

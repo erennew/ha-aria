@@ -1,4 +1,5 @@
 """Validate organic clusters against seed (hard-coded) capabilities."""
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -42,8 +43,7 @@ def validate_seeds(
         matched = best_jaccard >= threshold
         if not matched and seed_entities:
             logger.warning(
-                f"Seed '{seed_name}' not reproduced: best Jaccard={best_jaccard:.2f} "
-                f"(threshold={threshold})"
+                f"Seed '{seed_name}' not reproduced: best Jaccard={best_jaccard:.2f} (threshold={threshold})"
             )
 
         results[seed_name] = {

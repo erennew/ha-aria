@@ -1,4 +1,5 @@
 """Snapshot assembler — feeds synthetic entity states through real ARIA collectors."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -39,8 +40,11 @@ class SnapshotAssembler:
         safety_config = SafetyConfig()
 
         states = self.entity_gen.generate_states(
-            day=day, hour=hour, is_weekend=is_weekend,
-            sunrise=self.weather.sunrise, sunset=self.weather.sunset,
+            day=day,
+            hour=hour,
+            is_weekend=is_weekend,
+            sunrise=self.weather.sunrise,
+            sunset=self.weather.sunset,
         )
 
         # Patch synthetic states to match what real HA provides and collectors expect
@@ -67,9 +71,7 @@ class SnapshotAssembler:
                     break
 
         # Enrich motion with active_count (done in intraday snapshot code, not by collector)
-        snapshot["motion"]["active_count"] = sum(
-            1 for v in snapshot["motion"]["sensors"].values() if v == "on"
-        )
+        snapshot["motion"]["active_count"] = sum(1 for v in snapshot["motion"]["sensors"].values() if v == "on")
 
         # Weather from synthetic profile
         weather_cond = self.weather.get_conditions(day, hour, self.seed)
@@ -119,9 +121,7 @@ class SnapshotAssembler:
             "hourly": {},
         }
 
-    def _patch_states_for_collectors(
-        self, states: list[dict], date_str: str, hour: float
-    ) -> None:
+    def _patch_states_for_collectors(self, states: list[dict], date_str: str, hour: float) -> None:
         """Mutate synthetic states so real collectors can extract data correctly.
 
         Real HA entities have attributes that the synthetic Device.to_ha_state()
@@ -150,9 +150,7 @@ class SnapshotAssembler:
             if eid == "sensor.luda_range":
                 s["attributes"]["unit_of_measurement"] = "mi"
 
-    def build_daily_series(
-        self, days: int, start_date: str = "2026-02-01"
-    ) -> list[dict]:
+    def build_daily_series(self, days: int, start_date: str = "2026-02-01") -> list[dict]:
         """Build a series of daily snapshots."""
         start = datetime.strptime(start_date, "%Y-%m-%d")
         snapshots = []

@@ -4,7 +4,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from aria.hub.core import Module, IntelligenceHub
 from aria.capabilities import Capability
@@ -179,14 +179,14 @@ class ActivityLabeler(Module):
             stats["total_corrections"] = stats.get("total_corrections", 0) + 1
 
         # Compute accuracy: labels where predicted == actual / total
-        correct = sum(1 for l in data["labels"] if l["predicted_activity"] == l["actual_activity"])
+        correct = sum(1 for lbl in data["labels"] if lbl["predicted_activity"] == lbl["actual_activity"])
         stats["accuracy"] = round(correct / len(data["labels"]), 3) if data["labels"] else 0.0
 
         # Track unique activities
         all_activities = set()
-        for l in data["labels"]:
-            all_activities.add(l["actual_activity"])
-            all_activities.add(l["predicted_activity"])
+        for lbl in data["labels"]:
+            all_activities.add(lbl["actual_activity"])
+            all_activities.add(lbl["predicted_activity"])
         stats["activities_seen"] = sorted(all_activities)
 
         # Train classifier if threshold crossed
@@ -344,9 +344,18 @@ class ActivityLabeler(Module):
         presence_probability = float(ctx.get("presence_probability", 0))
         occupied_room_count = float(ctx.get("occupied_room_count", 0))
 
-        return [power_watts, float(lights_on), float(motion_room_count), hour, is_home,
-                correlated_entities_active, anomaly_nearby, active_appliance_count,
-                presence_probability, occupied_room_count]
+        return [
+            power_watts,
+            float(lights_on),
+            float(motion_room_count),
+            hour,
+            is_home,
+            correlated_entities_active,
+            anomaly_nearby,
+            active_appliance_count,
+            presence_probability,
+            occupied_room_count,
+        ]
 
     def _extract_intelligence_features(self, intel_data: dict) -> dict:
         """Extract intelligence-derived features from engine data.
@@ -389,8 +398,7 @@ class ActivityLabeler(Module):
         if profiles and isinstance(profiles, dict):
             outlets = profiles.get("outlets", profiles)
             result["active_appliance_count"] = sum(
-                1 for v in outlets.values()
-                if isinstance(v, dict) and v.get("is_active", False)
+                1 for v in outlets.values() if isinstance(v, dict) and v.get("is_active", False)
             )
 
         return result

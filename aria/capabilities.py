@@ -20,6 +20,7 @@ VALID_PIPELINE_STAGES = frozenset({"backtest", "shadow", "suggest", "autonomous"
 @dataclass(frozen=True)
 class DemandSignal:
     """Declares what entity groupings a module needs from discovery."""
+
     entity_domains: List[str] = field(default_factory=list)
     device_classes: List[str] = field(default_factory=list)
     min_entities: int = 5
@@ -58,17 +59,12 @@ class Capability:
         if not self.name:
             raise ValueError("name must not be empty")
         if self.layer not in VALID_LAYERS:
-            raise ValueError(
-                f"layer must be one of {sorted(VALID_LAYERS)}, got {self.layer!r}"
-            )
+            raise ValueError(f"layer must be one of {sorted(VALID_LAYERS)}, got {self.layer!r}")
         if self.status not in VALID_STATUSES:
-            raise ValueError(
-                f"status must be one of {sorted(VALID_STATUSES)}, got {self.status!r}"
-            )
+            raise ValueError(f"status must be one of {sorted(VALID_STATUSES)}, got {self.status!r}")
         if self.pipeline_stage is not None and self.pipeline_stage not in VALID_PIPELINE_STAGES:
             raise ValueError(
-                f"pipeline_stage must be one of {sorted(VALID_PIPELINE_STAGES)} or None, "
-                f"got {self.pipeline_stage!r}"
+                f"pipeline_stage must be one of {sorted(VALID_PIPELINE_STAGES)} or None, got {self.pipeline_stage!r}"
             )
 
 
@@ -122,10 +118,7 @@ class CapabilityRegistry:
         for cap_id, deps in graph.items():
             for dep in deps:
                 if dep not in self._caps:
-                    errors.append(
-                        f"Capability {cap_id!r} depends on {dep!r}, "
-                        f"which is not registered"
-                    )
+                    errors.append(f"Capability {cap_id!r} depends on {dep!r}, which is not registered")
 
         # Cycle detection via DFS with coloring
         # WHITE=unvisited, GRAY=in current path, BLACK=finished
@@ -140,9 +133,7 @@ class CapabilityRegistry:
                 if color[dep] == GRAY:
                     cycle_start = path.index(dep)
                     cycle = path[cycle_start:] + [dep]
-                    errors.append(
-                        f"Cycle detected: {' -> '.join(cycle)}"
-                    )
+                    errors.append(f"Cycle detected: {' -> '.join(cycle)}")
                 elif color[dep] == WHITE:
                     dfs(dep, path + [dep])
             color[node] = BLACK
@@ -165,10 +156,7 @@ class CapabilityRegistry:
         for cap in self._caps.values():
             for key in cap.config_keys:
                 if key not in valid_keys:
-                    issues.append(
-                        f"Capability {cap.id!r} declares config_key {key!r}, "
-                        f"which is not in CONFIG_DEFAULTS"
-                    )
+                    issues.append(f"Capability {cap.id!r} declares config_key {key!r}, which is not in CONFIG_DEFAULTS")
         return issues
 
     def validate_test_paths(self) -> List[str]:
@@ -185,10 +173,7 @@ class CapabilityRegistry:
             for test_path in cap.test_paths:
                 full_path = project_root / test_path
                 if not full_path.exists():
-                    issues.append(
-                        f"Capability {cap.id!r} declares test_path {test_path!r}, "
-                        f"which does not exist"
-                    )
+                    issues.append(f"Capability {cap.id!r} declares test_path {test_path!r}, which does not exist")
         return issues
 
     def validate_all(self) -> List[str]:
@@ -240,9 +225,16 @@ class CapabilityRegistry:
         from aria.modules.presence import PresenceModule
 
         hub_modules = [
-            DiscoveryModule, MLEngine, PatternRecognition, OrchestratorModule,
-            ShadowEngine, DataQualityModule, OrganicDiscoveryModule,
-            IntelligenceModule, ActivityMonitor, PresenceModule,
+            DiscoveryModule,
+            MLEngine,
+            PatternRecognition,
+            OrchestratorModule,
+            ShadowEngine,
+            DataQualityModule,
+            OrganicDiscoveryModule,
+            IntelligenceModule,
+            ActivityMonitor,
+            PresenceModule,
         ]
         for module_cls in hub_modules:
             for cap in getattr(module_cls, "CAPABILITIES", []):
@@ -250,5 +242,6 @@ class CapabilityRegistry:
 
         # Engine capabilities
         from aria.engine.capabilities import ENGINE_CAPABILITIES
+
         for cap in ENGINE_CAPABILITIES:
             self.register(cap)

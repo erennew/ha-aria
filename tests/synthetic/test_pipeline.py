@@ -1,4 +1,5 @@
 """Tests for PipelineRunner — full pipeline orchestration."""
+
 import pytest
 from tests.synthetic.pipeline import PipelineRunner
 from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS

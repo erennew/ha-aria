@@ -20,12 +20,17 @@ from aria.modules.organic_discovery.module import OrganicDiscoveryModule
 # Synthetic data builders
 # ---------------------------------------------------------------------------
 
-def _make_entity(entity_id: str, domain: str, state: str = "on",
-                 device_class: str | None = None,
-                 device_id: str | None = None,
-                 area_id: str | None = None,
-                 unit_of_measurement: str | None = None,
-                 attributes: dict | None = None) -> dict:
+
+def _make_entity(
+    entity_id: str,
+    domain: str,
+    state: str = "on",
+    device_class: str | None = None,
+    device_id: str | None = None,
+    area_id: str | None = None,
+    unit_of_measurement: str | None = None,
+    attributes: dict | None = None,
+) -> dict:
     """Build a single synthetic entity dict matching discovery cache format."""
     entity = {
         "entity_id": entity_id,
@@ -60,43 +65,51 @@ def build_synthetic_entities() -> list[dict]:
     for i, room in enumerate(rooms):
         for j in range(6):
             idx = i * 6 + j
-            entities.append(_make_entity(
-                entity_id=f"light.{room}_{j}",
-                domain="light",
-                state="on" if j % 2 == 0 else "off",
-                device_id=f"device_light_{idx}",
-                attributes={"brightness": 200 + j * 10, "color_temp": 350},
-            ))
+            entities.append(
+                _make_entity(
+                    entity_id=f"light.{room}_{j}",
+                    domain="light",
+                    state="on" if j % 2 == 0 else "off",
+                    device_id=f"device_light_{idx}",
+                    attributes={"brightness": 200 + j * 10, "color_temp": 350},
+                )
+            )
 
     # --- Switches (15) ---
     for i in range(15):
-        entities.append(_make_entity(
-            entity_id=f"switch.outlet_{i}",
-            domain="switch",
-            state="on" if i % 3 == 0 else "off",
-            device_id=f"device_switch_{i}",
-        ))
+        entities.append(
+            _make_entity(
+                entity_id=f"switch.outlet_{i}",
+                domain="switch",
+                state="on" if i % 3 == 0 else "off",
+                device_id=f"device_switch_{i}",
+            )
+        )
 
     # --- Power sensors (15) ---
     for i in range(15):
-        entities.append(_make_entity(
-            entity_id=f"sensor.power_{i}",
-            domain="sensor",
-            state=str(100 + i * 15),
-            device_class="power",
-            unit_of_measurement="W",
-            device_id=f"device_sensor_{i}",
-        ))
+        entities.append(
+            _make_entity(
+                entity_id=f"sensor.power_{i}",
+                domain="sensor",
+                state=str(100 + i * 15),
+                device_class="power",
+                unit_of_measurement="W",
+                device_id=f"device_sensor_{i}",
+            )
+        )
 
     # --- Binary sensors / motion (12) ---
     for i in range(12):
-        entities.append(_make_entity(
-            entity_id=f"binary_sensor.motion_{i}",
-            domain="binary_sensor",
-            state="on" if i % 4 == 0 else "off",
-            device_class="motion",
-            device_id=f"device_binary_{i}",
-        ))
+        entities.append(
+            _make_entity(
+                entity_id=f"binary_sensor.motion_{i}",
+                domain="binary_sensor",
+                state="on" if i % 4 == 0 else "off",
+                device_class="motion",
+                device_id=f"device_binary_{i}",
+            )
+        )
 
     return entities
 
@@ -191,20 +204,24 @@ def build_logbook_entries(entities: list[dict], n_windows: int = 30) -> list[dic
 
         # Correlated group fires together every window
         for eid in correlated_group:
-            entries.append({
-                "entity_id": eid,
-                "state": "on",
-                "when": (window_time + timedelta(seconds=len(entries) % 10)).isoformat(),
-            })
+            entries.append(
+                {
+                    "entity_id": eid,
+                    "state": "on",
+                    "when": (window_time + timedelta(seconds=len(entries) % 10)).isoformat(),
+                }
+            )
 
         # Switches fire together but in alternating windows
         if w % 2 == 0:
             for eid in switch_ids:
-                entries.append({
-                    "entity_id": eid,
-                    "state": "on",
-                    "when": (window_time + timedelta(seconds=5)).isoformat(),
-                })
+                entries.append(
+                    {
+                        "entity_id": eid,
+                        "state": "on",
+                        "when": (window_time + timedelta(seconds=5)).isoformat(),
+                    }
+                )
 
     return entries
 
@@ -212,6 +229,7 @@ def build_logbook_entries(entities: list[dict], n_windows: int = 30) -> list[dic
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def tmp_db():
@@ -246,9 +264,14 @@ def activity_rates(synthetic_entities):
 # Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_full_pipeline_with_synthetic_entities(
-    tmp_db, synthetic_entities, synthetic_devices, seed_capabilities, activity_rates,
+    tmp_db,
+    synthetic_entities,
+    synthetic_devices,
+    seed_capabilities,
+    activity_rates,
 ):
     """End-to-end: populate cache, run discovery, verify outputs."""
     hub = IntelligenceHub(tmp_db)
@@ -320,7 +343,11 @@ async def test_full_pipeline_with_synthetic_entities(
 
 @pytest.mark.asyncio
 async def test_pipeline_with_behavioral_data(
-    tmp_db, synthetic_entities, synthetic_devices, seed_capabilities, activity_rates,
+    tmp_db,
+    synthetic_entities,
+    synthetic_devices,
+    seed_capabilities,
+    activity_rates,
 ):
     """Layer 2: behavioral clustering from logbook co-occurrence data."""
     hub = IntelligenceHub(tmp_db)
@@ -343,10 +370,7 @@ async def test_pipeline_with_behavioral_data(
         caps = caps_entry["data"]
 
         # Find behavioral capabilities
-        behavioral = {
-            k: v for k, v in caps.items()
-            if v.get("source") == "organic" and v.get("layer") == "behavioral"
-        }
+        behavioral = {k: v for k, v in caps.items() if v.get("source") == "organic" and v.get("layer") == "behavioral"}
 
         # With 40 windows of correlated light+motion activity, HDBSCAN should
         # find at least one behavioral cluster
@@ -365,7 +389,11 @@ async def test_pipeline_with_behavioral_data(
 
 @pytest.mark.asyncio
 async def test_autonomy_modes_integration(
-    tmp_db, synthetic_entities, synthetic_devices, seed_capabilities, activity_rates,
+    tmp_db,
+    synthetic_entities,
+    synthetic_devices,
+    seed_capabilities,
+    activity_rates,
 ):
     """Auto-promote mode: high-usefulness capabilities get promoted."""
     hub = IntelligenceHub(tmp_db)
@@ -411,7 +439,11 @@ async def test_autonomy_modes_integration(
 
 @pytest.mark.asyncio
 async def test_seed_validation_integration(
-    tmp_db, synthetic_entities, synthetic_devices, seed_capabilities, activity_rates,
+    tmp_db,
+    synthetic_entities,
+    synthetic_devices,
+    seed_capabilities,
+    activity_rates,
 ):
     """Seed capabilities survive discovery and retain source='seed'."""
     hub = IntelligenceHub(tmp_db)

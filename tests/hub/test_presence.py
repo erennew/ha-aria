@@ -4,11 +4,10 @@ Tests signal management, Frigate event handling, HA state change processing,
 room resolution, presence state flushing, and Bayesian fusion integration.
 """
 
-import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -21,7 +20,6 @@ from aria.engine.analysis.occupancy import SENSOR_CONFIG
 from aria.modules.presence import (
     PresenceModule,
     DEFAULT_CAMERA_ROOMS,
-    PRESENCE_FLUSH_INTERVAL_S,
     SIGNAL_STALE_S,
 )
 
@@ -65,11 +63,13 @@ class MockHub:
         return self._running
 
     async def schedule_task(self, task_id: str, coro, interval=None, run_immediately=False):
-        self._scheduled_tasks.append({
-            "task_id": task_id,
-            "interval": interval,
-            "run_immediately": run_immediately,
-        })
+        self._scheduled_tasks.append(
+            {
+                "task_id": task_id,
+                "interval": interval,
+                "run_immediately": run_immediately,
+            }
+        )
 
     async def publish(self, event_type: str, data: Any):
         self._published.append((event_type, data))
@@ -436,9 +436,7 @@ class TestRoomResolution:
                 "area_id": "living_room",
             }
         }
-        room = await module._resolve_room(
-            "binary_sensor.living_room_motion", {}
-        )
+        room = await module._resolve_room("binary_sensor.living_room_motion", {})
         assert room == "living_room"
 
     async def test_resolve_from_device_cache(self, module):
@@ -471,21 +469,24 @@ class TestRoomResolution:
 
     async def test_resolve_room_unwraps_cache_data(self, module):
         """_resolve_room should look inside the 'data' wrapper from hub cache."""
-        module.hub.get_cache = AsyncMock(return_value={
-            "category": "entities",
-            "data": {
-                "binary_sensor.closet_motion": {
-                    "area_id": "closet",
-                    "device_id": "dev123",
-                }
-            },
-            "version": 1,
-        })
+        module.hub.get_cache = AsyncMock(
+            return_value={
+                "category": "entities",
+                "data": {
+                    "binary_sensor.closet_motion": {
+                        "area_id": "closet",
+                        "device_id": "dev123",
+                    }
+                },
+                "version": 1,
+            }
+        )
         room = await module._resolve_room("binary_sensor.closet_motion", {})
         assert room == "closet"
 
     async def test_resolve_room_device_fallback_unwraps_cache(self, module):
         """Device fallback in _resolve_room should also unwrap cache data."""
+
         async def mock_get_cache(key):
             if key == "entities":
                 return {
@@ -499,11 +500,10 @@ class TestRoomResolution:
             elif key == "devices":
                 return {
                     "category": "devices",
-                    "data": {
-                        "dev456": {"area_id": "kitchen"}
-                    },
+                    "data": {"dev456": {"area_id": "kitchen"}},
                 }
             return None
+
         module.hub.get_cache = AsyncMock(side_effect=mock_get_cache)
         room = await module._resolve_room("light.kitchen_lamp", {})
         assert room == "kitchen"
@@ -664,6 +664,5 @@ class TestEdgeCases:
 
     def test_default_camera_rooms_coverage(self):
         """All expected cameras should be mapped."""
-        expected = {"driveway", "backyard", "panoramic", "front_doorbell",
-                    "carters_room", "collins_room", "pool"}
+        expected = {"driveway", "backyard", "panoramic", "front_doorbell", "carters_room", "collins_room", "pool"}
         assert set(DEFAULT_CAMERA_ROOMS.keys()) == expected

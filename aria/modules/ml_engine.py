@@ -343,9 +343,7 @@ class MLEngine(Module):
 
         if updated_count > 0:
             await self.hub.set_cache("capabilities", caps, {"source": "ml_feedback"})
-            self.logger.info(
-                f"ML feedback written to {updated_count} capabilities in cache"
-            )
+            self.logger.info(f"ML feedback written to {updated_count} capabilities in cache")
 
     async def _load_training_data(self, days: int) -> List[Dict[str, Any]]:
         """Load historical snapshots for training.

@@ -92,12 +92,7 @@ class NeuralProphetForecaster:
         residuals = valid[y_col].values - valid[yhat_col].values
         y_vals = valid[y_col].values
         mae = float(np.mean(np.abs(residuals)))
-        mape = (
-            float(
-                np.mean(np.abs(residuals / np.where(y_vals != 0, y_vals, 1)))
-            )
-            * 100
-        )
+        mape = float(np.mean(np.abs(residuals / np.where(y_vals != 0, y_vals, 1)))) * 100
 
         # Save model + training data (needed for make_future_dataframe at predict time)
         os.makedirs(model_dir, exist_ok=True)
@@ -110,9 +105,7 @@ class NeuralProphetForecaster:
         if "weekly" in forecast.columns:
             weekly = forecast["weekly"].dropna().tolist()
             if weekly:
-                components["weekly_range"] = round(
-                    float(max(weekly) - min(weekly)), 2
-                )
+                components["weekly_range"] = round(float(max(weekly) - min(weekly)), 2)
         if "trend" in forecast.columns:
             trend = forecast["trend"].dropna()
             if len(trend) >= 2:
@@ -225,9 +218,7 @@ class NeuralProphetForecaster:
             return None
 
 
-def train_neuralprophet_models(
-    daily_snapshots, model_dir, epochs=100, learning_rate=0.1, ar_order=7
-):
+def train_neuralprophet_models(daily_snapshots, model_dir, epochs=100, learning_rate=0.1, ar_order=7):
     """Train NeuralProphet models for all supported metrics.
 
     Args:
@@ -247,14 +238,14 @@ def train_neuralprophet_models(
     results = {}
 
     for metric in NEURALPROPHET_METRICS:
-        result = forecaster.train(
-            metric, daily_snapshots, model_dir, epochs, learning_rate, ar_order
-        )
+        result = forecaster.train(metric, daily_snapshots, model_dir, epochs, learning_rate, ar_order)
         results[metric] = result
         if "error" not in result:
             logger.info(
                 "NeuralProphet %s: MAE=%s, MAPE=%s%%",
-                metric, result["mae"], result["mape"],
+                metric,
+                result["mae"],
+                result["mape"],
             )
         else:
             logger.info("NeuralProphet %s: %s", metric, result["error"])

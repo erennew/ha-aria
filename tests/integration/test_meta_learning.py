@@ -74,10 +74,9 @@ class TestParseMetaLearningOutput:
 
     def test_suggestions_capped_at_max(self):
         """parse_suggestions caps at MAX_META_CHANGES_PER_WEEK (3)."""
-        many_suggestions = json.dumps([
-            {"action": "enable_feature", "target": f"feat_{i}", "reason": "test"}
-            for i in range(10)
-        ])
+        many_suggestions = json.dumps(
+            [{"action": "enable_feature", "target": f"feat_{i}", "reason": "test"} for i in range(10)]
+        )
         suggestions = parse_suggestions(many_suggestions)
         assert len(suggestions) <= 3
 
@@ -87,11 +86,13 @@ class TestParseMetaLearningOutput:
         Note: parse_suggestions slices to MAX_META_CHANGES_PER_WEEK (3) first,
         then filters for valid entries. So we put valid items within the first 3.
         """
-        response = json.dumps([
-            {"action": "enable_feature", "target": "valid_one"},
-            {"action": "disable_feature", "target": "valid_two"},
-            {"reason": "missing action and target"},
-        ])
+        response = json.dumps(
+            [
+                {"action": "enable_feature", "target": "valid_one"},
+                {"action": "disable_feature", "target": "valid_two"},
+                {"reason": "missing action and target"},
+            ]
+        )
         suggestions = parse_suggestions(response)
         assert len(suggestions) == 2
         assert suggestions[0]["target"] == "valid_one"
@@ -99,11 +100,13 @@ class TestParseMetaLearningOutput:
 
     def test_missing_action_or_target_dropped(self):
         """Entries with only action or only target are excluded."""
-        response = json.dumps([
-            {"action": "enable_feature"},  # missing target
-            {"target": "missing_action"},  # missing action
-            {"action": "enable_feature", "target": "valid"},
-        ])
+        response = json.dumps(
+            [
+                {"action": "enable_feature"},  # missing target
+                {"target": "missing_action"},  # missing action
+                {"action": "enable_feature", "target": "valid"},
+            ]
+        )
         suggestions = parse_suggestions(response)
         assert len(suggestions) == 1
         assert suggestions[0]["target"] == "valid"
@@ -120,9 +123,7 @@ class TestMetaLearningOutputValid:
         for s in suggestions:
             if s["action"] in ("enable_feature", "disable_feature"):
                 target = s["target"]
-                assert target in interaction_features, (
-                    f"Target '{target}' not found in interaction_features"
-                )
+                assert target in interaction_features, f"Target '{target}' not found in interaction_features"
 
 
 class TestParseMetaLearningFromFixture:
@@ -131,7 +132,9 @@ class TestParseMetaLearningFromFixture:
     def test_parse_fixture_response(self):
         import pathlib
 
-        fixture_path = pathlib.Path(__file__).parent.parent / "fixtures" / "ollama_responses" / "meta_learning_sample.json"
+        fixture_path = (
+            pathlib.Path(__file__).parent.parent / "fixtures" / "ollama_responses" / "meta_learning_sample.json"
+        )
         with open(fixture_path) as f:
             data = json.load(f)
 

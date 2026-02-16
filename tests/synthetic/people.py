@@ -1,4 +1,5 @@
 """Person and schedule simulation for household modeling."""
+
 from __future__ import annotations
 
 import random
@@ -8,6 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class Schedule:
     """A daily schedule template with optional work departure/arrival."""
+
     wake: float
     sleep: float
     depart: float | None = None
@@ -58,9 +60,7 @@ class Person:
     def get_schedule(self, day: int, is_weekend: bool) -> Schedule:
         return self.schedule_weekend if is_weekend else self.schedule_weekday
 
-    def get_room_transitions(
-        self, day: int, is_weekend: bool, seed: int
-    ) -> list[tuple[float, str]]:
+    def get_room_transitions(self, day: int, is_weekend: bool, seed: int) -> list[tuple[float, str]]:
         """Generate (hour, room) transitions for a single day."""
         sched = self.get_schedule(day, is_weekend)
         times = sched.resolve(day, seed)

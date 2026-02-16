@@ -2,8 +2,6 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 
 # ============================================================================
 # GET /api/ml/drift
@@ -25,19 +23,21 @@ class TestGetMLDrift:
 
     def test_returns_drift_data(self, api_hub, api_client):
         """Extracts drift status from intelligence cache."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "drift_status": {
-                "needs_retrain": True,
-                "reason": "drift detected in power_watts",
-                "drifted_metrics": ["power_watts"],
-                "rolling_mae": {"power_watts": 12.5},
-                "current_mae": {"power_watts": 28.0},
-                "threshold": {"power_watts": 15.0},
-                "page_hinkley": {"power_watts": {"detected": True}},
-                "adwin": {"power_watts": {"detected": False}},
-                "days_analyzed": 7,
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "drift_status": {
+                    "needs_retrain": True,
+                    "reason": "drift detected in power_watts",
+                    "drifted_metrics": ["power_watts"],
+                    "rolling_mae": {"power_watts": 12.5},
+                    "current_mae": {"power_watts": 28.0},
+                    "threshold": {"power_watts": 15.0},
+                    "page_hinkley": {"power_watts": {"detected": True}},
+                    "adwin": {"power_watts": {"detected": False}},
+                    "days_analyzed": 7,
+                }
             }
-        })
+        )
 
         response = api_client.get("/api/ml/drift")
         assert response.status_code == 200
@@ -90,15 +90,17 @@ class TestGetMLFeatures:
 
     def test_returns_feature_selection(self, api_hub, api_client):
         """Extracts feature selection from intelligence cache."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "feature_selection": {
-                "selected_features": ["hour_sin", "power_watts_lag1", "day_of_week"],
-                "total_features": 48,
-                "method": "mrmr",
-                "max_features": 30,
-                "last_computed": "2026-02-13T03:00:00",
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "feature_selection": {
+                    "selected_features": ["hour_sin", "power_watts_lag1", "day_of_week"],
+                    "total_features": 48,
+                    "method": "mrmr",
+                    "max_features": 30,
+                    "last_computed": "2026-02-13T03:00:00",
+                }
             }
-        })
+        )
 
         response = api_client.get("/api/ml/features")
         assert response.status_code == 200
@@ -151,12 +153,14 @@ class TestGetMLModels:
 
     def test_returns_model_data(self, api_hub, api_client):
         """Extracts model health from intelligence cache."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "reference_model": {"r2": 0.85, "mae": 3.2},
-            "incremental_training": {"last_batch": "2026-02-13", "samples": 500},
-            "forecaster_backend": "prophet",
-            "ml_models": {"gradient_boosting": {"r2": 0.82}, "random_forest": {"r2": 0.78}},
-        })
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "reference_model": {"r2": 0.85, "mae": 3.2},
+                "incremental_training": {"last_batch": "2026-02-13", "samples": 500},
+                "forecaster_backend": "prophet",
+                "ml_models": {"gradient_boosting": {"r2": 0.82}, "random_forest": {"r2": 0.78}},
+            }
+        )
 
         response = api_client.get("/api/ml/models")
         assert response.status_code == 200
@@ -195,13 +199,15 @@ class TestGetMLAnomalies:
 
     def test_returns_anomaly_data(self, api_hub, api_client):
         """Extracts anomaly data from intelligence cache."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "anomaly_alerts": [
-                {"metric": "power_watts", "severity": "high", "timestamp": "2026-02-13T10:00:00"},
-            ],
-            "autoencoder_status": {"enabled": True, "reconstruction_error": 0.05},
-            "isolation_forest_status": {"contamination": 0.01, "n_estimators": 100},
-        })
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "anomaly_alerts": [
+                    {"metric": "power_watts", "severity": "high", "timestamp": "2026-02-13T10:00:00"},
+                ],
+                "autoencoder_status": {"enabled": True, "reconstruction_error": 0.05},
+                "isolation_forest_status": {"contamination": 0.01, "n_estimators": 100},
+            }
+        )
 
         response = api_client.get("/api/ml/anomalies")
         assert response.status_code == 200
@@ -239,16 +245,18 @@ class TestGetMLSHAP:
 
     def test_returns_attributions(self, api_hub, api_client):
         """Extracts SHAP attributions from intelligence cache."""
-        api_hub.cache.get = AsyncMock(return_value={
-            "shap_attributions": {
-                "attributions": [
-                    {"feature": "hour_sin", "contribution": 0.15, "direction": "positive"},
-                    {"feature": "power_watts_lag1", "contribution": -0.08, "direction": "negative"},
-                ],
-                "model_type": "GradientBoosting",
-                "computed_at": "2026-02-13T03:30:00",
+        api_hub.cache.get = AsyncMock(
+            return_value={
+                "shap_attributions": {
+                    "attributions": [
+                        {"feature": "hour_sin", "contribution": 0.15, "direction": "positive"},
+                        {"feature": "power_watts_lag1", "contribution": -0.08, "direction": "negative"},
+                    ],
+                    "model_type": "GradientBoosting",
+                    "computed_at": "2026-02-13T03:30:00",
+                }
             }
-        })
+        )
 
         response = api_client.get("/api/ml/shap")
         assert response.status_code == 200

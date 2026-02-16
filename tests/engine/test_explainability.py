@@ -124,7 +124,5 @@ class TestExplainabilityImport:
         """build_attribution_report has no shap dependency."""
         from aria.engine.analysis.explainability import build_attribution_report
 
-        report = build_attribution_report(
-            metric="test", predicted=1.0, actual=2.0, contributions=[]
-        )
+        report = build_attribution_report(metric="test", predicted=1.0, actual=2.0, contributions=[])
         assert report["metric"] == "test"

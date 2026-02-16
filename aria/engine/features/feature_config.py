@@ -89,7 +89,14 @@ def validate_feature_config(config):
             errors.append(f"Missing required section: {section}")
 
     # Validate feature sections contain only bool values
-    for section in ["time_features", "weather_features", "home_features", "lag_features", "interaction_features", "presence_features"]:
+    for section in [
+        "time_features",
+        "weather_features",
+        "home_features",
+        "lag_features",
+        "interaction_features",
+        "presence_features",
+    ]:
         sub = config.get(section, {})
         if not isinstance(sub, dict):
             errors.append(f"Section '{section}' must be a dict")

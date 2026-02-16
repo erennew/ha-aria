@@ -441,7 +441,10 @@ class ActivityMonitor(Module):
             for entity in states:
                 eid = entity.get("entity_id", "")
                 if eid.startswith("person.") and entity.get("state") == "home":
-                    name = entity.get("attributes", {}).get("friendly_name") or eid.split(".")[-1].replace("_", " ").title()
+                    name = (
+                        entity.get("attributes", {}).get("friendly_name")
+                        or eid.split(".")[-1].replace("_", " ").title()
+                    )
                     people.append(name)
 
             if people:

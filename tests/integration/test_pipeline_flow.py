@@ -1,5 +1,6 @@
 # tests/integration/test_pipeline_flow.py
 """Tier 3: End-to-end pipeline flow and handoff validation."""
+
 import json
 import pytest
 from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
@@ -9,12 +10,15 @@ from tests.synthetic.pipeline import PipelineRunner
 class TestFullPipelineCompletes:
     """Full pipeline should run to completion with various scenarios."""
 
-    @pytest.mark.parametrize("scenario,days", [
-        ("stable_couple", 21),
-        ("vacation", 14),
-        ("work_from_home", 14),
-        ("sensor_degradation", 30),
-    ])
+    @pytest.mark.parametrize(
+        "scenario,days",
+        [
+            ("stable_couple", 21),
+            ("vacation", 14),
+            ("work_from_home", 14),
+            ("sensor_degradation", 30),
+        ],
+    )
     def test_scenario_completes(self, tmp_path, scenario, days):
         sim = HouseholdSimulator(scenario=scenario, days=days, seed=42)
         snapshots = sim.generate()
@@ -35,8 +39,18 @@ class TestIntermediateFormats:
 
         loaded = runner.store.load_snapshot(snapshots[0]["date"])
         assert loaded is not None
-        required_keys = ["date", "day_of_week", "power", "lights", "occupancy",
-                         "climate", "locks", "motion", "entities", "weather"]
+        required_keys = [
+            "date",
+            "day_of_week",
+            "power",
+            "lights",
+            "occupancy",
+            "climate",
+            "locks",
+            "motion",
+            "entities",
+            "weather",
+        ]
         for key in required_keys:
             assert key in loaded, f"Snapshot missing key: {key}"
 

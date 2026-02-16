@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
 from aria.hub.core import Module, IntelligenceHub
-from aria.capabilities import Capability, DemandSignal, CapabilityRegistry
+from aria.capabilities import Capability, CapabilityRegistry
 from aria.modules.organic_discovery.feature_vectors import build_feature_matrix
 from aria.modules.organic_discovery.clustering import cluster_entities
 from aria.modules.organic_discovery.seed_validation import validate_seeds
@@ -79,7 +79,9 @@ class OrganicDiscoveryModule(Module):
             merged = dict(DEFAULT_SETTINGS)
             merged.update(loaded)
             self.settings = merged
-            self.logger.info(f"Loaded settings: autonomy_mode={self.settings['autonomy_mode']}, naming_backend={self.settings['naming_backend']}")
+            self.logger.info(
+                f"Loaded settings: autonomy_mode={self.settings['autonomy_mode']}, naming_backend={self.settings['naming_backend']}"
+            )
 
         # Load persisted history
         history_entry = await self.hub.get_cache("discovery_history")
@@ -145,6 +147,7 @@ class OrganicDiscoveryModule(Module):
 
         if backend == "ollama":
             from aria.modules.organic_discovery.naming import ollama_name, ollama_description
+
             name = await ollama_name(cluster_info)
             description = await ollama_description(cluster_info)
         else:
@@ -207,6 +210,7 @@ class OrganicDiscoveryModule(Module):
             )
         else:
             import numpy as np
+
             matrix = np.empty((0, 0))
             entity_ids = []
 
@@ -551,10 +555,7 @@ class OrganicDiscoveryModule(Module):
             return 0.0
 
         recent = self.history[-14:]  # last 14 runs
-        appeared = sum(
-            1 for h in recent
-            if cap_name in h.get("organic_caps", [])
-        )
+        appeared = sum(1 for h in recent if cap_name in h.get("organic_caps", []))
         return appeared / len(recent)
 
     def _count_streak(self, cap_name: str) -> int:

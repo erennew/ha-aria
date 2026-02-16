@@ -188,11 +188,13 @@ def cluster_behavioral(
 
         temporal_pattern = extract_temporal_pattern(member_ids, logbook_entries)
 
-        clusters.append({
-            "cluster_id": int(label),
-            "entity_ids": member_ids,
-            "silhouette": avg_silhouette,
-            "temporal_pattern": temporal_pattern,
-        })
+        clusters.append(
+            {
+                "cluster_id": int(label),
+                "entity_ids": member_ids,
+                "silhouette": avg_silhouette,
+                "temporal_pattern": temporal_pattern,
+            }
+        )
 
     return clusters

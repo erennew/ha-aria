@@ -12,6 +12,7 @@ class TestDiscoverOrganicSubparser(unittest.TestCase):
         with patch("sys.argv", ["aria", "discover-organic"]):
             with patch("aria.cli._discover_organic") as mock_fn:
                 from aria.cli import main
+
                 main()
                 mock_fn.assert_called_once()
 
@@ -20,6 +21,7 @@ class TestDiscoverOrganicSubparser(unittest.TestCase):
         with patch("sys.argv", ["aria", "not-a-command"]):
             with self.assertRaises(SystemExit) as ctx:
                 from aria.cli import main
+
                 main()
             self.assertEqual(ctx.exception.code, 2)
 
@@ -44,6 +46,7 @@ class TestDiscoverOrganicFunction(unittest.TestCase):
         MockModule.return_value = mock_module_instance
 
         from aria.cli import _discover_organic
+
         _discover_organic()
 
         MockHub.assert_called_once()
@@ -70,6 +73,7 @@ class TestDiscoverOrganicFunction(unittest.TestCase):
         MockModule.return_value = mock_module_instance
 
         from aria.cli import _discover_organic
+
         with self.assertRaises(RuntimeError):
             _discover_organic()
 

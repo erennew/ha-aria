@@ -152,9 +152,7 @@ class TestEnsembleDrift(unittest.TestCase):
         """DriftDetector with use_adwin=True should include 'adwin' key in result."""
         detector = DriftDetector(window_days=7, threshold_multiplier=2.0, use_adwin=True)
         # Stable errors — enough data points for analysis
-        history = self._make_history(
-            [(f"2026-02-{d:02d}", 85, 10 + (d % 3)) for d in range(5, 13)]
-        )
+        history = self._make_history([(f"2026-02-{d:02d}", 85, 10 + (d % 3)) for d in range(5, 13)])
         result = detector.check(history)
         self.assertIn("adwin", result)
         # ADWIN results should be a dict with per-metric entries

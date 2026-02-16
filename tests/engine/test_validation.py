@@ -1,6 +1,5 @@
 """Tests for snapshot validation before model training."""
 
-import pytest
 from aria.engine.validation import validate_snapshot, validate_snapshot_batch
 
 
@@ -43,8 +42,14 @@ class TestSnapshotValidation:
         assert any("unavailable" in e.lower() for e in errors)
 
     def test_batch_filters_bad_snapshots(self):
-        good = {"date": "2026-02-15", "entities": {"total": 3050, "unavailable": 50},
-                "power": {"total_watts": 200}, "occupancy": {}, "motion": {}, "lights": {}}
+        good = {
+            "date": "2026-02-15",
+            "entities": {"total": 3050, "unavailable": 50},
+            "power": {"total_watts": 200},
+            "occupancy": {},
+            "motion": {},
+            "lights": {},
+        }
         bad = {"date": "2026-02-14", "entities": {"total": 0, "unavailable": 0}}
         valid, rejected = validate_snapshot_batch([good, bad])
         assert len(valid) == 1
