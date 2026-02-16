@@ -173,7 +173,8 @@ export default function Presence() {
   if (loading && !data) return <LoadingState type="cards" />;
   if (error) return <ErrorState error={error} onRetry={refetch} />;
 
-  const presence = data || {};
+  // data = API envelope { category, data: { ... }, version, ... }
+  const presence = (data && data.data) || {};
   const rooms = presence.rooms || {};
   const occupiedRooms = presence.occupied_rooms || [];
   const persons = presence.identified_persons || {};
