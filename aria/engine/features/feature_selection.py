@@ -7,7 +7,6 @@ models focus on the most informative signals.
 """
 
 import logging
-from typing import List, Optional
 
 import numpy as np
 
@@ -17,9 +16,9 @@ logger = logging.getLogger(__name__)
 def mrmr_select(
     X: np.ndarray,
     y: np.ndarray,
-    feature_names: List[str],
+    feature_names: list[str],
     max_features: int = 30,
-) -> List[str]:
+) -> list[str]:
     """Select features using mRMR (minimum Redundancy Maximum Relevance).
 
     Algorithm:
@@ -64,12 +63,12 @@ def mrmr_select(
     corr_matrix = np.nan_to_num(corr_matrix, nan=0.0)
 
     # Step 2: Greedy forward selection
-    selected_indices: List[int] = []
+    selected_indices: list[int] = []
     remaining = set(range(n_features))
 
     for round_num in range(max_features):
-        best_score: Optional[float] = None
-        best_idx: Optional[int] = None
+        best_score: float | None = None
+        best_idx: int | None = None
 
         for idx in remaining:
             rel = relevance[idx]

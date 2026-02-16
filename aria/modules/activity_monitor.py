@@ -14,14 +14,13 @@ import sys
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 import aiohttp
 
-from aria.hub.core import Module, IntelligenceHub
-from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY
 from aria.capabilities import Capability
-
+from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY
+from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
 
@@ -91,17 +90,17 @@ class ActivityMonitor(Module):
         self.ha_token = ha_token
 
         # In-memory event buffer (flushed every 15 min)
-        self._activity_buffer: List[Dict[str, Any]] = []
+        self._activity_buffer: list[dict[str, Any]] = []
         # Ring buffer of recent events — survives flushes, for dashboard display
         self._recent_events: deque = deque(maxlen=20)
 
         # Occupancy state
         self._occupancy_state = False
-        self._occupancy_people: List[str] = []
-        self._occupancy_since: Optional[str] = None
+        self._occupancy_people: list[str] = []
+        self._occupancy_since: str | None = None
 
         # Snapshot control
-        self._last_snapshot_time: Optional[datetime] = None
+        self._last_snapshot_time: datetime | None = None
         self._snapshots_today = 0
 
         # Stats — single date tracker for all daily counters
@@ -110,18 +109,18 @@ class ActivityMonitor(Module):
         self._snapshot_date = self._events_date
 
         # In-memory today snapshot log (avoids full-file scan)
-        self._snapshot_log_today_cache: List[Dict[str, Any]] = []
+        self._snapshot_log_today_cache: list[dict[str, Any]] = []
 
         # WebSocket liveness tracking
         self._ws_connected = False
-        self._ws_last_connected_at: Optional[str] = None
+        self._ws_last_connected_at: str | None = None
         self._ws_disconnect_count = 0
         self._ws_total_disconnect_s = 0.0
-        self._ws_last_disconnect_at: Optional[datetime] = None
+        self._ws_last_disconnect_at: datetime | None = None
 
         # Entity curation state (loaded from SQLite, falls back to domain filter)
-        self._included_entities: Set[str] = set()
-        self._excluded_entities: Set[str] = set()
+        self._included_entities: set[str] = set()
+        self._excluded_entities: set[str] = set()
         self._curation_loaded: bool = False
 
         # Path to aria CLI (for subprocess snapshot calls)
@@ -182,7 +181,7 @@ class ActivityMonitor(Module):
 
         self.logger.info("Activity monitor started")
 
-    async def on_event(self, event_type: str, data: Dict[str, Any]):
+    async def on_event(self, event_type: str, data: dict[str, Any]):
         if event_type == "curation_updated":
             try:
                 await self._load_curation_rules()
@@ -228,65 +227,64 @@ class ActivityMonitor(Module):
 
         while self.hub.is_running():
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.ws_connect(ws_url) as ws:
-                        # 1. Wait for auth_required
-                        msg = await ws.receive_json()
-                        if msg.get("type") != "auth_required":
-                            self.logger.error(f"Unexpected WS message: {msg}")
-                            continue
+                async with aiohttp.ClientSession() as session, session.ws_connect(ws_url) as ws:
+                    # 1. Wait for auth_required
+                    msg = await ws.receive_json()
+                    if msg.get("type") != "auth_required":
+                        self.logger.error(f"Unexpected WS message: {msg}")
+                        continue
 
-                        # 2. Authenticate
-                        await ws.send_json(
-                            {
-                                "type": "auth",
-                                "access_token": self.ha_token,
-                            }
-                        )
-                        auth_resp = await ws.receive_json()
-                        if auth_resp.get("type") != "auth_ok":
-                            self.logger.error(f"WS auth failed: {auth_resp}")
-                            await asyncio.sleep(retry_delay)
-                            continue
+                    # 2. Authenticate
+                    await ws.send_json(
+                        {
+                            "type": "auth",
+                            "access_token": self.ha_token,
+                        }
+                    )
+                    auth_resp = await ws.receive_json()
+                    if auth_resp.get("type") != "auth_ok":
+                        self.logger.error(f"WS auth failed: {auth_resp}")
+                        await asyncio.sleep(retry_delay)
+                        continue
 
-                        self.logger.info("Activity WebSocket connected — listening for state_changed")
-                        retry_delay = 5  # reset backoff
+                    self.logger.info("Activity WebSocket connected — listening for state_changed")
+                    retry_delay = 5  # reset backoff
 
-                        # Track liveness
-                        now = datetime.now()
-                        if self._ws_last_disconnect_at:
-                            gap = (now - self._ws_last_disconnect_at).total_seconds()
-                            self._ws_total_disconnect_s += gap
-                            self._ws_last_disconnect_at = None
-                        self._ws_connected = True
-                        self._ws_last_connected_at = now.isoformat()
+                    # Track liveness
+                    now = datetime.now()
+                    if self._ws_last_disconnect_at:
+                        gap = (now - self._ws_last_disconnect_at).total_seconds()
+                        self._ws_total_disconnect_s += gap
+                        self._ws_last_disconnect_at = None
+                    self._ws_connected = True
+                    self._ws_last_connected_at = now.isoformat()
 
-                        # 2b. Seed occupancy from current person entity states
-                        await self._seed_occupancy(session)
+                    # 2b. Seed occupancy from current person entity states
+                    await self._seed_occupancy(session)
 
-                        # 3. Subscribe to state_changed
-                        await ws.send_json(
-                            {
-                                "id": 1,
-                                "type": "subscribe_events",
-                                "event_type": "state_changed",
-                            }
-                        )
+                    # 3. Subscribe to state_changed
+                    await ws.send_json(
+                        {
+                            "id": 1,
+                            "type": "subscribe_events",
+                            "event_type": "state_changed",
+                        }
+                    )
 
-                        # 4. Listen loop
-                        async for msg in ws:
-                            if msg.type == aiohttp.WSMsgType.TEXT:
-                                data = json.loads(msg.data)
-                                if data.get("type") == "event":
-                                    event_data = data.get("event", {}).get("data", {})
-                                    self._handle_state_changed(event_data)
-                            elif msg.type in (
-                                aiohttp.WSMsgType.CLOSED,
-                                aiohttp.WSMsgType.ERROR,
-                            ):
-                                break
+                    # 4. Listen loop
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            data = json.loads(msg.data)
+                            if data.get("type") == "event":
+                                event_data = data.get("event", {}).get("data", {})
+                                self._handle_state_changed(event_data)
+                        elif msg.type in (
+                            aiohttp.WSMsgType.CLOSED,
+                            aiohttp.WSMsgType.ERROR,
+                        ):
+                            break
 
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (TimeoutError, aiohttp.ClientError) as e:
                 self.logger.warning(f"Activity WebSocket error: {e} — retrying in {retry_delay}s")
             except Exception as e:
                 self.logger.error(f"Activity WebSocket unexpected error: {e}")
@@ -305,7 +303,7 @@ class ActivityMonitor(Module):
     # Event handling
     # ------------------------------------------------------------------
 
-    def _handle_state_changed(self, data: Dict[str, Any]):
+    def _handle_state_changed(self, data: dict[str, Any]):
         """Filter and buffer a single state_changed event."""
         entity_id = data.get("entity_id", "")
         new_state = data.get("new_state") or {}
@@ -541,7 +539,7 @@ class ActivityMonitor(Module):
     # Persistent snapshot log (JSONL, append-only)
     # ------------------------------------------------------------------
 
-    def _append_snapshot_log(self, entry: Dict[str, Any]):
+    def _append_snapshot_log(self, entry: dict[str, Any]):
         """Append a snapshot record to the persistent JSONL log and in-memory cache."""
         self._snapshot_log_today_cache.append(entry)
         try:
@@ -550,7 +548,7 @@ class ActivityMonitor(Module):
         except Exception as e:
             self.logger.warning(f"Failed to write snapshot log: {e}")
 
-    def _read_snapshot_log_today(self) -> List[Dict[str, Any]]:
+    def _read_snapshot_log_today(self) -> list[dict[str, Any]]:
         """Return today's snapshot entries from in-memory cache (O(1), no file scan)."""
         return list(self._snapshot_log_today_cache)
 
@@ -558,7 +556,7 @@ class ActivityMonitor(Module):
     # Event sequence prediction (frequency-based next-event model)
     # ------------------------------------------------------------------
 
-    def _event_sequence_prediction(self, windows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _event_sequence_prediction(self, windows: list[dict[str, Any]]) -> dict[str, Any]:
         """Predict the most likely next event domain based on recent event sequences.
 
         Uses a simple frequency model: given the last 5 event domains, what
@@ -567,7 +565,7 @@ class ActivityMonitor(Module):
         Falls back to overall domain frequency if no matching sequence is found.
         """
         # Build a flat list of domain sequences from windowed activity log
-        all_domains: List[str] = []
+        all_domains: list[str] = []
         for w in windows:
             by_domain = w.get("by_domain", {})
             # Expand domain counts into a sequence (order within window is approximate)
@@ -579,7 +577,7 @@ class ActivityMonitor(Module):
 
         # Count what domain follows each 5-domain subsequence
         SEQ_LEN = 5
-        sequence_followers: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        sequence_followers: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         for i in range(len(all_domains) - SEQ_LEN):
             key = "|".join(all_domains[i : i + SEQ_LEN])
             follower = all_domains[i + SEQ_LEN]
@@ -589,7 +587,7 @@ class ActivityMonitor(Module):
         recent_domains = [evt["domain"] for evt in list(self._recent_events)]
         if len(recent_domains) < SEQ_LEN:
             # Fall back to overall domain frequency
-            domain_freq: Dict[str, int] = defaultdict(int)
+            domain_freq: dict[str, int] = defaultdict(int)
             for d in all_domains:
                 domain_freq[d] += 1
             if not domain_freq:
@@ -633,7 +631,7 @@ class ActivityMonitor(Module):
     # Activity pattern mining (frequent 3-event sequences)
     # ------------------------------------------------------------------
 
-    def _detect_activity_patterns(self, windows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _detect_activity_patterns(self, windows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Find frequent 3-event domain sequences from rolling 24h windows.
 
         A sequence is "frequent" if it occurs 3+ times in the last 24h.
@@ -641,7 +639,7 @@ class ActivityMonitor(Module):
         """
         # Build flat event domain list with timestamps from notable_changes
         # and domain counts
-        domain_sequence: List[str] = []
+        domain_sequence: list[str] = []
         for w in windows:
             by_domain = w.get("by_domain", {})
             for domain, count in by_domain.items():
@@ -651,8 +649,8 @@ class ActivityMonitor(Module):
             return []
 
         # Count all 3-grams
-        trigram_counts: Dict[str, int] = defaultdict(int)
-        trigram_last_seen: Dict[str, str] = {}
+        trigram_counts: dict[str, int] = defaultdict(int)
+        trigram_last_seen: dict[str, str] = {}
         for i in range(len(domain_sequence) - 2):
             trigram = (domain_sequence[i], domain_sequence[i + 1], domain_sequence[i + 2])
             key = "|".join(trigram)
@@ -693,7 +691,7 @@ class ActivityMonitor(Module):
     # Occupancy arrival prediction (day-of-week historical)
     # ------------------------------------------------------------------
 
-    def _predict_next_arrival(self, windows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _predict_next_arrival(self, windows: list[dict[str, Any]]) -> dict[str, Any]:
         """Predict when someone will arrive home based on historical occupancy transitions.
 
         Looks at the last 7 days of windows for transitions from away (occupancy=False)
@@ -712,7 +710,7 @@ class ActivityMonitor(Module):
 
         # Find occupancy transitions (away → home) in windows
         # Group by day of week
-        arrivals_by_dow: Dict[str, List[str]] = defaultdict(list)
+        arrivals_by_dow: dict[str, list[str]] = defaultdict(list)
 
         for i in range(1, len(windows)):
             prev = windows[i - 1]
@@ -778,7 +776,7 @@ class ActivityMonitor(Module):
     # Activity anomaly detection (event rate vs historical average)
     # ------------------------------------------------------------------
 
-    def _detect_activity_anomalies(self, windows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _detect_activity_anomalies(self, windows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Compare current hour's event rate to historical average for this hour.
 
         Flags:
@@ -789,7 +787,7 @@ class ActivityMonitor(Module):
         current_hour = now.hour
 
         # Group windows by hour of day
-        hourly_counts: Dict[int, List[int]] = defaultdict(list)
+        hourly_counts: dict[int, list[int]] = defaultdict(list)
         for w in windows:
             ws = w.get("window_start", "")
             if not ws:
@@ -854,9 +852,9 @@ class ActivityMonitor(Module):
         window_end = window_start + timedelta(minutes=15) - timedelta(seconds=1)
 
         # Group events by domain and entity
-        by_domain: Dict[str, int] = defaultdict(int)
-        by_entity: Dict[str, int] = defaultdict(int)
-        notable: List[Dict[str, Any]] = []
+        by_domain: dict[str, int] = defaultdict(int)
+        by_entity: dict[str, int] = defaultdict(int)
+        notable: list[dict[str, Any]] = []
         for evt in self._activity_buffer:
             by_domain[evt["domain"]] += 1
             entity_id = evt.get("entity_id", "")
@@ -964,7 +962,7 @@ class ActivityMonitor(Module):
             trend = "decreasing"
 
         # Domain counts in last hour
-        domains_1h: Dict[str, int] = defaultdict(int)
+        domains_1h: dict[str, int] = defaultdict(int)
         for w in recent_windows:
             for domain, count in w.get("by_domain", {}).items():
                 domains_1h[domain] += count

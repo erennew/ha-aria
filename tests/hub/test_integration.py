@@ -3,17 +3,17 @@
 Tests end-to-end functionality of the hub with all modules integrated.
 """
 
-import pytest
-import pytest_asyncio
 import asyncio
-import tempfile
 import json
 import sqlite3
+import sys
+import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from datetime import datetime, timedelta
 
-import sys
+import pytest
+import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -21,7 +21,6 @@ from aria.hub.core import IntelligenceHub
 from aria.modules.discovery import DiscoveryModule
 from aria.modules.ml_engine import MLEngine
 from aria.modules.patterns import PatternRecognition
-
 
 # ============================================================================
 # Fixtures

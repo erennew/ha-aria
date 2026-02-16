@@ -6,12 +6,12 @@ results to the entity_curation table. Runs on startup and daily.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Tuple
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from aria.hub.core import Module, IntelligenceHub
-from aria.hub.constants import CACHE_ENTITIES, CACHE_ACTIVITY_LOG
 from aria.capabilities import Capability
+from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ENTITIES
+from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ class DataQualityModule(Module):
                 vehicle_entity_ids.add(eid)
 
         # Build device_id → entity_ids map
-        device_entities: Dict[str, List[str]] = {}
+        device_entities: dict[str, list[str]] = {}
         for eid, edata in entities_data.items():
             did = edata.get("device_id")
             if did:
@@ -181,9 +181,9 @@ class DataQualityModule(Module):
     def _compute_metrics(
         self,
         entity_id: str,
-        entity_data: Dict[str, Any],
-        activity_windows: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        entity_data: dict[str, Any],
+        activity_windows: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Compute per-entity metrics from entity data and activity windows.
 
         Returns:
@@ -227,7 +227,7 @@ class DataQualityModule(Module):
             try:
                 changed_dt = datetime.fromisoformat(last_changed.replace("Z", "+00:00"))
                 # Use naive UTC comparison
-                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                now = datetime.now(UTC).replace(tzinfo=None)
                 changed_naive = changed_dt.replace(tzinfo=None)
                 last_changed_days_ago = (now - changed_naive).total_seconds() / 86400
             except (ValueError, TypeError):
@@ -251,12 +251,12 @@ class DataQualityModule(Module):
     def _classify(
         self,
         entity_id: str,
-        metrics: Dict[str, Any],
-        config_thresholds: Dict[str, Any],
-        entities_data: Dict[str, Any],
+        metrics: dict[str, Any],
+        config_thresholds: dict[str, Any],
+        entities_data: dict[str, Any],
         vehicle_entity_ids: set,
         vehicle_device_ids: set,
-    ) -> Tuple[int, str, str, str]:
+    ) -> tuple[int, str, str, str]:
         """Classify entity into tier, status, reason, group_id.
 
         Returns:

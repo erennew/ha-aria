@@ -4,21 +4,20 @@ Wraps the standalone discover.py script and integrates it with the hub.
 Runs discovery on a schedule and stores results in hub cache.
 """
 
-import os
-import sys
-import json
-import subprocess
-import logging
 import asyncio
-from pathlib import Path
-from typing import Dict, Any, Optional
+import json
+import logging
+import os
+import subprocess
+import sys
 from datetime import timedelta
+from pathlib import Path
+from typing import Any
 
 import aiohttp
 
-from aria.hub.core import Module, IntelligenceHub
 from aria.capabilities import Capability
-
+from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +68,7 @@ class DiscoveryModule(Module):
         except Exception as e:
             self.logger.error(f"Initial discovery failed: {e}")
 
-    async def run_discovery(self) -> Dict[str, Any]:
+    async def run_discovery(self) -> dict[str, Any]:
         """Run discovery script and store results in hub cache.
 
         Returns:
@@ -114,7 +113,7 @@ class DiscoveryModule(Module):
             self.logger.error(f"Discovery error: {e}")
             raise
 
-    async def _store_discovery_results(self, capabilities: Dict[str, Any]):
+    async def _store_discovery_results(self, capabilities: dict[str, Any]):
         """Store discovery results in hub cache.
 
         Stores separate cache entries for:
@@ -162,7 +161,7 @@ class DiscoveryModule(Module):
         }
         await self.hub.set_cache("discovery_metadata", metadata)
 
-    async def on_event(self, event_type: str, data: Dict[str, Any]):
+    async def on_event(self, event_type: str, data: dict[str, Any]):
         """Handle hub events."""
         pass
 
@@ -183,7 +182,7 @@ class DiscoveryModule(Module):
             "device_registry_updated",
             "area_registry_updated",
         }
-        self._debounce_task: Optional[asyncio.Task] = None
+        self._debounce_task: asyncio.Task | None = None
         self._debounce_seconds = 30
 
         async def _listen():
@@ -192,57 +191,56 @@ class DiscoveryModule(Module):
 
             while self.hub.is_running():
                 try:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.ws_connect(ws_url) as ws:
-                            # 1. Wait for auth_required
-                            msg = await ws.receive_json()
-                            if msg.get("type") != "auth_required":
-                                self.logger.error(f"Unexpected WS message: {msg}")
-                                continue
+                    async with aiohttp.ClientSession() as session, session.ws_connect(ws_url) as ws:
+                        # 1. Wait for auth_required
+                        msg = await ws.receive_json()
+                        if msg.get("type") != "auth_required":
+                            self.logger.error(f"Unexpected WS message: {msg}")
+                            continue
 
-                            # 2. Authenticate
+                        # 2. Authenticate
+                        await ws.send_json(
+                            {
+                                "type": "auth",
+                                "access_token": self.ha_token,
+                            }
+                        )
+                        auth_resp = await ws.receive_json()
+                        if auth_resp.get("type") != "auth_ok":
+                            self.logger.error(f"WS auth failed: {auth_resp}")
+                            await asyncio.sleep(retry_delay)
+                            continue
+
+                        self.logger.info("HA WebSocket connected — listening for registry changes")
+                        retry_delay = 5  # reset backoff
+
+                        # 3. Subscribe to events
+                        cmd_id = 1
+                        for evt in self._registry_events:
                             await ws.send_json(
                                 {
-                                    "type": "auth",
-                                    "access_token": self.ha_token,
+                                    "id": cmd_id,
+                                    "type": "subscribe_events",
+                                    "event_type": evt,
                                 }
                             )
-                            auth_resp = await ws.receive_json()
-                            if auth_resp.get("type") != "auth_ok":
-                                self.logger.error(f"WS auth failed: {auth_resp}")
-                                await asyncio.sleep(retry_delay)
-                                continue
+                            cmd_id += 1
 
-                            self.logger.info("HA WebSocket connected — listening for registry changes")
-                            retry_delay = 5  # reset backoff
+                        # 4. Listen loop
+                        async for msg in ws:
+                            if msg.type == aiohttp.WSMsgType.TEXT:
+                                data = json.loads(msg.data)
+                                if data.get("type") == "event":
+                                    evt_type = data.get("event", {}).get("event_type", "")
+                                    if evt_type in self._registry_events:
+                                        self._schedule_debounced_discovery(evt_type)
+                            elif msg.type in (
+                                aiohttp.WSMsgType.CLOSED,
+                                aiohttp.WSMsgType.ERROR,
+                            ):
+                                break
 
-                            # 3. Subscribe to events
-                            cmd_id = 1
-                            for evt in self._registry_events:
-                                await ws.send_json(
-                                    {
-                                        "id": cmd_id,
-                                        "type": "subscribe_events",
-                                        "event_type": evt,
-                                    }
-                                )
-                                cmd_id += 1
-
-                            # 4. Listen loop
-                            async for msg in ws:
-                                if msg.type == aiohttp.WSMsgType.TEXT:
-                                    data = json.loads(msg.data)
-                                    if data.get("type") == "event":
-                                        evt_type = data.get("event", {}).get("event_type", "")
-                                        if evt_type in self._registry_events:
-                                            self._schedule_debounced_discovery(evt_type)
-                                elif msg.type in (
-                                    aiohttp.WSMsgType.CLOSED,
-                                    aiohttp.WSMsgType.ERROR,
-                                ):
-                                    break
-
-                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                except (TimeoutError, aiohttp.ClientError) as e:
                     self.logger.warning(f"HA WebSocket error: {e} — retrying in {retry_delay}s")
                 except Exception as e:
                     self.logger.error(f"HA WebSocket unexpected error: {e}")

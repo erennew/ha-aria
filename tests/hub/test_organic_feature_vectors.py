@@ -8,7 +8,6 @@ import numpy as np
 
 from aria.modules.organic_discovery.feature_vectors import build_feature_matrix
 
-
 # ============================================================================
 # Helpers
 # ============================================================================

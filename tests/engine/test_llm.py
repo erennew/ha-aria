@@ -2,20 +2,19 @@
 
 import copy
 import json
-import unittest
-import tempfile
 import shutil
+import tempfile
+import unittest
 
 from aria.engine.config import OllamaConfig, PathConfig
+from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG
 from aria.engine.llm.client import strip_think_tags
 from aria.engine.llm.meta_learning import (
-    parse_suggestions,
     apply_suggestion_to_config,
+    parse_suggestions,
     validate_suggestion,
 )
-from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG
 from aria.engine.storage.data_store import DataStore
-
 
 HAS_SKLEARN = True
 try:

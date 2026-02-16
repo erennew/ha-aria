@@ -4,7 +4,7 @@ Each collector class extracts data from raw HA entity states into the snapshot d
 Registration happens via @CollectorRegistry.register() decorator at import time.
 """
 
-from aria.engine.collectors.registry import CollectorRegistry, BaseCollector
+from aria.engine.collectors.registry import BaseCollector, CollectorRegistry
 from aria.engine.config import SafetyConfig
 
 

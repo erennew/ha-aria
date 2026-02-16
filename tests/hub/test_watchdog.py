@@ -2,23 +2,22 @@
 
 import json
 import time
+from datetime import UTC
 from unittest.mock import MagicMock, patch
 
-
 from aria.watchdog import (
+    SMOKE_ENDPOINTS,
     WatchdogResult,
-    check_hub_health,
+    _should_alert,
+    attempt_restart,
     check_api_endpoints,
     check_cache_freshness,
-    check_timer_health,
+    check_hub_health,
     check_service_status,
-    attempt_restart,
-    send_alert,
+    check_timer_health,
     run_watchdog,
-    _should_alert,
-    SMOKE_ENDPOINTS,
+    send_alert,
 )
-
 
 # ---------------------------------------------------------------------------
 # WatchdogResult
@@ -229,9 +228,9 @@ class TestCheckCacheFreshness:
     @patch("aria.watchdog._http_get")
     def test_iso_timestamp_format(self, mock_get):
         """Cache keys may use ISO 8601 timestamps instead of epoch."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta
 
-        recent = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        recent = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
         mock_get.return_value = (
             200,
             [

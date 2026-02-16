@@ -17,11 +17,11 @@ import random
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from aria.hub.core import Module, IntelligenceHub
-from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY
 from aria.capabilities import Capability, DemandSignal
+from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY
+from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +75,11 @@ class ThompsonSampler:
 
     def __init__(self, discount_factor: float = 0.95, window_size: int = 100):
         # Maps bucket_key -> {"alpha": successes+1, "beta": failures+1, "observations": int}
-        self._buckets: Dict[str, Dict[str, float]] = {}
+        self._buckets: dict[str, dict[str, float]] = {}
         self.discount_factor = discount_factor
         self.window_size = window_size
 
-    def get_bucket_key(self, context: Dict[str, Any]) -> str:
+    def get_bucket_key(self, context: dict[str, Any]) -> str:
         """Derive a bucket key from context features.
 
         Uses hour-of-day quantized to 4 time bands + presence.
@@ -99,7 +99,7 @@ class ThompsonSampler:
         home = "home" if presence.get("home") else "away"
         return f"{period}_{home}"
 
-    def should_explore(self, context: Dict[str, Any]) -> bool:
+    def should_explore(self, context: dict[str, Any]) -> bool:
         """Decide whether to explore (try less-tested methods) or exploit.
 
         Samples from Beta posteriors for this context bucket.
@@ -115,7 +115,7 @@ class ThompsonSampler:
 
         return explore_sample > exploit_sample
 
-    def record_outcome(self, context: Dict[str, Any], success: bool):
+    def record_outcome(self, context: dict[str, Any], success: bool):
         """Update the posterior for this context bucket with f-dsw decay.
 
         Before updating, applies discount_factor to decay existing posteriors
@@ -158,7 +158,7 @@ class ThompsonSampler:
         """
         self._buckets[key] = {"alpha": 1.0, "beta": 1.0, "observations": 0}
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self) -> dict[str, Any]:
         """Return serializable state for persistence.
 
         Returns:
@@ -169,7 +169,7 @@ class ThompsonSampler:
             for key, b in self._buckets.items()
         }
 
-    def load_state(self, state: Dict[str, Any]):
+    def load_state(self, state: dict[str, Any]):
         """Restore state from a previously saved dict.
 
         Args:
@@ -184,7 +184,7 @@ class ThompsonSampler:
             for key, v in state.items()
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return current bucket statistics for observability."""
         return {
             key: {
@@ -238,29 +238,29 @@ class ShadowEngine(Module):
         super().__init__("shadow_engine", hub)
 
         # Recent events buffer for context capture (last 5 minutes)
-        self._recent_events: List[Dict[str, Any]] = []
+        self._recent_events: list[dict[str, Any]] = []
         self._recent_events_max_age_s = 300  # 5 minutes
 
         # Cooldown tracking
-        self._last_prediction_time: Optional[datetime] = None
+        self._last_prediction_time: datetime | None = None
 
         # Resolution task handle
-        self._resolution_task: Optional[asyncio.Task] = None
+        self._resolution_task: asyncio.Task | None = None
 
         # Track events that occurred during open prediction windows
         # Maps prediction_id -> list of events that happened in that window
-        self._window_events: Dict[str, List[Dict[str, Any]]] = {}
+        self._window_events: dict[str, list[dict[str, Any]]] = {}
 
         # Thompson Sampling for explore/exploit
         self._thompson = ThompsonSampler()
 
         # Recently resolved predictions for feedback computation
-        self._recent_resolved: List[Dict[str, Any]] = []
+        self._recent_resolved: list[dict[str, Any]] = []
 
         # Counter for resolution loop iterations (feedback every 10th)
         self._resolution_iteration_count: int = 0
 
-    def get_thompson_stats(self) -> Dict[str, Any]:
+    def get_thompson_stats(self) -> dict[str, Any]:
         """Return Thompson Sampling bucket statistics for observability."""
         return self._thompson.get_stats()
 
@@ -290,7 +290,7 @@ class ShadowEngine(Module):
 
         self.logger.info("Shadow engine shut down")
 
-    async def on_event(self, event_type: str, data: Dict[str, Any]):
+    async def on_event(self, event_type: str, data: dict[str, Any]):
         """Not used — shadow engine listens via hub.subscribe() instead.
 
         Using on_event AND subscribe would cause double-handling since
@@ -303,7 +303,7 @@ class ShadowEngine(Module):
     # Event handling
     # ------------------------------------------------------------------
 
-    async def _on_state_changed(self, data: Dict[str, Any]):
+    async def _on_state_changed(self, data: dict[str, Any]):
         """Handle a state_changed event from the activity monitor.
 
         Buffers the event, records it against open prediction windows,
@@ -415,7 +415,7 @@ class ShadowEngine(Module):
     # Context capture
     # ------------------------------------------------------------------
 
-    async def _capture_context(self, trigger_event: Dict[str, Any]) -> Dict[str, Any]:
+    async def _capture_context(self, trigger_event: dict[str, Any]) -> dict[str, Any]:
         """Build a context snapshot from current state.
 
         Args:
@@ -456,7 +456,7 @@ class ShadowEngine(Module):
             },
         }
 
-    def _compute_time_features(self, dt: datetime) -> Dict[str, float]:
+    def _compute_time_features(self, dt: datetime) -> dict[str, float]:
         """Compute sin/cos time features for cyclical encoding.
 
         Args:
@@ -475,7 +475,7 @@ class ShadowEngine(Module):
             "dow_cos": round(math.cos(dow_angle), 6),
         }
 
-    async def _get_presence(self) -> Dict[str, Any]:
+    async def _get_presence(self) -> dict[str, Any]:
         """Get presence info from activity_summary cache.
 
         Returns:
@@ -501,7 +501,7 @@ class ShadowEngine(Module):
 
         return {"home": anyone_home, "rooms": rooms[:5]}
 
-    def _extract_room(self, entity_id: str, friendly_name: str) -> Optional[str]:
+    def _extract_room(self, entity_id: str, friendly_name: str) -> str | None:
         """Extract room name from entity ID or friendly name.
 
         Args:
@@ -534,7 +534,7 @@ class ShadowEngine(Module):
 
         return None
 
-    def _get_recent_events_snapshot(self, now: datetime) -> List[Dict[str, Any]]:
+    def _get_recent_events_snapshot(self, now: datetime) -> list[dict[str, Any]]:
         """Get recent events with seconds_ago computed.
 
         Args:
@@ -563,7 +563,7 @@ class ShadowEngine(Module):
 
         return result
 
-    async def _get_current_states(self) -> Dict[str, str]:
+    async def _get_current_states(self) -> dict[str, str]:
         """Get current states of key entities from cache.
 
         Returns:
@@ -582,7 +582,7 @@ class ShadowEngine(Module):
 
         return states
 
-    async def _get_rolling_stats(self) -> Dict[str, float]:
+    async def _get_rolling_stats(self) -> dict[str, float]:
         """Compute rolling statistics from activity log.
 
         Returns:
@@ -618,7 +618,7 @@ class ShadowEngine(Module):
         total_events = sum(w.get("event_count", 0) for w in recent)
 
         # Aggregate domain counts
-        domain_counts: Dict[str, int] = {}
+        domain_counts: dict[str, int] = {}
         for w in recent:
             for domain, count in w.get("by_domain", {}).items():
                 domain_counts[domain] = domain_counts.get(domain, 0) + count
@@ -643,7 +643,7 @@ class ShadowEngine(Module):
     # Prediction generation
     # ------------------------------------------------------------------
 
-    async def _generate_predictions(self, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _generate_predictions(self, context: dict[str, Any]) -> list[dict[str, Any]]:
         """Generate predictions using ML models and frequency heuristics.
 
         Produces up to 3 prediction types:
@@ -679,7 +679,7 @@ class ShadowEngine(Module):
 
         return predictions
 
-    async def _predict_next_domain(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _predict_next_domain(self, context: dict[str, Any]) -> dict[str, Any] | None:
         """Predict which domain will produce the next action.
 
         Uses ML engine models if available, falls back to frequency analysis
@@ -721,7 +721,7 @@ class ShadowEngine(Module):
         if not recent:
             return None
 
-        domain_counts: Dict[str, int] = defaultdict(int)
+        domain_counts: dict[str, int] = defaultdict(int)
         for evt in recent:
             domain = evt.get("domain", "")
             if domain in PREDICTABLE_DOMAINS:
@@ -742,7 +742,7 @@ class ShadowEngine(Module):
             "window_seconds": window_s,
         }
 
-    async def _predict_room_activation(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _predict_room_activation(self, context: dict[str, Any]) -> dict[str, Any] | None:
         """Predict which room will become active next.
 
         Based on recent event rooms and presence data.
@@ -758,7 +758,7 @@ class ShadowEngine(Module):
         current_rooms = presence.get("rooms", [])
 
         # Count room mentions in recent events
-        room_counts: Dict[str, int] = defaultdict(int)
+        room_counts: dict[str, int] = defaultdict(int)
         for evt in recent:
             entity = evt.get("entity", "")
             room = self._extract_room(entity, "")
@@ -792,7 +792,7 @@ class ShadowEngine(Module):
             "window_seconds": DEFAULT_WINDOW_SECONDS,
         }
 
-    async def _predict_routine_trigger(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _predict_routine_trigger(self, context: dict[str, Any]) -> dict[str, Any] | None:
         """Predict whether a known routine is about to start.
 
         Uses cached pattern data to check if current time/context
@@ -872,8 +872,8 @@ class ShadowEngine(Module):
 
     async def _store_predictions(
         self,
-        context: Dict[str, Any],
-        predictions: List[Dict[str, Any]],
+        context: dict[str, Any],
+        predictions: list[dict[str, Any]],
         is_exploration: bool = False,
     ):
         """Store predictions in the database and track their windows.
@@ -994,8 +994,8 @@ class ShadowEngine(Module):
 
     def _score_prediction(
         self,
-        prediction: Dict[str, Any],
-        actual_events: List[Dict[str, Any]],
+        prediction: dict[str, Any],
+        actual_events: list[dict[str, Any]],
     ) -> tuple:
         """Score a prediction against actual events.
 
@@ -1060,19 +1060,18 @@ class ShadowEngine(Module):
                     if len(overlap) >= 2:
                         any_correct = True
                         break
-                else:
-                    # No expected_domains stored — require 3+ diverse
-                    # domain events as a lenient fallback
-                    if len(actual_events) >= 3 and len(actual_domains) >= 2:
-                        any_correct = True
-                        break
+                # No expected_domains stored — require 3+ diverse
+                # domain events as a lenient fallback
+                elif len(actual_events) >= 3 and len(actual_domains) >= 2:
+                    any_correct = True
+                    break
 
         if any_correct:
             return "correct", actual_data
         else:
             return "disagreement", actual_data
 
-    def _get_capability_hit_rates(self) -> Dict[str, Dict[str, int]]:
+    def _get_capability_hit_rates(self) -> dict[str, dict[str, int]]:
         """Compute per-capability hit rates from recently resolved predictions.
 
         Reads capabilities from cache (synchronously via _recent_resolved data)
@@ -1089,7 +1088,7 @@ class ShadowEngine(Module):
             return {}
 
         cap_entities = self._cached_cap_entities
-        hit_rates: Dict[str, Dict[str, int]] = {}
+        hit_rates: dict[str, dict[str, int]] = {}
 
         for resolved in self._recent_resolved:
             outcome = resolved.get("outcome", "")
@@ -1137,7 +1136,7 @@ class ShadowEngine(Module):
         caps_data = caps_cache["data"]
 
         # Build entity lists per capability for hit rate computation
-        cap_entities: Dict[str, list] = {}
+        cap_entities: dict[str, list] = {}
         for cap_name, cap in caps_data.items():
             if isinstance(cap, dict):
                 entities = cap.get("entities", [])

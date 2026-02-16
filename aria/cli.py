@@ -173,14 +173,15 @@ def _serve(host: str, port: int, log_level: str = "INFO"):
     logger = logging.getLogger("aria.serve")
 
     import uvicorn
-    from aria.hub.core import IntelligenceHub
+
     from aria.hub.api import create_api
+    from aria.hub.core import IntelligenceHub
+    from aria.modules.activity_monitor import ActivityMonitor
     from aria.modules.discovery import DiscoveryModule
+    from aria.modules.intelligence import IntelligenceModule
     from aria.modules.ml_engine import MLEngine
     from aria.modules.orchestrator import OrchestratorModule
     from aria.modules.patterns import PatternRecognition
-    from aria.modules.intelligence import IntelligenceModule
-    from aria.modules.activity_monitor import ActivityMonitor
     from aria.modules.shadow_engine import ShadowEngine
 
     async def start():
@@ -366,8 +367,8 @@ def _serve(host: str, port: int, log_level: str = "INFO"):
 
 def _demo(args):
     """Generate or load synthetic demo data for visual testing."""
-    from pathlib import Path
     import tempfile
+    from pathlib import Path
 
     if args.checkpoint:
         data_dir = Path(args.checkpoint)
@@ -533,8 +534,8 @@ def _discover_organic():
 
 def _sync_logs():
     """Run ha-log-sync."""
-    import subprocess
     import os
+    import subprocess
 
     bin_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     sync_script = os.path.join(bin_dir, "bin", "ha-log-sync")

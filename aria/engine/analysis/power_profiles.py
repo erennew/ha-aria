@@ -13,7 +13,6 @@ from datetime import datetime
 
 import numpy as np
 
-
 # Default thresholds for cycle detection
 DEFAULT_ON_THRESHOLD = 5.0  # Watts — outlet is "active" above this
 DEFAULT_OFF_THRESHOLD = 2.0  # Watts — outlet is "idle" below this

@@ -15,7 +15,6 @@ import pytest
 from aria.hub.core import IntelligenceHub
 from aria.modules.organic_discovery.module import OrganicDiscoveryModule
 
-
 # ---------------------------------------------------------------------------
 # Synthetic data builders
 # ---------------------------------------------------------------------------

@@ -8,16 +8,15 @@ import json
 import logging
 import os
 import re
-from pathlib import Path
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
 
 import aiohttp
 
-from aria.hub.core import Module, IntelligenceHub
-from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY, CACHE_INTELLIGENCE
 from aria.capabilities import Capability
-
+from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY, CACHE_INTELLIGENCE
+from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +109,7 @@ class IntelligenceModule(Module):
         super().__init__("intelligence", hub)
         self.intel_dir = Path(intelligence_dir)
         self.log_path = Path.home() / ".local" / "log" / "aria.log"
-        self._last_digest_date: Optional[str] = None
+        self._last_digest_date: str | None = None
         self._telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN")
         self._telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -170,10 +169,10 @@ class IntelligenceModule(Module):
         )
         self.logger.info("Scheduled intelligence refresh every 15 minutes")
 
-    async def on_event(self, event_type: str, data: Dict[str, Any]):
+    async def on_event(self, event_type: str, data: dict[str, Any]):
         pass
 
-    async def _check_for_drift(self, data: Dict[str, Any]):
+    async def _check_for_drift(self, data: dict[str, Any]):
         """Check intelligence data for behavioral drift and publish events.
 
         Reads drift_status and accuracy from the assembled intelligence data.
@@ -215,7 +214,7 @@ class IntelligenceModule(Module):
     # Data assembly
     # ------------------------------------------------------------------
 
-    async def _read_activity_data(self) -> Dict[str, Any]:
+    async def _read_activity_data(self) -> dict[str, Any]:
         """Read activity_log and activity_summary from hub cache."""
         activity_log = await self.hub.get_cache(CACHE_ACTIVITY_LOG)
         activity_summary = await self.hub.get_cache(CACHE_ACTIVITY_SUMMARY)
@@ -224,7 +223,7 @@ class IntelligenceModule(Module):
             "activity_summary": activity_summary["data"] if activity_summary else None,
         }
 
-    def _read_intelligence_data(self) -> Dict[str, Any]:
+    def _read_intelligence_data(self) -> dict[str, Any]:
         """Assemble the full intelligence payload from disk files."""
         daily_dir = self.intel_dir / "daily"
         intraday_dir = self.intel_dir / "intraday"
@@ -315,7 +314,7 @@ class IntelligenceModule(Module):
             return ("baselines", "ML models activate after 14 days of data")
         return ("collecting", f"{7 - days} more days needed for reliable baselines")
 
-    def _extract_trend_data(self, daily_files: List[Path]) -> List[Dict[str, Any]]:
+    def _extract_trend_data(self, daily_files: list[Path]) -> list[dict[str, Any]]:
         """Extract key metrics from each daily snapshot (compact)."""
         trends = []
         for f in daily_files[-30:]:  # last 30 days max
@@ -332,7 +331,7 @@ class IntelligenceModule(Module):
                 continue
         return trends
 
-    def _extract_intraday_trend(self) -> List[Dict[str, Any]]:
+    def _extract_intraday_trend(self) -> list[dict[str, Any]]:
         """Extract today's intraday snapshots as compact trend entries."""
         today = datetime.now().strftime("%Y-%m-%d")
         intraday_dir = self.intel_dir / "intraday" / today
@@ -355,7 +354,7 @@ class IntelligenceModule(Module):
                 continue
         return entries
 
-    def _read_latest_insight(self, insights_dir: Path) -> Optional[Dict[str, Any]]:
+    def _read_latest_insight(self, insights_dir: Path) -> dict[str, Any] | None:
         """Read the most recent insight report."""
         if not insights_dir.exists():
             return None
@@ -371,7 +370,7 @@ class IntelligenceModule(Module):
             self.logger.debug(f"Failed to read insight {files[-1].name}: {e}")
             return None
 
-    def _read_ml_models(self) -> Dict[str, Any]:
+    def _read_ml_models(self) -> dict[str, Any]:
         """Read ML model training info."""
         log_path = self.intel_dir / "models" / "training_log.json"
         if not log_path.exists():
@@ -389,7 +388,7 @@ class IntelligenceModule(Module):
             self.logger.warning("Failed to read ML model training log: %s", e)
             return {"count": 0, "last_trained": None, "scores": {}}
 
-    def _read_meta_learning(self) -> Dict[str, Any]:
+    def _read_meta_learning(self) -> dict[str, Any]:
         """Read meta-learning applied suggestions."""
         applied_path = self.intel_dir / "meta-learning" / "applied.json"
         if not applied_path.exists():
@@ -411,7 +410,7 @@ class IntelligenceModule(Module):
             self.logger.warning("Failed to read meta-learning applied suggestions: %s", e)
             return {"applied_count": 0, "last_applied": None, "suggestions": []}
 
-    def _build_run_log(self) -> List[Dict[str, Any]]:
+    def _build_run_log(self) -> list[dict[str, Any]]:
         """Build run history from file mtimes and log file."""
         runs = []
 
@@ -475,7 +474,7 @@ class IntelligenceModule(Module):
         runs.sort(key=lambda r: r.get("timestamp") or "", reverse=True)
         return runs[:15]
 
-    def _read_config(self) -> Dict[str, Any]:
+    def _read_config(self) -> dict[str, Any]:
         """Read feature config or return defaults."""
         config_path = self.intel_dir / "feature_config.json"
         feature_config = self._read_json(config_path)
@@ -501,7 +500,7 @@ class IntelligenceModule(Module):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _read_latest_automation_suggestion(self) -> Optional[Dict[str, Any]]:
+    def _read_latest_automation_suggestion(self) -> dict[str, Any] | None:
         """Read the most recent automation suggestion file."""
         suggestions_dir = self.intel_dir / "insights" / "automation-suggestions"
         if not suggestions_dir.exists():
@@ -543,7 +542,7 @@ class IntelligenceModule(Module):
     # Daily digest to Telegram
     # ------------------------------------------------------------------
 
-    async def _maybe_send_digest(self, data: Dict[str, Any]):
+    async def _maybe_send_digest(self, data: dict[str, Any]):
         """Send a daily digest if there's a new insight we haven't sent yet."""
         if not self._telegram_token or not self._telegram_chat_id:
             return
@@ -565,7 +564,7 @@ class IntelligenceModule(Module):
         except Exception as e:
             self.logger.warning(f"Failed to send daily digest: {e}")
 
-    def _format_digest(self, data: Dict[str, Any]) -> str:
+    def _format_digest(self, data: dict[str, Any]) -> str:
         """Format intelligence data into a Telegram-friendly digest."""
         maturity = data.get("data_maturity", {})
         trend = data.get("trend_data", [])

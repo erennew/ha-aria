@@ -6,11 +6,10 @@ import os
 import subprocess
 import time
 import urllib.request
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-
 
 # ---------------------------------------------------------------------------
 # Data types
@@ -605,7 +604,7 @@ def run_watchdog(quiet: bool = False, no_alert: bool = False, json_output: bool 
     # Output
     if json_output:
         output = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "passed": passed,
             "total": total,
             "results": [asdict(r) for r in all_results],

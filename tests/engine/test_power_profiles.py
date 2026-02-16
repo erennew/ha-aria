@@ -3,8 +3,8 @@
 import unittest
 
 from aria.engine.analysis.power_profiles import (
-    ApplianceProfiler,
     ApplianceProfile,
+    ApplianceProfiler,
     profile_correlation,
 )
 

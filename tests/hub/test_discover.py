@@ -1,16 +1,15 @@
 """Tests for HA discovery module."""
 
 import json
-import sys
 import os
-from unittest.mock import patch, MagicMock
+import sys
 from io import BytesIO
+from unittest.mock import MagicMock, patch
 
 # Add bin/ to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "bin"))
 
 import discover
-
 
 # =============================================================================
 # FIXTURES
@@ -110,13 +109,12 @@ def test_fetch_rest_api_auth_error_no_retry():
 
 def test_fetch_rest_api_exhausted_retries():
     """Test failure after exhausting all retries."""
-    with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
-        with patch("time.sleep"):
-            try:
-                discover.fetch_rest_api("/api/states", retries=2)
-                assert False, "Should have raised exception"
-            except Exception as e:
-                assert "after 2 attempts" in str(e)
+    with patch("urllib.request.urlopen", side_effect=Exception("Network error")), patch("time.sleep"):
+        try:
+            discover.fetch_rest_api("/api/states", retries=2)
+            assert False, "Should have raised exception"
+        except Exception as e:
+            assert "after 2 attempts" in str(e)
 
 
 # =============================================================================

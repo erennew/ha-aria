@@ -86,13 +86,13 @@ def cmd_analyze():
     """Run full analysis on latest data, including ML contextual anomaly detection."""
     config, store = _init()
 
-    from aria.engine.collectors.snapshot import build_snapshot
-    from aria.engine.analysis.baselines import compute_baselines
     from aria.engine.analysis.anomalies import detect_anomalies
+    from aria.engine.analysis.baselines import compute_baselines
     from aria.engine.analysis.correlations import cross_correlate
     from aria.engine.analysis.reliability import compute_device_reliability
-    from aria.engine.features.vector_builder import build_feature_vector, get_feature_names
+    from aria.engine.collectors.snapshot import build_snapshot
     from aria.engine.features.feature_config import load_feature_config
+    from aria.engine.features.vector_builder import build_feature_vector, get_feature_names
     from aria.engine.models.device_failure import detect_contextual_anomalies
     from aria.engine.models.training import count_days_of_data
 
@@ -147,16 +147,16 @@ def cmd_predict():
     """Generate predictions for tomorrow with ML blending."""
     config, store = _init()
 
-    from aria.engine.collectors.snapshot import build_empty_snapshot
     from aria.engine.collectors.ha_api import fetch_weather, parse_weather
+    from aria.engine.collectors.snapshot import build_empty_snapshot
+    from aria.engine.features.feature_config import load_feature_config
     from aria.engine.features.time_features import build_time_features
     from aria.engine.features.vector_builder import build_feature_vector, get_feature_names
-    from aria.engine.features.feature_config import load_feature_config
-    from aria.engine.models.training import predict_with_ml, count_days_of_data
     from aria.engine.models.device_failure import (
-        predict_device_failures,
         detect_contextual_anomalies,
+        predict_device_failures,
     )
+    from aria.engine.models.training import count_days_of_data, predict_with_ml
     from aria.engine.predictions.predictor import generate_predictions
 
     baselines = store.load_baselines()
@@ -241,7 +241,7 @@ def cmd_score():
     """Score yesterday's predictions against actual data."""
     config, store = _init()
 
-    from aria.engine.predictions.scoring import score_all_predictions, accuracy_trend
+    from aria.engine.predictions.scoring import accuracy_trend, score_all_predictions
 
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
     predictions = store.load_predictions()
@@ -265,10 +265,10 @@ def cmd_report(dry_run=False):
     """Generate full Ollama insight report."""
     config, store = _init()
 
-    from aria.engine.collectors.snapshot import build_snapshot
-    from aria.engine.analysis.baselines import compute_baselines
     from aria.engine.analysis.anomalies import detect_anomalies
+    from aria.engine.analysis.baselines import compute_baselines
     from aria.engine.analysis.reliability import compute_device_reliability
+    from aria.engine.collectors.snapshot import build_snapshot
     from aria.engine.llm.reports import generate_insight_report
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -339,8 +339,8 @@ def cmd_brief():
     """Print one-liner for telegram-brief integration."""
     config, store = _init()
 
-    from aria.engine.collectors.snapshot import build_snapshot
     from aria.engine.analysis.anomalies import detect_anomalies
+    from aria.engine.collectors.snapshot import build_snapshot
     from aria.engine.llm.reports import generate_brief_line
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -381,9 +381,8 @@ def cmd_check_drift():
     if result["needs_retrain"]:
         print("Drift detected — triggering retrain...")
         cmd_retrain()
-    else:
-        if detector.should_skip_scheduled_retrain(accuracy):
-            print("Models stable — scheduled retrain can be skipped.")
+    elif detector.should_skip_scheduled_retrain(accuracy):
+        print("Models stable — scheduled retrain can be skipped.")
 
     return result
 
@@ -458,9 +457,9 @@ def cmd_train_prophet():
     use_neuralprophet = False
     try:
         from aria.engine.models.neural_prophet_forecaster import (
-            train_neuralprophet_models,
-            predict_with_neuralprophet,
             HAS_NEURAL_PROPHET,
+            predict_with_neuralprophet,
+            train_neuralprophet_models,
         )
 
         if HAS_NEURAL_PROPHET:
@@ -470,9 +469,9 @@ def cmd_train_prophet():
 
     if not use_neuralprophet:
         from aria.engine.models.prophet_forecaster import (
-            train_prophet_models,
-            predict_with_prophet,
             HAS_PROPHET,
+            predict_with_prophet,
+            train_prophet_models,
         )
 
         if not HAS_PROPHET:
@@ -565,10 +564,10 @@ def cmd_power_profiles():
     """Analyze per-outlet power consumption profiles."""
     config, store = _init()
 
-    from aria.engine.analysis.power_profiles import ApplianceProfiler
-
     # Load daily snapshots
     import os
+
+    from aria.engine.analysis.power_profiles import ApplianceProfiler
 
     daily_dir = config.paths.daily_dir
     if not daily_dir.is_dir():

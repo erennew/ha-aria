@@ -5,10 +5,10 @@ No live Ollama required for non-ollama-marked tests.
 """
 
 import json
+
 import pytest
 
 from aria.engine.llm.meta_learning import parse_suggestions
-
 
 # Recorded Ollama response for CI replay — matches real deepseek-r1 output format.
 # Uses the actual schema: action, target, reason, expected_impact, confidence.

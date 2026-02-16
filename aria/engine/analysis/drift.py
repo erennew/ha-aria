@@ -78,8 +78,7 @@ class PageHinkleyDetector:
         self._cumulative_sum = self._sum
 
         # Track minimum cumulative sum
-        if self._cumulative_sum < self._min_cumulative_sum:
-            self._min_cumulative_sum = self._cumulative_sum
+        self._min_cumulative_sum = min(self._min_cumulative_sum, self._cumulative_sum)
 
         # Drift detected when gap between cumulative sum and its minimum exceeds threshold
         return (self._cumulative_sum - self._min_cumulative_sum) > self.lambda_

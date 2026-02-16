@@ -37,9 +37,9 @@ def train_all_models(days=90, config=None, store=None):
 
     # Lazy imports — these modules may not be migrated yet
     from aria.engine.features.vector_builder import build_training_data
+    from aria.engine.models.device_failure import train_device_failure_model
     from aria.engine.models.gradient_boosting import GradientBoostingModel
     from aria.engine.models.isolation_forest import IsolationForestModel
-    from aria.engine.models.device_failure import train_device_failure_model
 
     # Load intra-day snapshots (or fall back to daily)
     snapshots = store.load_all_intraday_snapshots(days)

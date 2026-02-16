@@ -13,18 +13,18 @@ Architecture:
 
 import json
 import logging
-import pickle
 import math
+import pickle
 import warnings
-from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
 
-import numpy as np
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, IsolationForest
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, r2_score
 import lightgbm as lgb
+import numpy as np
+from sklearn.ensemble import GradientBoostingRegressor, IsolationForest, RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.preprocessing import StandardScaler
 
 # Suppress sklearn warning about feature names when using numpy arrays.
 # Our feature pipeline guarantees alignment between training and prediction —
@@ -36,12 +36,11 @@ warnings.filterwarnings(
     module="sklearn",
 )
 
+from aria.capabilities import Capability, DemandSignal  # noqa: E402
 from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG as _ENGINE_FEATURE_CONFIG  # noqa: E402
 from aria.engine.features.vector_builder import build_feature_vector as _engine_build_feature_vector  # noqa: E402
 from aria.engine.validation import validate_snapshot_batch  # noqa: E402
-from aria.hub.core import Module, IntelligenceHub  # noqa: E402
-from aria.capabilities import Capability, DemandSignal  # noqa: E402
-
+from aria.hub.core import IntelligenceHub, Module  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -125,19 +124,19 @@ class MLEngine(Module):
         # Model configuration — which model types to train and their blend weights.
         # Keys: "gb" (GradientBoosting), "rf" (RandomForest), "lgbm" (LightGBM)
         # Weights are normalized at prediction time so they always sum to 1.0.
-        self.enabled_models: Dict[str, bool] = {
+        self.enabled_models: dict[str, bool] = {
             "gb": True,
             "rf": True,
             "lgbm": True,
         }
-        self.model_weights: Dict[str, float] = {
+        self.model_weights: dict[str, float] = {
             "gb": 0.35,
             "rf": 0.25,
             "lgbm": 0.40,
         }
 
         # Loaded models cache
-        self.models: Dict[str, Dict[str, Any]] = {}
+        self.models: dict[str, dict[str, Any]] = {}
 
     async def initialize(self):
         """Initialize module - load existing models."""
@@ -200,7 +199,7 @@ class MLEngine(Module):
         self.logger.info(f"Loaded {len(training_data)} snapshots for training")
 
         # Track training results per capability for feedback loop
-        training_results: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        training_results: dict[str, dict[str, dict[str, Any]]] = {}
 
         # Train models for each available capability
         for capability_name, capability_data in capabilities.items():
@@ -278,7 +277,7 @@ class MLEngine(Module):
         config["modified_by"] = "ml_engine"
         await self.hub.set_cache("feature_config", config)
 
-    async def _write_feedback_to_capabilities(self, training_results: Dict[str, Dict[str, Dict[str, Any]]]):
+    async def _write_feedback_to_capabilities(self, training_results: dict[str, dict[str, dict[str, Any]]]):
         """Write ML accuracy feedback back to the capabilities cache.
 
         Closes the loop between ML training and capability usefulness scoring
@@ -347,7 +346,7 @@ class MLEngine(Module):
             await self.hub.set_cache("capabilities", caps, {"source": "ml_feedback"})
             self.logger.info(f"ML feedback written to {updated_count} capabilities in cache")
 
-    async def _load_training_data(self, days: int) -> List[Dict[str, Any]]:
+    async def _load_training_data(self, days: int) -> list[dict[str, Any]]:
         """Load historical snapshots for training.
 
         Args:
@@ -368,7 +367,7 @@ class MLEngine(Module):
                     with open(snapshot_file) as f:
                         snapshot = json.load(f)
                         raw_snapshots.append(snapshot)
-                except (json.JSONDecodeError, IOError) as e:
+                except (OSError, json.JSONDecodeError) as e:
                     self.logger.warning(f"Failed to load snapshot {snapshot_file}: {e}")
 
         valid, rejected = validate_snapshot_batch(raw_snapshots)
@@ -380,7 +379,7 @@ class MLEngine(Module):
 
         return valid
 
-    async def _train_model_for_target(self, target: str, training_data: List[Dict[str, Any]], capability_name: str):
+    async def _train_model_for_target(self, target: str, training_data: list[dict[str, Any]], capability_name: str):
         """Train a model for a specific prediction target.
 
         Args:
@@ -514,7 +513,7 @@ class MLEngine(Module):
             f"LGBM MAE={lgbm_mae:.2f} R²={lgbm_r2:.3f}"
         )
 
-    async def _train_anomaly_detector(self, training_data: List[Dict[str, Any]]):
+    async def _train_anomaly_detector(self, training_data: list[dict[str, Any]]):
         """Train global anomaly detector on all features.
 
         Args:
@@ -582,8 +581,8 @@ class MLEngine(Module):
         self.logger.info(f"Anomaly detector trained: {len(X)} samples, contamination=0.05")
 
     async def _build_training_dataset(
-        self, snapshots: List[Dict[str, Any]], target: str
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        self, snapshots: list[dict[str, Any]], target: str
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Build training dataset from snapshots.
 
         Args:
@@ -638,7 +637,7 @@ class MLEngine(Module):
 
         return np.array(X_list), np.array(y_list), sample_weights
 
-    async def _get_feature_config(self) -> Dict[str, Any]:
+    async def _get_feature_config(self) -> dict[str, Any]:
         """Get feature configuration from cache or return default.
 
         Returns:
@@ -660,7 +659,7 @@ class MLEngine(Module):
         self.logger.debug("Using default feature config (no cache found)")
         return default
 
-    async def _get_feature_names(self, config: Optional[Dict[str, Any]] = None) -> List[str]:
+    async def _get_feature_names(self, config: dict[str, Any] | None = None) -> list[str]:
         """Return ordered list of feature names from config.
 
         Args:
@@ -725,7 +724,7 @@ class MLEngine(Module):
 
         return names
 
-    def _compute_time_features(self, snapshot: Dict[str, Any]) -> Dict[str, float]:
+    def _compute_time_features(self, snapshot: dict[str, Any]) -> dict[str, float]:
         """Compute time features from snapshot if not present.
 
         Args:
@@ -824,7 +823,7 @@ class MLEngine(Module):
         }
 
     def _compute_decay_weights(
-        self, snapshots: List[Dict[str, Any]], reference_date: Optional[datetime] = None
+        self, snapshots: list[dict[str, Any]], reference_date: datetime | None = None
     ) -> np.ndarray:
         """Compute decay-based sample weights for training data.
 
@@ -868,7 +867,7 @@ class MLEngine(Module):
 
         return np.array(weights, dtype=float)
 
-    async def _compute_rolling_window_stats(self, activity_log: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+    async def _compute_rolling_window_stats(self, activity_log: dict[str, Any] | None = None) -> dict[str, float]:
         """Compute rolling window statistics from activity log.
 
         For each window size (1h, 3h, 6h), computes:
@@ -889,7 +888,7 @@ class MLEngine(Module):
             if cache_entry and cache_entry.get("data"):
                 activity_log = cache_entry["data"]
 
-        stats: Dict[str, float] = {}
+        stats: dict[str, float] = {}
 
         if not activity_log:
             # Return zeros for all rolling window features
@@ -928,7 +927,7 @@ class MLEngine(Module):
 
             # Aggregate domain counts across windows
             total_events = 0
-            domain_counts: Dict[str, int] = {}
+            domain_counts: dict[str, int] = {}
             for w in relevant:
                 total_events += w.get("event_count", 0)
                 for domain, count in w.get("by_domain", {}).items():
@@ -980,12 +979,12 @@ class MLEngine(Module):
 
     async def _extract_features(
         self,
-        snapshot: Dict[str, Any],
-        config: Optional[Dict[str, Any]] = None,
-        prev_snapshot: Optional[Dict[str, Any]] = None,
-        rolling_stats: Optional[Dict[str, float]] = None,
-        rolling_window_stats: Optional[Dict[str, float]] = None,
-    ) -> Optional[Dict[str, float]]:
+        snapshot: dict[str, Any],
+        config: dict[str, Any] | None = None,
+        prev_snapshot: dict[str, Any] | None = None,
+        rolling_stats: dict[str, float] | None = None,
+        rolling_window_stats: dict[str, float] | None = None,
+    ) -> dict[str, float] | None:
         """Extract feature vector from snapshot using shared vector_builder.
 
         Delegates base feature extraction to vector_builder.build_feature_vector()
@@ -1012,7 +1011,7 @@ class MLEngine(Module):
 
         return features
 
-    def _extract_target(self, snapshot: Dict[str, Any], target: str) -> Optional[float]:
+    def _extract_target(self, snapshot: dict[str, Any], target: str) -> float | None:
         """Extract target value from snapshot.
 
         Args:
@@ -1040,7 +1039,7 @@ class MLEngine(Module):
 
         return float(value) if value is not None else None
 
-    async def generate_predictions(self) -> Dict[str, Any]:
+    async def generate_predictions(self) -> dict[str, Any]:
         """Generate predictions for tomorrow using trained models.
 
         Uses configurable model blending (GradientBoosting, RandomForest, LightGBM)
@@ -1118,8 +1117,8 @@ class MLEngine(Module):
                 X_scaled = scaler.transform(X)
 
                 # Collect predictions from all enabled models
-                individual_preds: Dict[str, float] = {}
-                active_weights: Dict[str, float] = {}
+                individual_preds: dict[str, float] = {}
+                active_weights: dict[str, float] = {}
 
                 if self.enabled_models.get("gb") and "gb_model" in model_data:
                     individual_preds["gb"] = float(model_data["gb_model"].predict(X_scaled)[0])
@@ -1210,7 +1209,7 @@ class MLEngine(Module):
 
         return result
 
-    async def _get_current_snapshot(self) -> Optional[Dict[str, Any]]:
+    async def _get_current_snapshot(self) -> dict[str, Any] | None:
         """Get latest snapshot from cache or build from discovery data.
 
         Returns:
@@ -1240,7 +1239,7 @@ class MLEngine(Module):
 
         return snapshot
 
-    async def _get_previous_snapshot(self) -> Optional[Dict[str, Any]]:
+    async def _get_previous_snapshot(self) -> dict[str, Any] | None:
         """Get previous snapshot for lag features.
 
         Returns:
@@ -1259,7 +1258,7 @@ class MLEngine(Module):
 
         return None
 
-    async def _compute_rolling_stats(self) -> Dict[str, float]:
+    async def _compute_rolling_stats(self) -> dict[str, float]:
         """Compute rolling statistics from recent snapshots.
 
         Returns:
@@ -1303,7 +1302,7 @@ class MLEngine(Module):
         # frozen feature config.  compare_model_accuracy() in intelligence.py
         # provides the comparison logic once both model sets exist.
 
-    async def on_event(self, event_type: str, data: Dict[str, Any]):
+    async def on_event(self, event_type: str, data: dict[str, Any]):
         """Handle hub events.
 
         Args:

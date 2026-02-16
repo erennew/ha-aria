@@ -16,10 +16,9 @@ logger = logging.getLogger(__name__)
 
 HAS_NEURAL_PROPHET = True
 try:
-    from neuralprophet import NeuralProphet, set_log_level
-
-    import pandas as pd
     import numpy as np
+    import pandas as pd
+    from neuralprophet import NeuralProphet, set_log_level
 
     set_log_level("ERROR")
 except ImportError:

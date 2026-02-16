@@ -1,18 +1,16 @@
 """Tests for shadow engine cache tables: predictions and pipeline_state."""
 
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
 
-import sys
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aria.hub.cache import CacheManager
-from aria.hub.constants import CACHE_PREDICTIONS, CACHE_PIPELINE_STATE
-
+from aria.hub.constants import CACHE_PIPELINE_STATE, CACHE_PREDICTIONS
 
 # ============================================================================
 # Fixtures

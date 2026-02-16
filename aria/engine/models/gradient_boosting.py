@@ -4,13 +4,13 @@ import os
 import pickle
 
 from aria.engine.config import ModelConfig
-from aria.engine.models.registry import ModelRegistry, BaseModel
+from aria.engine.models.registry import BaseModel, ModelRegistry
 
 HAS_SKLEARN = True
 try:
+    import numpy as np
     from sklearn.ensemble import GradientBoostingRegressor
     from sklearn.metrics import mean_absolute_error, r2_score
-    import numpy as np
 except ImportError:
     HAS_SKLEARN = False
 

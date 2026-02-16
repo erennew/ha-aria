@@ -531,7 +531,7 @@ class EntityStateGenerator:
         if device.device_class == "power":
             if "luda_charger" in eid:
                 # Charger: on overnight, off during day
-                if 22 <= hour or hour < 6:
+                if hour >= 22 or hour < 6:
                     return device.to_ha_state(str(round(rng.uniform(6000, 7500), 1)))
                 return device.to_ha_state("0.0")
             # total_power handled after loop

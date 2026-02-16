@@ -1,7 +1,7 @@
 """Tier 1: ML model competence tests against realistic synthetic data."""
 
-from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
 from tests.synthetic.pipeline import PipelineRunner
+from tests.synthetic.simulator import INTRADAY_HOURS, HouseholdSimulator
 
 
 class TestModelsConverge:

@@ -13,15 +13,13 @@ import logging
 import os
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
 
 import aiohttp
 
-from aria.hub.core import Module, IntelligenceHub
-from aria.hub.constants import CACHE_PRESENCE
 from aria.capabilities import Capability
-from aria.engine.analysis.occupancy import BayesianOccupancy, SENSOR_CONFIG
-
+from aria.engine.analysis.occupancy import SENSOR_CONFIG, BayesianOccupancy
+from aria.hub.constants import CACHE_PRESENCE
+from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +76,7 @@ class PresenceModule(Module):
         mqtt_port: int = 1883,
         mqtt_user: str = "",
         mqtt_password: str = "",
-        camera_rooms: Optional[Dict[str, str]] = None,
+        camera_rooms: dict[str, str] | None = None,
     ):
         super().__init__("presence", hub)
         self.ha_url = ha_url
@@ -90,21 +88,21 @@ class PresenceModule(Module):
         self.camera_rooms = camera_rooms or DEFAULT_CAMERA_ROOMS
 
         # Per-room signal state: {room: [(signal_type, value, detail, timestamp), ...]}
-        self._room_signals: Dict[str, List] = defaultdict(list)
+        self._room_signals: dict[str, list] = defaultdict(list)
 
         # Identified persons: {person_name: {room, last_seen, confidence}}
-        self._identified_persons: Dict[str, Dict] = {}
+        self._identified_persons: dict[str, dict] = {}
 
         # Recent person detections across all cameras (ring buffer, newest last)
-        self._recent_detections: List[Dict] = []
+        self._recent_detections: list[dict] = []
         self._max_recent_detections = 20
 
         # Frigate API base URL (Docker runs locally even though MQTT is on HA Pi)
         self._frigate_url = os.environ.get("FRIGATE_URL", "http://127.0.0.1:5000")
 
         # Face recognition config (fetched lazily from Frigate)
-        self._face_config: Optional[Dict] = None
-        self._labeled_faces: Dict[str, int] = {}  # name -> count
+        self._face_config: dict | None = None
+        self._labeled_faces: dict[str, int] = {}  # name -> count
         self._face_config_fetched = False
 
         # Bayesian estimator (shared with engine, but used in real-time here)
@@ -190,30 +188,28 @@ class PresenceModule(Module):
         except Exception as e:
             self.logger.debug(f"Failed to fetch Frigate face config: {e}")
 
-    async def get_frigate_thumbnail(self, event_id: str) -> Optional[bytes]:
+    async def get_frigate_thumbnail(self, event_id: str) -> bytes | None:
         """Proxy a Frigate event thumbnail. Returns JPEG bytes or None."""
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{self._frigate_url}/api/events/{event_id}/thumbnail.jpg",
-                    timeout=aiohttp.ClientTimeout(total=5),
-                ) as resp:
-                    if resp.status == 200:
-                        return await resp.read()
+            async with aiohttp.ClientSession() as session, session.get(
+                f"{self._frigate_url}/api/events/{event_id}/thumbnail.jpg",
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                if resp.status == 200:
+                    return await resp.read()
         except Exception:
             pass
         return None
 
-    async def get_frigate_snapshot(self, event_id: str) -> Optional[bytes]:
+    async def get_frigate_snapshot(self, event_id: str) -> bytes | None:
         """Proxy a Frigate event snapshot. Returns JPEG bytes or None."""
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{self._frigate_url}/api/events/{event_id}/snapshot.jpg",
-                    timeout=aiohttp.ClientTimeout(total=5),
-                ) as resp:
-                    if resp.status == 200:
-                        return await resp.read()
+            async with aiohttp.ClientSession() as session, session.get(
+                f"{self._frigate_url}/api/events/{event_id}/snapshot.jpg",
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                if resp.status == 200:
+                    return await resp.read()
         except Exception:
             pass
         return None
@@ -264,7 +260,7 @@ class PresenceModule(Module):
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, 60)
 
-    async def _handle_mqtt_message(self, topic: str, payload: Dict):
+    async def _handle_mqtt_message(self, topic: str, payload: dict):
         """Process a Frigate MQTT event."""
         if topic == "frigate/events":
             await self._handle_frigate_event(payload)
@@ -275,7 +271,7 @@ class PresenceModule(Module):
                 camera = parts[1]
                 await self._handle_person_count(camera, payload)
 
-    async def _handle_frigate_event(self, event: Dict):
+    async def _handle_frigate_event(self, event: dict):
         """Handle a Frigate event (person detected, face recognized)."""
         after = event.get("after", {})
         if not after:
@@ -363,58 +359,57 @@ class PresenceModule(Module):
 
         while self.hub.is_running():
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.ws_connect(ws_url) as ws:
-                        msg = await ws.receive_json()
-                        if msg.get("type") != "auth_required":
-                            continue
+                async with aiohttp.ClientSession() as session, session.ws_connect(ws_url) as ws:
+                    msg = await ws.receive_json()
+                    if msg.get("type") != "auth_required":
+                        continue
 
-                        await ws.send_json(
-                            {
-                                "type": "auth",
-                                "access_token": self.ha_token,
-                            }
-                        )
-                        auth_resp = await ws.receive_json()
-                        if auth_resp.get("type") != "auth_ok":
-                            self.logger.error(f"WS auth failed: {auth_resp}")
-                            await asyncio.sleep(retry_delay)
-                            continue
+                    await ws.send_json(
+                        {
+                            "type": "auth",
+                            "access_token": self.ha_token,
+                        }
+                    )
+                    auth_resp = await ws.receive_json()
+                    if auth_resp.get("type") != "auth_ok":
+                        self.logger.error(f"WS auth failed: {auth_resp}")
+                        await asyncio.sleep(retry_delay)
+                        continue
 
-                        # Subscribe to state_changed events
-                        await ws.send_json(
-                            {
-                                "id": 1,
-                                "type": "subscribe_events",
-                                "event_type": "state_changed",
-                            }
-                        )
-                        await ws.receive_json()  # subscription confirmation
+                    # Subscribe to state_changed events
+                    await ws.send_json(
+                        {
+                            "id": 1,
+                            "type": "subscribe_events",
+                            "event_type": "state_changed",
+                        }
+                    )
+                    await ws.receive_json()  # subscription confirmation
 
-                        self.logger.info("Presence WS connected — listening for sensor events")
-                        retry_delay = 5
+                    self.logger.info("Presence WS connected — listening for sensor events")
+                    retry_delay = 5
 
-                        async for msg in ws:
-                            if msg.type == aiohttp.WSMsgType.TEXT:
-                                try:
-                                    data = json.loads(msg.data)
-                                    if data.get("type") == "event":
-                                        event_data = data.get("event", {}).get("data", {})
-                                        await self._handle_ha_state_change(event_data)
-                                except json.JSONDecodeError:
-                                    pass
-                            elif msg.type in (
-                                aiohttp.WSMsgType.CLOSED,
-                                aiohttp.WSMsgType.ERROR,
-                            ):
-                                break
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(msg.data)
+                                if data.get("type") == "event":
+                                    event_data = data.get("event", {}).get("data", {})
+                                    await self._handle_ha_state_change(event_data)
+                            except json.JSONDecodeError:
+                                pass
+                        elif msg.type in (
+                            aiohttp.WSMsgType.CLOSED,
+                            aiohttp.WSMsgType.ERROR,
+                        ):
+                            break
 
             except Exception as e:
                 self.logger.warning(f"Presence WS error: {e}, retrying in {retry_delay}s")
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, 60)
 
-    async def _handle_ha_state_change(self, data: Dict):
+    async def _handle_ha_state_change(self, data: dict):
         """Process a state_changed event for presence-relevant entities."""
         new_state = data.get("new_state")
         if not new_state:
@@ -496,7 +491,7 @@ class PresenceModule(Module):
                     now,
                 )
 
-    async def _resolve_room(self, entity_id: str, attrs: Dict) -> Optional[str]:
+    async def _resolve_room(self, entity_id: str, attrs: dict) -> str | None:
         """Resolve an entity to its room/area name.
 
         Uses the discovery cache if available, falls back to entity_id parsing.
@@ -553,7 +548,7 @@ class PresenceModule(Module):
         """Add a presence signal for a room."""
         self._room_signals[room].append((signal_type, value, detail, timestamp))
 
-    def _get_active_signals(self, room: str, now: datetime) -> List:
+    def _get_active_signals(self, room: str, now: datetime) -> list:
         """Get non-stale signals for a room."""
         cutoff = now - timedelta(seconds=SIGNAL_STALE_S)
         active = []

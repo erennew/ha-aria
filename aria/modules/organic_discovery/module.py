@@ -6,21 +6,21 @@ naming, scoring) and integrates with the ARIA hub lifecycle.
 
 import logging
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any
 
-from aria.hub.core import Module, IntelligenceHub
 from aria.capabilities import Capability, CapabilityRegistry
-from aria.modules.organic_discovery.feature_vectors import build_feature_matrix
-from aria.modules.organic_discovery.clustering import cluster_entities
-from aria.modules.organic_discovery.seed_validation import validate_seeds
-from aria.modules.organic_discovery.naming import heuristic_name, heuristic_description
-from aria.modules.organic_discovery.scoring import compute_usefulness, UsefulnessComponents
+from aria.hub.core import IntelligenceHub, Module
 from aria.modules.organic_discovery.behavioral import cluster_behavioral
+from aria.modules.organic_discovery.clustering import cluster_entities
+from aria.modules.organic_discovery.feature_vectors import build_feature_matrix
+from aria.modules.organic_discovery.naming import heuristic_description, heuristic_name
+from aria.modules.organic_discovery.scoring import UsefulnessComponents, compute_usefulness
+from aria.modules.organic_discovery.seed_validation import validate_seeds
 
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_SETTINGS: Dict[str, Any] = {
+DEFAULT_SETTINGS: dict[str, Any] = {
     "autonomy_mode": "suggest_and_wait",
     "naming_backend": "heuristic",
     "promote_threshold": 50,
@@ -60,8 +60,8 @@ class OrganicDiscoveryModule(Module):
 
     def __init__(self, hub: IntelligenceHub):
         super().__init__("organic_discovery", hub)
-        self.settings: Dict[str, Any] = dict(DEFAULT_SETTINGS)
-        self.history: List[Dict[str, Any]] = []
+        self.settings: dict[str, Any] = dict(DEFAULT_SETTINGS)
+        self.history: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -120,7 +120,7 @@ class OrganicDiscoveryModule(Module):
         except Exception as e:
             self.logger.error(f"Periodic organic discovery failed: {e}")
 
-    async def on_event(self, event_type: str, data: Dict[str, Any]):
+    async def on_event(self, event_type: str, data: dict[str, Any]):
         """Handle hub events — drift_detected flags capabilities for re-discovery."""
         if event_type == "drift_detected":
             cap_name = data.get("capability", "")
@@ -146,7 +146,7 @@ class OrganicDiscoveryModule(Module):
         backend = self.settings["naming_backend"]
 
         if backend == "ollama":
-            from aria.modules.organic_discovery.naming import ollama_name, ollama_description
+            from aria.modules.organic_discovery.naming import ollama_description, ollama_name
 
             name = await ollama_name(cluster_info)
             description = await ollama_description(cluster_info)
@@ -161,7 +161,7 @@ class OrganicDiscoveryModule(Module):
     # Discovery pipeline
     # ------------------------------------------------------------------
 
-    async def run_discovery(self) -> Dict[str, Any]:
+    async def run_discovery(self) -> dict[str, Any]:
         """Execute the full organic discovery pipeline.
 
         1. Read entities, devices, capabilities, activity from cache
@@ -193,7 +193,7 @@ class OrganicDiscoveryModule(Module):
         entity_activity = activity_data.get("entity_activity", {})
 
         # Build activity rates lookup
-        activity_rates: Dict[str, float] = {}
+        activity_rates: dict[str, float] = {}
         for eid, info in entity_activity.items():
             if isinstance(info, dict):
                 activity_rates[eid] = info.get("daily_avg_changes", 0.0)
@@ -234,7 +234,7 @@ class OrganicDiscoveryModule(Module):
         demand_signals = self._collect_demand_signals()
 
         # 5-6. Name and score each cluster
-        organic_caps: Dict[str, Dict[str, Any]] = {}
+        organic_caps: dict[str, dict[str, Any]] = {}
         total_entities = len(entity_ids) if entity_ids else 1
 
         for cluster in clusters:
@@ -352,7 +352,7 @@ class OrganicDiscoveryModule(Module):
                 }
 
         # 7. Merge: seeds always preserved
-        merged_caps: Dict[str, Dict[str, Any]] = {}
+        merged_caps: dict[str, dict[str, Any]] = {}
 
         # Add seeds first with canonical fields
         for seed_name, seed_data in seed_caps.items():
@@ -485,16 +485,16 @@ class OrganicDiscoveryModule(Module):
 
     def _build_cluster_info(
         self,
-        member_ids: List[str],
-        entities: List[Dict[str, Any]],
-        devices: Dict[str, Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        member_ids: list[str],
+        entities: list[dict[str, Any]],
+        devices: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
         """Build metadata dict for naming from member entity IDs."""
         entity_lookup = {e.get("entity_id", ""): e for e in entities}
 
-        domains: Dict[str, int] = {}
-        areas: Dict[str, int] = {}
-        device_classes: Dict[str, int] = {}
+        domains: dict[str, int] = {}
+        areas: dict[str, int] = {}
+        device_classes: dict[str, int] = {}
 
         for eid in member_ids:
             entity = entity_lookup.get(eid, {})
@@ -522,7 +522,7 @@ class OrganicDiscoveryModule(Module):
             "device_classes": device_classes,
         }
 
-    def _classify_layer(self, cluster_info: Dict[str, Any]) -> str:
+    def _classify_layer(self, cluster_info: dict[str, Any]) -> str:
         """Classify a cluster as 'domain' or 'behavioral' layer.
 
         Single-domain clusters are 'domain'. Multi-domain are 'behavioral'.
@@ -568,7 +568,7 @@ class OrganicDiscoveryModule(Module):
                 break
         return streak
 
-    def _apply_autonomy(self, caps: Dict[str, Dict[str, Any]]) -> None:
+    def _apply_autonomy(self, caps: dict[str, dict[str, Any]]) -> None:
         """Apply autonomy rules to update status of organic capabilities in-place."""
         mode = self.settings["autonomy_mode"]
         promote_threshold = self.settings["promote_threshold"]

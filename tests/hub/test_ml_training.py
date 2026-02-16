@@ -7,14 +7,15 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import pytest  # noqa: E402
 import json  # noqa: E402
-import numpy as np  # noqa: E402
 from datetime import datetime, timedelta  # noqa: E402
 from unittest.mock import AsyncMock, Mock  # noqa: E402
 
-from aria.modules.ml_engine import MLEngine  # noqa: E402
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
+
 from aria.hub.core import IntelligenceHub  # noqa: E402
+from aria.modules.ml_engine import MLEngine  # noqa: E402
 
 
 @pytest.fixture

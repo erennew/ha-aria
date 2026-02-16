@@ -1,9 +1,14 @@
 """FastAPI routes for ARIA Hub REST API."""
 
+import json
+import logging
 import os
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
+from typing import Any
+
 from fastapi import (
     APIRouter,
     Body,
@@ -20,13 +25,8 @@ from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import Any, Dict, List, Optional, Set
-import logging
-import json
-from datetime import datetime
 
 from aria.hub.core import IntelligenceHub
-
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class CurationUpdate(BaseModel):
 
 
 class BulkCurationUpdate(BaseModel):
-    entity_ids: List[str]
+    entity_ids: list[str]
     status: str
     decided_by: str = "user"
 
@@ -62,7 +62,7 @@ class WebSocketManager:
     """Manages WebSocket connections and broadcasts."""
 
     def __init__(self):
-        self.active_connections: Set[WebSocket] = set()
+        self.active_connections: set[WebSocket] = set()
 
     async def connect(self, websocket: WebSocket):
         """Accept and store WebSocket connection."""
@@ -75,7 +75,7 @@ class WebSocketManager:
         self.active_connections.discard(websocket)
         logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
 
-    async def broadcast(self, message: Dict[str, Any]):
+    async def broadcast(self, message: dict[str, Any]):
         """Broadcast message to all connected WebSockets."""
         disconnected = set()
 
@@ -124,7 +124,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         return response
 
     # Subscribe to hub events for WebSocket broadcasting
-    async def broadcast_cache_update(data: Dict[str, Any]):
+    async def broadcast_cache_update(data: dict[str, Any]):
         await ws_manager.broadcast({"type": "cache_updated", "data": data})
 
     hub.subscribe("cache_updated", broadcast_cache_update)
@@ -219,7 +219,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             raise HTTPException(status_code=500, detail="Internal server error")
 
     @router.post("/api/cache/{category}")
-    async def set_cache(category: str, payload: Dict[str, Any]):
+    async def set_cache(category: str, payload: dict[str, Any]):
         """Set cache data for category.
 
         Request body:
@@ -261,8 +261,8 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
     # Events endpoints
     @router.get("/api/events")
     async def get_events(
-        event_type: Optional[str] = None,
-        category: Optional[str] = None,
+        event_type: str | None = None,
+        category: str | None = None,
         limit: int = Query(default=100, le=1000),
     ):
         """Get recent events from event log."""
@@ -557,12 +557,13 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
     # --- Capability Registry API ---
     @router.get("/api/capabilities/registry")
     async def list_capability_registry(
-        layer: Optional[str] = None,
-        status: Optional[str] = None,
+        layer: str | None = None,
+        status: str | None = None,
     ):
         """List all declared capabilities from the code registry."""
-        from aria.capabilities import CapabilityRegistry
         from dataclasses import asdict
+
+        from aria.capabilities import CapabilityRegistry
 
         registry = CapabilityRegistry()
         registry.collect_from_modules()
@@ -610,8 +611,9 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
     @router.get("/api/capabilities/registry/{capability_id}")
     async def get_capability_registry(capability_id: str):
         """Get a single capability by ID from the code registry."""
-        from aria.capabilities import CapabilityRegistry
         from dataclasses import asdict
+
+        from aria.capabilities import CapabilityRegistry
 
         registry = CapabilityRegistry()
         registry.collect_from_modules()
@@ -1072,7 +1074,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
 
     @router.get("/api/config-history")
     async def get_config_history(
-        key: Optional[str] = None,
+        key: str | None = None,
         limit: int = Query(default=50, le=1000),
     ):
         """Get configuration change history."""

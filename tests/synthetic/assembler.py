@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from aria.engine.collectors.registry import CollectorRegistry
 import aria.engine.collectors.extractors  # noqa: F401 — triggers registration
+from aria.engine.collectors.registry import CollectorRegistry
 from aria.engine.collectors.snapshot import build_empty_snapshot
 from aria.engine.config import HolidayConfig, SafetyConfig
 from aria.engine.features.time_features import build_time_features
@@ -101,7 +101,7 @@ class SnapshotAssembler:
         # Peak during waking hours (7am-11pm), low at night
         if 7 <= hour <= 23:
             hour_factor = 1.0
-        elif 5 <= hour < 7 or 23 < hour:
+        elif 5 <= hour < 7 or hour > 23:
             hour_factor = 0.3
         else:
             hour_factor = 0.1

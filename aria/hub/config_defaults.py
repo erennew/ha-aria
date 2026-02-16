@@ -5,10 +5,9 @@ UI metadata. On startup, seed_config_defaults() inserts any missing keys using
 INSERT OR IGNORE, preserving user overrides.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
-
-CONFIG_DEFAULTS: List[Dict[str, Any]] = [
+CONFIG_DEFAULTS: list[dict[str, Any]] = [
     # ── Activity Monitor ──────────────────────────────────────────────
     {
         "key": "activity.daily_snapshot_cap",

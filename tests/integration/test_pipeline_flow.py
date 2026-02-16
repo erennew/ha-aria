@@ -2,9 +2,11 @@
 """Tier 3: End-to-end pipeline flow and handoff validation."""
 
 import json
+
 import pytest
-from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
+
 from tests.synthetic.pipeline import PipelineRunner
+from tests.synthetic.simulator import INTRADAY_HOURS, HouseholdSimulator
 
 
 class TestFullPipelineCompletes:

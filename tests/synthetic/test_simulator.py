@@ -1,7 +1,8 @@
 """Tests for HouseholdSimulator and scenarios."""
 
 import pytest
-from tests.synthetic.simulator import HouseholdSimulator, INTRADAY_HOURS
+
+from tests.synthetic.simulator import INTRADAY_HOURS, HouseholdSimulator
 
 HOURS_PER_DAY = len(INTRADAY_HOURS)
 

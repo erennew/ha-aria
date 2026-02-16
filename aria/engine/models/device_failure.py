@@ -5,8 +5,8 @@ import pickle
 
 HAS_SKLEARN = True
 try:
-    from sklearn.ensemble import RandomForestClassifier
     import numpy as np
+    from sklearn.ensemble import RandomForestClassifier
 except ImportError:
     HAS_SKLEARN = False
 
