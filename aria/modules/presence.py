@@ -13,7 +13,7 @@ import logging
 import os
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 import aiohttp
 
@@ -74,10 +74,10 @@ class PresenceModule(Module):
         hub: IntelligenceHub,
         ha_url: str,
         ha_token: str,
-        mqtt_host: str = "192.168.1.35",
+        mqtt_host: str = "",
         mqtt_port: int = 1883,
-        mqtt_user: str = "frigate",
-        mqtt_password: str = "frigate_mqtt_2026",
+        mqtt_user: str = "",
+        mqtt_password: str = "",
         camera_rooms: Optional[Dict[str, str]] = None,
     ):
         super().__init__("presence", hub)
@@ -185,8 +185,7 @@ class PresenceModule(Module):
                     if resp.status == 200:
                         faces = await resp.json()
                         self._labeled_faces = {
-                            name: len(images) if isinstance(images, list) else 0
-                            for name, images in faces.items()
+                            name: len(images) if isinstance(images, list) else 0 for name, images in faces.items()
                         }
         except Exception as e:
             self.logger.debug(f"Failed to fetch Frigate face config: {e}")
@@ -228,9 +227,7 @@ class PresenceModule(Module):
         try:
             import aiomqtt
         except ImportError:
-            self.logger.error(
-                "aiomqtt not installed. Run: pip install aiomqtt"
-            )
+            self.logger.error("aiomqtt not installed. Run: pip install aiomqtt")
             return
 
         retry_delay = 5
@@ -244,9 +241,7 @@ class PresenceModule(Module):
                     password=self.mqtt_password,
                 ) as client:
                     self._mqtt_connected = True
-                    self.logger.info(
-                        f"MQTT connected to {self.mqtt_host}:{self.mqtt_port}"
-                    )
+                    self.logger.info(f"MQTT connected to {self.mqtt_host}:{self.mqtt_port}")
                     retry_delay = 5
 
                     # Subscribe to Frigate event topics
@@ -265,9 +260,7 @@ class PresenceModule(Module):
 
             except Exception as e:
                 self._mqtt_connected = False
-                self.logger.warning(
-                    f"MQTT connection failed: {e}, retrying in {retry_delay}s"
-                )
+                self.logger.warning(f"MQTT connection failed: {e}, retrying in {retry_delay}s")
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, 60)
 
@@ -298,31 +291,38 @@ class PresenceModule(Module):
         if label == "person":
             # Person detected in camera
             self._add_signal(
-                room, "camera_person", min(score, 0.99),
-                f"person detected on {camera} (score={score:.2f})", now,
+                room,
+                "camera_person",
+                min(score, 0.99),
+                f"person detected on {camera} (score={score:.2f})",
+                now,
             )
 
             # Track recent detection for cross-camera view
             event_id = after.get("id", "")
-            self._recent_detections.append({
-                "event_id": event_id,
-                "camera": camera,
-                "room": room,
-                "score": round(score, 3),
-                "sub_label": sub_label[0] if isinstance(sub_label, list) and sub_label else sub_label,
-                "has_snapshot": after.get("has_snapshot", False),
-                "timestamp": now.isoformat(),
-            })
+            self._recent_detections.append(
+                {
+                    "event_id": event_id,
+                    "camera": camera,
+                    "room": room,
+                    "score": round(score, 3),
+                    "sub_label": sub_label[0] if isinstance(sub_label, list) and sub_label else sub_label,
+                    "has_snapshot": after.get("has_snapshot", False),
+                    "timestamp": now.isoformat(),
+                }
+            )
             # Keep ring buffer bounded
             if len(self._recent_detections) > self._max_recent_detections:
-                self._recent_detections = self._recent_detections[-self._max_recent_detections:]
+                self._recent_detections = self._recent_detections[-self._max_recent_detections :]
 
             if sub_label and isinstance(sub_label, list) and sub_label:
                 # Face recognized — sub_label is the person's name
                 person_name = sub_label[0] if isinstance(sub_label, list) else sub_label
                 confidence = after.get("sub_label_score", 0.9)
                 self._add_signal(
-                    room, "camera_face", min(confidence, 0.99),
+                    room,
+                    "camera_face",
+                    min(confidence, 0.99),
                     f"{person_name} identified on {camera} (conf={confidence:.2f})",
                     now,
                 )
@@ -332,10 +332,7 @@ class PresenceModule(Module):
                     "confidence": round(confidence, 3),
                     "camera": camera,
                 }
-                self.logger.info(
-                    f"Face recognized: {person_name} in {room} "
-                    f"(conf={confidence:.2f})"
-                )
+                self.logger.info(f"Face recognized: {person_name} in {room} (conf={confidence:.2f})")
 
     async def _handle_person_count(self, camera: str, count):
         """Handle person count update for a camera."""
@@ -348,8 +345,11 @@ class PresenceModule(Module):
 
         if n > 0:
             self._add_signal(
-                room, "camera_person", 0.95,
-                f"{n} person(s) on {camera}", now,
+                room,
+                "camera_person",
+                0.95,
+                f"{n} person(s) on {camera}",
+                now,
             )
 
     # ------------------------------------------------------------------
@@ -369,10 +369,12 @@ class PresenceModule(Module):
                         if msg.get("type") != "auth_required":
                             continue
 
-                        await ws.send_json({
-                            "type": "auth",
-                            "access_token": self.ha_token,
-                        })
+                        await ws.send_json(
+                            {
+                                "type": "auth",
+                                "access_token": self.ha_token,
+                            }
+                        )
                         auth_resp = await ws.receive_json()
                         if auth_resp.get("type") != "auth_ok":
                             self.logger.error(f"WS auth failed: {auth_resp}")
@@ -380,16 +382,16 @@ class PresenceModule(Module):
                             continue
 
                         # Subscribe to state_changed events
-                        await ws.send_json({
-                            "id": 1,
-                            "type": "subscribe_events",
-                            "event_type": "state_changed",
-                        })
+                        await ws.send_json(
+                            {
+                                "id": 1,
+                                "type": "subscribe_events",
+                                "event_type": "state_changed",
+                            }
+                        )
                         await ws.receive_json()  # subscription confirmation
 
-                        self.logger.info(
-                            "Presence WS connected — listening for sensor events"
-                        )
+                        self.logger.info("Presence WS connected — listening for sensor events")
                         retry_delay = 5
 
                         async for msg in ws:
@@ -397,12 +399,8 @@ class PresenceModule(Module):
                                 try:
                                     data = json.loads(msg.data)
                                     if data.get("type") == "event":
-                                        event_data = data.get("event", {}).get(
-                                            "data", {}
-                                        )
-                                        await self._handle_ha_state_change(
-                                            event_data
-                                        )
+                                        event_data = data.get("event", {}).get("data", {})
+                                        await self._handle_ha_state_change(event_data)
                                 except json.JSONDecodeError:
                                     pass
                             elif msg.type in (
@@ -412,9 +410,7 @@ class PresenceModule(Module):
                                 break
 
             except Exception as e:
-                self.logger.warning(
-                    f"Presence WS error: {e}, retrying in {retry_delay}s"
-                )
+                self.logger.warning(f"Presence WS error: {e}, retrying in {retry_delay}s")
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, 60)
 
@@ -434,13 +430,19 @@ class PresenceModule(Module):
         if entity_id.startswith("person."):
             if state == "home":
                 self._add_signal(
-                    "overall", "device_tracker", 0.9,
-                    f"{entity_id} is home", now,
+                    "overall",
+                    "device_tracker",
+                    0.9,
+                    f"{entity_id} is home",
+                    now,
                 )
             elif state == "not_home":
                 self._add_signal(
-                    "overall", "device_tracker", 0.1,
-                    f"{entity_id} is away", now,
+                    "overall",
+                    "device_tracker",
+                    0.1,
+                    f"{entity_id} is away",
+                    now,
                 )
             return
 
@@ -453,16 +455,22 @@ class PresenceModule(Module):
         if entity_id.startswith("binary_sensor.") and device_class == "motion":
             if state == "on":
                 self._add_signal(
-                    room, "motion", 0.95,
-                    f"{entity_id} triggered", now,
+                    room,
+                    "motion",
+                    0.95,
+                    f"{entity_id} triggered",
+                    now,
                 )
 
         # Light state changes (someone turned it on/off)
         elif entity_id.startswith("light."):
             if state in ("on", "off"):
                 self._add_signal(
-                    room, "light_interaction", 0.8,
-                    f"{entity_id} turned {state}", now,
+                    room,
+                    "light_interaction",
+                    0.8,
+                    f"{entity_id} turned {state}",
+                    now,
                 )
 
         # Hue dimmer switch button presses
@@ -470,15 +478,20 @@ class PresenceModule(Module):
             event_type = attrs.get("event_type", "")
             if event_type in ("initial_press", "short_release"):
                 self._add_signal(
-                    room, "dimmer_press", 0.95,
-                    f"{entity_id} pressed", now,
+                    room,
+                    "dimmer_press",
+                    0.95,
+                    f"{entity_id} pressed",
+                    now,
                 )
 
         # Door sensors
         elif entity_id.startswith("binary_sensor.") and device_class == "door":
             if state in ("on", "off"):
                 self._add_signal(
-                    room, "door", 0.7,
+                    room,
+                    "door",
+                    0.7,
                     f"{entity_id} {'opened' if state == 'on' else 'closed'}",
                     now,
                 )
@@ -503,7 +516,9 @@ class PresenceModule(Module):
                 if device_id:
                     devices_entry = await self.hub.get_cache("devices")
                     if devices_entry:
-                        devices_cache = devices_entry.get("data", devices_entry) if isinstance(devices_entry, dict) else {}
+                        devices_cache = (
+                            devices_entry.get("data", devices_entry) if isinstance(devices_entry, dict) else {}
+                        )
                         device = devices_cache.get(device_id, {})
                         area = device.get("area_id")
                         if area:
@@ -528,13 +543,15 @@ class PresenceModule(Module):
     # ------------------------------------------------------------------
 
     def _add_signal(
-        self, room: str, signal_type: str, value: float,
-        detail: str, timestamp: datetime,
+        self,
+        room: str,
+        signal_type: str,
+        value: float,
+        detail: str,
+        timestamp: datetime,
     ):
         """Add a presence signal for a room."""
-        self._room_signals[room].append(
-            (signal_type, value, detail, timestamp)
-        )
+        self._room_signals[room].append((signal_type, value, detail, timestamp))
 
     def _get_active_signals(self, room: str, now: datetime) -> List:
         """Get non-stale signals for a room."""
@@ -581,32 +598,22 @@ class PresenceModule(Module):
                 {"name": name, **info}
                 for name, info in self._identified_persons.items()
                 if info.get("room") == room
-                and (now - datetime.fromisoformat(info["last_seen"])).total_seconds()
-                < SIGNAL_STALE_S
+                and (now - datetime.fromisoformat(info["last_seen"])).total_seconds() < SIGNAL_STALE_S
             ]
 
             results[room] = {
                 "probability": round(probability, 3),
-                "confidence": BayesianOccupancy._classify_confidence(
-                    probability, len(signals)
-                ),
-                "signals": [
-                    {"type": t, "value": round(v, 2), "detail": d}
-                    for t, v, d in signals
-                ],
+                "confidence": BayesianOccupancy._classify_confidence(probability, len(signals)),
+                "signals": [{"type": t, "value": round(v, 2), "detail": d} for t, v, d in signals],
                 "persons": persons_in_room,
             }
 
         # Build summary
-        occupied_rooms = [
-            r for r, d in results.items()
-            if d["probability"] > 0.5 and r != "overall"
-        ]
+        occupied_rooms = [r for r, d in results.items() if d["probability"] > 0.5 and r != "overall"]
         all_persons = {
             name: info
             for name, info in self._identified_persons.items()
-            if (now - datetime.fromisoformat(info["last_seen"])).total_seconds()
-            < SIGNAL_STALE_S
+            if (now - datetime.fromisoformat(info["last_seen"])).total_seconds() < SIGNAL_STALE_S
         }
 
         presence_data = {
@@ -641,8 +648,6 @@ class PresenceModule(Module):
         # Prune stale signals (keep last 10 minutes)
         cutoff = now - timedelta(seconds=SIGNAL_STALE_S)
         for room in list(self._room_signals.keys()):
-            self._room_signals[room] = [
-                s for s in self._room_signals[room] if s[3] >= cutoff
-            ]
+            self._room_signals[room] = [s for s in self._room_signals[room] if s[3] >= cutoff]
             if not self._room_signals[room]:
                 del self._room_signals[room]

@@ -44,7 +44,7 @@ HA Sensors (motion, lights, dimmers) → HA WebSocket
 
 2. **Mosquitto MQTT** (HA addon `core_mosquitto`)
    - Broker on HA Pi at 192.168.1.35:1883
-   - Credentials: frigate / frigate_mqtt_2026
+   - Credentials: configured via MQTT_USER / MQTT_PASSWORD env vars in ~/.env
    - Bridge between Frigate and ARIA
 
 3. **ARIA Presence Module** (`aria/modules/presence.py`)

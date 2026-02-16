@@ -46,7 +46,9 @@ def main():
     demo_parser.add_argument("--scenario", default="stable_couple", help="Household scenario (default: stable_couple)")
     demo_parser.add_argument("--days", type=int, default=30, help="Days to simulate (default: 30)")
     demo_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
-    demo_parser.add_argument("--checkpoint", type=str, default=None, help="Load a frozen checkpoint directory instead of generating")
+    demo_parser.add_argument(
+        "--checkpoint", type=str, default=None, help="Load a frozen checkpoint directory instead of generating"
+    )
     demo_parser.add_argument("--port", type=int, default=8001, help="Port for hub (default: 8001)")
     demo_parser.add_argument("--output-dir", type=str, default=None, help="Output directory (default: temp directory)")
 
@@ -282,6 +284,7 @@ def _serve(host: str, port: int, log_level: str = "INFO"):
         # organic_discovery (non-fatal)
         try:
             from aria.modules.organic_discovery.module import OrganicDiscoveryModule
+
             organic_discovery = OrganicDiscoveryModule(hub)
             hub.register_module(organic_discovery)
             await _init_module(organic_discovery, "organic_discovery")()
@@ -308,6 +311,7 @@ def _serve(host: str, port: int, log_level: str = "INFO"):
         # activity_labeler (non-fatal)
         try:
             from aria.modules.activity_labeler import ActivityLabeler
+
             activity_labeler = ActivityLabeler(hub)
             hub.register_module(activity_labeler)
             await _init_module(activity_labeler, "activity_labeler")()
@@ -317,7 +321,15 @@ def _serve(host: str, port: int, log_level: str = "INFO"):
         # presence (non-fatal)
         try:
             from aria.modules.presence import PresenceModule
-            presence = PresenceModule(hub, ha_url, ha_token)
+
+            presence = PresenceModule(
+                hub,
+                ha_url,
+                ha_token,
+                mqtt_host=os.environ.get("MQTT_HOST", ""),
+                mqtt_user=os.environ.get("MQTT_USER", ""),
+                mqtt_password=os.environ.get("MQTT_PASSWORD", ""),
+            )
             hub.register_module(presence)
             await _init_module(presence, "presence")()
         except Exception as e:
@@ -601,10 +613,7 @@ def _capabilities_list(registry, args):
             print(f"  {'ID':<30}{'Name':<38}{'Status':<14}{'Tests':<7}{'Config'}")
             print(f"  {'─' * 28}  {'─' * 36}  {'─' * 12}  {'─' * 5}  {'─' * 6}")
             for cap in sorted(layer_caps, key=lambda c: c.id):
-                print(
-                    f"  {cap.id:<30}{cap.name:<38}{cap.status:<14}"
-                    f"{len(cap.test_paths):<7}{len(cap.config_keys)}"
-                )
+                print(f"  {cap.id:<30}{cap.name:<38}{cap.status:<14}{len(cap.test_paths):<7}{len(cap.config_keys)}")
         total += len(layer_caps)
 
     print(f"\nTotal: {total} capabilities")

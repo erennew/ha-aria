@@ -47,6 +47,12 @@ htmlcov/
 *.jsonl
 .env
 
+# Credentials & keys
+*.pem
+*.key
+*.cert
+credentials*.json
+
 # Dashboard build
 aria/dashboard/spa/dist/bundle.js
 aria/dashboard/spa/node_modules/
