@@ -14,7 +14,7 @@
 **Your home generates 22,000+ events every day.<br/>ARIA learns what they mean.**
 
 [![CI](https://github.com/parthalon025/ha-aria/actions/workflows/ci.yml/badge.svg)](https://github.com/parthalon025/ha-aria/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-1030_passing-brightgreen)](https://github.com/parthalon025/ha-aria/actions)
+[![Tests](https://img.shields.io/badge/tests-1235_passing-brightgreen)](https://github.com/parthalon025/ha-aria/actions)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -52,7 +52,7 @@ ARIA watches, learns, and predicts — **entirely on your local hardware.** No c
 
 ### Learn
 
-- **15 entity collectors** — power, climate, occupancy, locks, motion, EV charging, media, and more
+- **15 entity collectors** — power, climate, occupancy, locks, motion, EV charging, media, presence, and more
 - **Statistical baselines** — hourly patterns with confidence ranges, built from your data
 - **Entity correlation** — discover which devices activate together and when
 
@@ -68,10 +68,17 @@ ARIA watches, learns, and predicts — **entirely on your local hardware.** No c
 - **Daily intelligence reports** — plain-English summaries delivered to Telegram
 - **Self-tuning** — local LLM adjusts the learning pipeline based on prediction accuracy
 
+### Watch
+
+- **Real-time presence tracking** — per-room occupancy probability via Frigate cameras + HA sensors
+- **Face recognition** — identify who's in each room (optional, via Frigate)
+- **Watchdog** — health monitoring with auto-restart and Telegram alerts on failures
+
 ### See
 
-- **12-page interactive dashboard** with live WebSocket updates
+- **13-page interactive dashboard** with live WebSocket updates
 - **Real-time activity monitor** — what's happening in your home right now
+- **Presence dashboard** — room occupancy, signal feed, camera status, and face recognition
 - **Layman-readable** — every chart includes a plain-English explanation
 
 ## Quick Start
@@ -92,16 +99,43 @@ source .venv/bin/activate
 pip install -e ".[dev,llm,ml-extra,prophet]"
 ```
 
-### 2. Connect
+### 2. Configure
+
+Create an environment file with your Home Assistant credentials:
 
 ```bash
+# ~/.env (or export directly in your shell)
 export HA_URL="http://your-ha-instance:8123"
 export HA_TOKEN="your-long-lived-access-token"
+
+# Optional: Telegram alerts (daily reports + watchdog alerts)
+export TELEGRAM_BOT_TOKEN="your-bot-token"
+export TELEGRAM_CHAT_ID="your-chat-id"
+
+# Optional: MQTT for camera-based presence (requires Frigate)
+export MQTT_HOST="your-mqtt-broker-ip"
+export MQTT_USER="your-mqtt-user"
+export MQTT_PASSWORD="your-mqtt-password"
+
+# Optional: local LLM for reports and automation naming
+export OLLAMA_API_KEY="ollama-local"
 ```
 
-### 3. Run
+### 3. Build Dashboard
 
 ```bash
+cd aria/dashboard/spa
+npm install
+npm run build
+cd ../../..
+```
+
+### 4. Run
+
+```bash
+# Source your env file
+source ~/.env
+
 # Collect your first snapshot
 aria snapshot
 
@@ -114,6 +148,31 @@ aria serve
 ```
 
 ARIA starts learning immediately. Baselines form within 24 hours. ML predictions improve daily. Shadow mode validates accuracy before suggesting any automations.
+
+### 5. (Optional) Run as a Service
+
+For persistent operation, create a systemd user service:
+
+```bash
+# ~/.config/systemd/user/aria-hub.service
+[Unit]
+Description=ARIA Intelligence Hub
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -lc 'source ~/.env && /path/to/ha-aria/.venv/bin/aria serve'
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now aria-hub
+```
 
 ## How It Works
 
@@ -171,7 +230,7 @@ flowchart TB
 
 ## Dashboard
 
-The dashboard ships with 12 pages covering the full intelligence pipeline:
+The dashboard ships with 13 pages covering the full intelligence pipeline:
 
 | Page | What You See |
 |------|-------------|
@@ -185,6 +244,7 @@ The dashboard ships with 12 pages covering the full intelligence pipeline:
 | **Shadow Mode** | How accurate ARIA's predictions are over time |
 | **ML Engine** | Which features matter most, model health, training status |
 | **Automations** | Ready-to-use HA automation YAML from detected patterns |
+| **Presence** | Room occupancy probabilities, camera signal feed, face recognition |
 | **Settings** | Tune thresholds, schedules, and model config |
 | **Guide** | Interactive onboarding — how everything works |
 
@@ -219,6 +279,12 @@ The dashboard ships with 12 pages covering the full intelligence pipeline:
 | `aria occupancy` | Estimate who's home |
 | `aria power-profiles` | Analyze power consumption per outlet |
 | `aria sync-logs` | Sync HA logbook to local storage |
+| `aria discover-organic` | Run organic capability discovery pipeline |
+| `aria watchdog` | Run health checks and alert on failures |
+| `aria status` | Show ARIA hub status |
+| `aria capabilities list` | List all registered capabilities |
+| `aria capabilities verify` | Validate capability declarations |
+| `aria demo` | Generate synthetic data for visual testing |
 
 ## Home Assistant Compatibility
 
@@ -239,9 +305,11 @@ ARIA doesn't replace your existing automations — it **learns from them** and s
 ## Requirements
 
 - **Python** >= 3.12
+- **Node.js** >= 20 (for dashboard build only)
 - **Home Assistant** instance with a [long-lived access token](https://developers.home-assistant.io/docs/auth_api/#long-lived-access-token)
-- **Optional:** [Ollama](https://ollama.ai/) for LLM features (daily reports, automation suggestions)
-- **Optional:** LightGBM, Prophet for extended ML capabilities
+- **Optional:** [Ollama](https://ollama.ai/) for LLM features (daily reports, automation naming, meta-learning)
+- **Optional:** [Frigate NVR](https://frigate.video/) + MQTT broker for camera-based presence detection
+- **Optional:** LightGBM, Prophet, NeuralProphet for extended ML capabilities
 
 ## FAQ
 
@@ -267,11 +335,11 @@ HA tracks individual entity history. ARIA finds patterns *across* entities, pred
 
 | | |
 |:---|:---|
-| **Tests** | 1,030 passing (CI-enforced) |
-| **Code** | 10,053 lines across 76 Python files |
-| **Dashboard** | 43 JSX components across 12 pages |
-| **Hub modules** | 9 registered (discovery, ML, patterns, shadow, orchestrator, data quality, organic discovery, intelligence, activity) |
-| **CI** | Lint → Test (Python 3.12 + 3.13) → Dashboard build → Codecov |
+| **Tests** | 1,235 passing (CI-enforced) |
+| **Code** | 20,755 lines across 80 Python files |
+| **Dashboard** | 53 JSX components across 13 pages |
+| **Hub modules** | 12 registered (discovery, ML, patterns, shadow, orchestrator, data quality, organic discovery, intelligence, activity monitor, activity labeler, presence, watchdog) |
+| **CI** | Lint → Test (Python 3.12 + 3.13) → Dashboard build |
 
 ## For Researchers
 

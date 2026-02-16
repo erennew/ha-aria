@@ -16,8 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev,ml-extra,llm]" httpx
-      - run: pytest tests/ -v --tb=short
+      - run: pip install -e ".[dev,ml-extra,llm]" pytest-timeout httpx
+      - run: pytest tests/ -v --tb=short --timeout=120
 
   publish:
     needs: test

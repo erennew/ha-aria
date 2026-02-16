@@ -34,9 +34,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
       - name: Install dependencies
-        run: pip install -e ".[dev,ml-extra,llm]" pytest-cov httpx
+        run: pip install -e ".[dev,ml-extra,llm]" pytest-cov pytest-timeout httpx
       - name: Run tests with coverage
-        run: pytest tests/ --cov=aria --cov-report=xml -v --tb=short
+        run: pytest tests/ --cov=aria --cov-report=xml -v --tb=short --timeout=120
       - name: Upload coverage
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
