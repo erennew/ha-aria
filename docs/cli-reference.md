@@ -26,4 +26,10 @@ Reference doc for CLAUDE.md. All commands route through the unified `aria` entry
 | `aria capabilities verify` | Validate all capabilities against tests/config/deps |
 | `aria capabilities export` | Export capability registry as JSON |
 
+## Support Scripts
+
+| Script | What it does |
+|--------|-------------|
+| `bin/check-ha-health.sh` | Validates HA connectivity + core stats before batch timers run (used by all snapshot/training systemd timers) |
+
 Engine commands delegate to `aria.engine.cli` with old-style flags internally.

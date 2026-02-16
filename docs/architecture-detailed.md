@@ -71,12 +71,13 @@ aria/
 
 Each module declares its capabilities via a `CAPABILITIES` class attribute (see `aria/capabilities.py` for the `Capability` dataclass). The `CapabilityRegistry.collect_from_modules()` method harvests all declarations for validation and CLI/API exposure.
 
-## Engine Subpackages (7)
+## Engine Subpackages (8)
 
 | Package | Path | Purpose |
 |---------|------|---------|
-| `collectors` | `aria/engine/collectors/` | HA API, logbook, snapshot, registry data collection |
-| `features` | `aria/engine/features/` | Time features, vector builder, feature config |
+| `collectors` | `aria/engine/collectors/` | HA API, logbook, snapshot, registry data collection, presence (reads hub cache) |
+| `features` | `aria/engine/features/` | Time features, vector builder, feature config (4 presence features) |
+| `validation` | `aria/engine/validation.py` | Snapshot validation layer (MIN_ENTITY_COUNT, MAX_UNAVAILABLE_RATIO checks) |
 | `models` | `aria/engine/models/` | ML models: GradientBoosting, RandomForest, IsolationForest, Prophet, device failure, registry |
 | `predictions` | `aria/engine/predictions/` | Prediction generation and scoring |
 | `analysis` | `aria/engine/analysis/` | Baselines, correlations, drift, anomalies, occupancy, power profiles, reliability |

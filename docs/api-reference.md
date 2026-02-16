@@ -28,6 +28,25 @@ curl -s http://127.0.0.1:8001/health | python3 -m json.tool
 ```bash
 # Per-room presence/occupancy estimates
 curl -s http://127.0.0.1:8001/api/cache/presence | python3 -m json.tool
+
+# Response shape:
+# {
+#   "category": "presence",
+#   "data": {
+#     "timestamp": "2026-02-16T10:30:00",
+#     "rooms": {
+#       "room_name": {
+#         "probability": 0.85,
+#         "confidence": "high",
+#         "signals": ["motion_sensor", "light_on"]
+#       }
+#     },
+#     "occupied_rooms": ["living_room", "kitchen"],
+#     "identified_persons": {"person.alice": "bedroom"},
+#     "mqtt_connected": true,
+#     "camera_rooms": {"living_room": {"person": 2, "face": 1}}
+#   }
+# }
 ```
 
 ## Shadow Mode
