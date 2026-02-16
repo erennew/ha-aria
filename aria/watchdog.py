@@ -58,6 +58,7 @@ SMOKE_ENDPOINTS = [
     ("/api/pipeline", "pipeline"),
     ("/api/config", "config"),
     ("/api/curation/summary", "data-quality"),
+    ("/api/validation/latest", "validation"),
 ]
 
 
@@ -205,7 +206,7 @@ def check_cache_freshness() -> list:
             continue
 
         try:
-            if isinstance(last_updated, (int, float)):
+            if isinstance(last_updated, int | float):
                 ts = float(last_updated)
             else:
                 dt = datetime.fromisoformat(str(last_updated).replace("Z", "+00:00"))
