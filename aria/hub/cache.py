@@ -405,7 +405,7 @@ class CacheManager:
     # Shadow engine: predictions
     # ========================================================================
 
-    async def insert_prediction(
+    async def insert_prediction(  # noqa: PLR0913 — cache write needs all prediction fields
         self,
         prediction_id: str,
         timestamp: str,
@@ -789,7 +789,7 @@ class CacheManager:
         await self._conn.commit()
         return await self.get_config(key)
 
-    async def upsert_config_default(
+    async def upsert_config_default(  # noqa: PLR0913 — config schema has many fields
         self,
         key: str,
         default_value: str,
@@ -954,7 +954,7 @@ class CacheManager:
             "per_status": per_status,
         }
 
-    async def upsert_curation(
+    async def upsert_curation(  # noqa: PLR0913 — curation record has many fields
         self,
         entity_id: str,
         status: str,
@@ -1206,7 +1206,7 @@ class CacheManager:
             try:
                 num = float(value)
             except (ValueError, TypeError):
-                raise ValueError(f"Expected number, got: {value}")
+                raise ValueError(f"Expected number, got: {value}") from None
 
             min_val = config.get("min_value")
             max_val = config.get("max_value")

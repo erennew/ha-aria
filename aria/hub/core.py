@@ -332,7 +332,7 @@ class IntelligenceHub:
         return {
             "status": "ok" if self._running else "stopped",
             "uptime_seconds": round(self.get_uptime_seconds()),
-            "modules": {module_id: self.module_status.get(module_id, "unknown") for module_id in self.modules.keys()},
+            "modules": {module_id: self.module_status.get(module_id, "unknown") for module_id in self.modules},
             "cache": {"categories": await self.cache.list_categories()},
             "timestamp": datetime.now().isoformat(),
         }

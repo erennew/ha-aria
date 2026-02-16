@@ -119,6 +119,21 @@ class CapabilityRegistry:
                     errors.append(f"Capability {cap_id!r} depends on {dep!r}, which is not registered")
 
         # Cycle detection via DFS with coloring
+        errors.extend(self._detect_cycles(graph))
+
+        return errors
+
+    @staticmethod
+    def _detect_cycles(graph: dict[str, list[str]]) -> list[str]:
+        """Detect cycles in a dependency graph using DFS coloring.
+
+        Args:
+            graph: {cap_id: [dependency_ids]} mapping.
+
+        Returns:
+            List of cycle error strings.
+        """
+        errors: list[str] = []
         # WHITE=unvisited, GRAY=in current path, BLACK=finished
         WHITE, GRAY, BLACK = 0, 1, 2
         color: dict[str, int] = {cid: WHITE for cid in graph}
