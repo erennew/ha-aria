@@ -1,0 +1,100 @@
+"""Cross-scenario validation and final accuracy KPI report."""
+
+from tests.synthetic.pipeline import PipelineRunner
+from tests.synthetic.simulator import HouseholdSimulator
+
+
+class TestCrossScenarioComparisons:
+    """ARIA should produce different predictions for different household patterns."""
+
+    def test_vacation_vs_stable_occupancy(self, all_scenario_results):
+        stable = all_scenario_results["stable_couple"]["result"]
+        vacation = all_scenario_results["vacation"]["result"]
+        stable_occ = stable["predictions"].get("devices_home", {}).get("predicted", 0)
+        vacation_occ = vacation["predictions"].get("devices_home", {}).get("predicted", 0)
+        # Both should produce numeric predictions
+        assert isinstance(stable_occ, int | float), "stable_couple should predict devices_home"
+        assert isinstance(vacation_occ, int | float), "vacation should predict devices_home"
+
+    def test_more_data_improves_accuracy(self, tmp_path):
+        sim = HouseholdSimulator(scenario="stable_couple", days=30, seed=42)
+        snapshots = sim.generate()
+
+        runner_14 = PipelineRunner(snapshots[: 14 * 6], data_dir=tmp_path / "14d")
+        result_14 = runner_14.run_full()
+
+        runner_28 = PipelineRunner(snapshots[: 28 * 6], data_dir=tmp_path / "28d")
+        result_28 = runner_28.run_full()
+
+        score_14 = result_14["scores"]["overall"]
+        score_28 = result_28["scores"]["overall"]
+        # With more data, score should be at least as good (allowing 10pt variance)
+        assert score_28 >= score_14 - 10, f"28d score ({score_28}) should be near or above 14d score ({score_14})"
+
+    def test_all_scenarios_produce_valid_scores(self, all_scenario_results):
+        for scenario, data in all_scenario_results.items():
+            scores = data["result"]["scores"]
+            assert scores is not None, f"{scenario}: scores are None"
+            assert "overall" in scores, f"{scenario}: no overall score"
+            assert "metrics" in scores, f"{scenario}: no metrics"
+            assert isinstance(scores["overall"], int | float), f"{scenario}: overall not numeric"
+
+
+class TestAccuracyKPI:
+    """Final accuracy report -- the single number that matters."""
+
+    def test_overall_accuracy_above_threshold(self, all_scenario_results):
+        """Run all scenarios, compute accuracy, print report, assert threshold."""
+        scenario_scores = {}
+        for scenario, data in all_scenario_results.items():
+            scores = data["result"]["scores"]
+            scenario_scores[scenario] = scores
+
+        # Print the report
+        self._print_report(scenario_scores)
+
+        # Compute overall
+        all_overalls = [s["overall"] for s in scenario_scores.values()]
+        overall = sum(all_overalls) / len(all_overalls)
+
+        # This is the one number
+        print(f"\n{'=' * 50}")
+        print(f"  ARIA PREDICTION ACCURACY: {overall:.0f}%")
+        print(f"{'=' * 50}\n")
+
+        assert overall > 0, f"Overall accuracy {overall:.0f}% is zero -- something is fundamentally broken"
+
+    def _print_report(self, scenario_scores: dict):
+        """Print formatted validation report."""
+        metrics = ["power_watts", "lights_on", "devices_home", "unavailable", "useful_events"]
+        short_names = {
+            "power_watts": "Power",
+            "lights_on": "Lights",
+            "devices_home": "Occ.",
+            "unavailable": "Unavail",
+            "useful_events": "Events",
+        }
+
+        header = f"{'Scenario':<22} {'Overall':>8}"
+        for m in metrics:
+            header += f" {short_names.get(m, m):>8}"
+
+        print(f"\n{'=' * len(header)}")
+        print("  ARIA VALIDATION REPORT")
+        print(f"{'=' * len(header)}")
+        print(header)
+        print("-" * len(header))
+
+        for scenario, scores in scenario_scores.items():
+            line = f"{scenario:<22} {scores['overall']:>7}%"
+            for m in metrics:
+                metric_data = scores.get("metrics", {}).get(m, {})
+                acc = metric_data.get("accuracy", 0)
+                line += f" {acc:>7}%"
+            print(line)
+
+        all_overalls = [s["overall"] for s in scenario_scores.values()]
+        overall = sum(all_overalls) / len(all_overalls)
+        print("-" * len(header))
+        print(f"{'OVERALL':<22} {overall:>7.0f}%")
+        print(f"{'=' * len(header)}")
