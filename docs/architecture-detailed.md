@@ -13,6 +13,7 @@ aria/
 │   ├── cache.py            # SQLite-backed cache (hub.db) with category-based get/set
 │   ├── constants.py        # Shared cache key constants
 │   ├── api.py              # FastAPI routes + WebSocket server
+│   ├── validation_runner.py # Subprocess pytest runner for on-demand validation
 │   └── config_defaults.py  # Default config parameter seeding
 ├── modules/                # Hub modules (registered in order)
 │   ├── discovery.py        # HA entity/device/area scanning via REST + WebSocket

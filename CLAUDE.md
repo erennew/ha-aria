@@ -13,6 +13,7 @@ Unified intelligence platform for Home Assistant — batch ML engine, real-time 
 **Shadow mode design:** `~/Documents/docs/plans/2026-02-12-ha-hub-shadow-mode-design.md`
 **Organic discovery design:** `docs/plans/2026-02-14-organic-capability-discovery-design.md`
 **Closed-loop feedback design:** `docs/plans/2026-02-15-closed-loop-feedback-design.md`
+**Validation dashboard:** `docs/plans/2026-02-16-validation-dashboard.md`
 **Watchdog:** `aria/watchdog.py` — health monitoring, Telegram alerts, auto-restart
 
 ## Running
@@ -70,7 +71,7 @@ Preact SPA at `aria/dashboard/spa/`. Must rebuild after JSX changes: `cd aria/da
 
 ARIA has the deepest pipeline — engine→JSON files→hub cache→API→WebSocket→dashboard. Unit tests cover each layer but not the flow between them. After any deployment or feature change, run dual-axis tests:
 
-**Horizontal:** Hit every API endpoint (`/api/cache/{category}` for all 8 categories, `/api/cache/presence`, `/api/shadow/accuracy`, `/api/pipeline`, `/api/ml/*`, `/api/ml/pipeline`, `/api/capabilities/*`, `/api/config`, `/api/curation/summary`, `/api/capabilities/feedback/health`, `/api/activity/current`, `/api/activity/labels`, `/api/activity/stats`, `/api/automations/feedback`). Confirm each returns expected shape with real data.
+**Horizontal:** Hit every API endpoint (`/api/cache/{category}` for all 8 categories, `/api/cache/presence`, `/api/shadow/accuracy`, `/api/pipeline`, `/api/ml/*`, `/api/ml/pipeline`, `/api/capabilities/*`, `/api/config`, `/api/curation/summary`, `/api/capabilities/feedback/health`, `/api/activity/current`, `/api/activity/labels`, `/api/activity/stats`, `/api/automations/feedback`, `/api/validation/latest`). Confirm each returns expected shape with real data.
 
 **Vertical:** Trigger one engine command (e.g., `aria snapshot-intraday`), then trace:
 ```

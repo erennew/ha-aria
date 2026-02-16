@@ -139,6 +139,16 @@ curl -s http://127.0.0.1:8001/api/capabilities/registry/graph | python3 -m json.
 curl -s http://127.0.0.1:8001/api/capabilities/registry/health | python3 -m json.tool
 ```
 
+## Validation
+
+```bash
+# Last validation run result (or "no_runs" if never run)
+curl -s http://127.0.0.1:8001/api/validation/latest | python3 -m json.tool
+
+# Run the full validation suite (~30s, returns structured results)
+curl -s -X POST http://127.0.0.1:8001/api/validation/run -H 'Content-Type: application/json' -d '{}' | python3 -m json.tool
+```
+
 ## Config & Curation
 
 ```bash
