@@ -5,6 +5,7 @@ expired window resolution, and event handling.
 """
 
 import asyncio
+import contextlib
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -214,10 +215,8 @@ class TestInitialization:
 
         # Clean up
         engine._resolution_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await engine._resolution_task
-        except asyncio.CancelledError:
-            pass
 
     @pytest.mark.asyncio
     async def test_initialize_starts_resolution_task(self, engine):
@@ -1266,16 +1265,12 @@ class IntegrationHub(MockHub):
         """Notify subscribers and registered modules, matching real hub behavior."""
         if event_type in self._subscribers:
             for callback in self._subscribers[event_type]:
-                try:
+                with contextlib.suppress(Exception):
                     await callback(data)
-                except Exception:
-                    pass
 
         for mod in self.modules.values():
-            try:
+            with contextlib.suppress(Exception):
                 await mod.on_event(event_type, data)
-            except Exception:
-                pass
 
 
 class TestActivityMonitorIntegration:

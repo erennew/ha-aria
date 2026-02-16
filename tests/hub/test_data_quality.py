@@ -67,7 +67,7 @@ class MockHub:
 # ============================================================================
 
 
-def make_entity(
+def make_entity(  # noqa: PLR0913
     entity_id: str,
     domain: str = "",
     friendly_name: str = "",

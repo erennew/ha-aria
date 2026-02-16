@@ -27,7 +27,7 @@ async def cache(tmp_path):
     await cm.close()
 
 
-async def _seed_config(
+async def _seed_config(  # noqa: PLR0913
     cache,
     key="shadow.min_confidence",
     value="0.3",

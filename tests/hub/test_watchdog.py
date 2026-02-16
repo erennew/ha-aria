@@ -414,7 +414,7 @@ class TestRunWatchdog:
     @patch("aria.watchdog.check_hub_health")
     @patch("aria.watchdog.check_service_status")
     @patch("aria.watchdog.setup_logging")
-    def test_all_passing(self, mock_log, mock_svc, mock_hub, mock_api, mock_cache, mock_timer):
+    def test_all_passing(self, mock_log, mock_svc, mock_hub, mock_api, mock_cache, mock_timer):  # noqa: PLR0913
         mock_log.return_value = MagicMock()
         mock_svc.return_value = [WatchdogResult("service-hub", "OK", "active")]
         mock_hub.return_value = [WatchdogResult("hub-liveness", "OK", "healthy")]
@@ -431,7 +431,7 @@ class TestRunWatchdog:
     @patch("aria.watchdog.check_hub_health")
     @patch("aria.watchdog.check_service_status")
     @patch("aria.watchdog.setup_logging")
-    def test_with_failures(self, mock_log, mock_svc, mock_hub, mock_api, mock_cache, mock_timer):
+    def test_with_failures(self, mock_log, mock_svc, mock_hub, mock_api, mock_cache, mock_timer):  # noqa: PLR0913
         mock_log.return_value = MagicMock()
         mock_svc.return_value = [WatchdogResult("service-hub", "OK", "active")]
         mock_hub.return_value = [
@@ -472,7 +472,7 @@ class TestRunWatchdog:
     @patch("aria.watchdog.check_hub_health")
     @patch("aria.watchdog.check_service_status")
     @patch("aria.watchdog.setup_logging")
-    def test_json_output(self, mock_log, mock_svc, mock_hub, mock_api, mock_cache, mock_timer, capsys):
+    def test_json_output(self, mock_log, mock_svc, mock_hub, mock_api, mock_cache, mock_timer, capsys):  # noqa: PLR0913
         mock_log.return_value = MagicMock()
         mock_svc.return_value = [WatchdogResult("service-hub", "OK", "active")]
         mock_hub.return_value = [WatchdogResult("hub-liveness", "OK", "healthy")]

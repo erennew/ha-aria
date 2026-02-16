@@ -21,8 +21,7 @@ class TestModelsConverge:
 
         improved = False
         for metric in early_results:
-            if metric in late_results:
-                if late_results[metric].get("r2", 0) >= early_results[metric].get("r2", 0):
+            if metric in late_results and late_results[metric].get("r2", 0) >= early_results[metric].get("r2", 0):
                     improved = True
         assert improved, "No metric improved R2 with more data"
 

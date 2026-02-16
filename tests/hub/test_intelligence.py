@@ -475,9 +475,11 @@ class TestTelegramSending:
         module._telegram_token = "fake-token"
         module._telegram_chat_id = "12345"
 
-        with patch("aria.modules.intelligence.aiohttp.ClientSession", return_value=mock_session):
-            with pytest.raises(RuntimeError, match="Telegram API error"):
-                await module._send_telegram("Test message")
+        with (
+            patch("aria.modules.intelligence.aiohttp.ClientSession", return_value=mock_session),
+            pytest.raises(RuntimeError, match="Telegram API error"),
+        ):
+            await module._send_telegram("Test message")
 
 
 # ============================================================================

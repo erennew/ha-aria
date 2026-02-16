@@ -90,7 +90,7 @@ class TestDeviceReliability(unittest.TestCase):
             snapshots.append(snap)
 
         scores = compute_device_reliability(snapshots)
-        for eid, data in scores.items():
+        for _eid, data in scores.items():
             self.assertEqual(data["score"], 100)
 
 

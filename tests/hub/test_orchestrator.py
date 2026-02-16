@@ -80,7 +80,7 @@ def module(hub):
     )
 
 
-def make_pattern(
+def make_pattern(  # noqa: PLR0913
     pattern_id="bedroom_cluster_1",
     name="Evening Bedroom",
     area="bedroom",

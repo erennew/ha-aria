@@ -61,7 +61,7 @@ class TestSnapshotAssembler:
     def test_snapshots_are_deterministic(self, assembler):
         a = assembler.build_daily_series(days=3, start_date="2026-02-14")
         b = assembler.build_daily_series(days=3, start_date="2026-02-14")
-        for sa, sb in zip(a, b):
+        for sa, sb in zip(a, b, strict=False):
             assert sa["power"]["total_watts"] == sb["power"]["total_watts"]
             assert sa["lights"]["on"] == sb["lights"]["on"]
 

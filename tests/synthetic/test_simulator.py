@@ -40,7 +40,7 @@ class TestHouseholdSimulator:
     def test_deterministic(self):
         a = HouseholdSimulator(scenario="stable_couple", days=7, seed=42).generate()
         b = HouseholdSimulator(scenario="stable_couple", days=7, seed=42).generate()
-        for sa, sb in zip(a, b):
+        for sa, sb in zip(a, b, strict=False):
             assert sa["power"]["total_watts"] == sb["power"]["total_watts"]
 
     def test_snapshots_have_variation(self):

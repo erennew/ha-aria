@@ -23,14 +23,14 @@ I should suggest enabling interaction features to capture the relationship.
   {
     "action": "enable_feature",
     "target": "people_home_x_hour_sin",
-    "reason": "people_home_count and hour_sin are both top features with importance >0.15. Their interaction likely captures the occupancy-time pattern driving power and light usage. Weekend power predictions off by 12%.",
+    "reason": "people_home_count and hour_sin both top features. Interaction captures occupancy-time pattern.",
     "expected_impact": "power_watts MAE -5-10%",
     "confidence": "medium"
   },
   {
     "action": "enable_feature",
     "target": "daylight_x_lights",
-    "reason": "lights_on R2=0.32 is the weakest metric. daylight_remaining_pct and lights_on are correlated but no interaction feature exists.",
+    "reason": "lights_on R2=0.32 is the weakest metric. daylight and lights correlated, no interaction feature.",
     "expected_impact": "lights_on R2 +0.05",
     "confidence": "low"
   }

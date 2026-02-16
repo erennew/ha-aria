@@ -55,7 +55,7 @@ class MockHub:
 # ============================================================================
 
 
-def make_context(
+def make_context(  # noqa: PLR0913
     power_watts: float = 200.0,
     lights_on: int = 3,
     motion_rooms: str = "kitchen,living_room",

@@ -13,7 +13,7 @@ from aria.modules.organic_discovery.feature_vectors import build_feature_matrix
 # ============================================================================
 
 
-def make_entity(
+def make_entity(  # noqa: PLR0913
     entity_id: str,
     state: str = "on",
     device_id: str = "",

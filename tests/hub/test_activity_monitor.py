@@ -4,6 +4,7 @@ Tests event filtering, occupancy tracking, buffer windowing, snapshot
 triggering, daily counter resets, snapshot logging, and WebSocket liveness.
 """
 
+import contextlib
 import json
 import sys
 from datetime import datetime, timedelta
@@ -771,10 +772,8 @@ class TestEntityCuration:
         hub.cache._should_raise = True
 
         # Loading should fail silently (logged warning)
-        try:
+        with contextlib.suppress(RuntimeError):
             await monitor._load_curation_rules()
-        except RuntimeError:
-            pass  # Expected — initialize() wraps this in try/except
 
         # Curation should NOT be loaded
         assert monitor._curation_loaded is False

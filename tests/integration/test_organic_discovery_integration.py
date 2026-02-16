@@ -20,7 +20,7 @@ from aria.modules.organic_discovery.module import OrganicDiscoveryModule
 # ---------------------------------------------------------------------------
 
 
-def _make_entity(
+def _make_entity(  # noqa: PLR0913
     entity_id: str,
     domain: str,
     state: str = "on",

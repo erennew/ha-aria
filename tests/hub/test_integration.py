@@ -4,6 +4,7 @@ Tests end-to-end functionality of the hub with all modules integrated.
 """
 
 import asyncio
+import contextlib
 import json
 import sqlite3
 import sys
@@ -141,8 +142,8 @@ async def test_ml_engine_integration(initialized_hub, temp_dirs):
     await ml_engine.train_models()
 
     # Verify models metadata was cached
-    model_metadata = await initialized_hub.cache.get("ml_model_metadata")
-    assert model_metadata is not None or True  # May be None if training skipped
+    # Verify cache is accessible (model_metadata may be None if training skipped)
+    await initialized_hub.cache.get("ml_model_metadata")
 
 
 @pytest.mark.asyncio
@@ -274,10 +275,8 @@ async def test_error_recovery_discovery_failure(initialized_hub):
         initialized_hub.register_module(discovery)
 
         # Attempt discovery (should not crash)
-        try:
+        with contextlib.suppress(Exception):
             await discovery.initialize()
-        except Exception:
-            pass  # Expected to handle gracefully
 
         # Hub should still be functional
         health = await initialized_hub.health_check()
@@ -292,10 +291,8 @@ async def test_error_recovery_model_training_failure(initialized_hub, temp_dirs)
     await ml_engine.initialize()
 
     # Try to train with no data (should handle gracefully)
-    try:
+    with contextlib.suppress(Exception):
         await ml_engine.train_models()
-    except Exception:
-        pass  # Should not crash
 
     # ML engine should still be registered and functional
     module = await initialized_hub.get_module("ml_engine")

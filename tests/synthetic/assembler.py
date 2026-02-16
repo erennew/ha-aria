@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime, timedelta
 
 import aria.engine.collectors.extractors  # noqa: F401 — triggers registration
@@ -53,10 +54,7 @@ class SnapshotAssembler:
         snapshot = build_empty_snapshot(date_str, holidays_config)
 
         for name, collector_cls in CollectorRegistry.all().items():
-            if name == "entities_summary":
-                collector = collector_cls(safety_config=safety_config)
-            else:
-                collector = collector_cls()
+            collector = collector_cls(safety_config=safety_config) if name == "entities_summary" else collector_cls()
             collector.extract(snapshot, states)
 
         # PowerCollector looks for usp_pdu_pro entities which don't exist in
@@ -64,10 +62,8 @@ class SnapshotAssembler:
         if snapshot["power"]["total_watts"] == 0:
             for s in states:
                 if s["entity_id"] == "sensor.total_power":
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         snapshot["power"]["total_watts"] = float(s["state"])
-                    except (ValueError, TypeError):
-                        pass
                     break
 
         # Enrich motion with active_count (done in intraday snapshot code, not by collector)
