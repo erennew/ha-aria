@@ -441,6 +441,35 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             logger.exception("Error getting online learning stats")
             raise HTTPException(status_code=500, detail="Internal server error") from None
 
+    @router.get("/api/patterns")
+    async def get_patterns():
+        """Pattern recognition state — trajectory, anomaly explanations, stats."""
+        try:
+            pattern_mod = await hub.get_module("pattern_recognition")
+            if pattern_mod is None:
+                return {
+                    "trajectory": None,
+                    "active": False,
+                    "anomaly_explanations": [],
+                    "pattern_scales": {},
+                    "stats": {},
+                }
+
+            state = pattern_mod.get_current_state()
+            stats = pattern_mod.get_stats()
+
+            return {
+                "trajectory": state.get("trajectory"),
+                "active": stats.get("active", False),
+                "anomaly_explanations": state.get("anomaly_explanations", []),
+                "pattern_scales": state.get("pattern_scales", {}),
+                "shadow_events_processed": state.get("shadow_events_processed", 0),
+                "stats": stats,
+            }
+        except Exception:
+            logger.exception("Error fetching pattern data")
+            raise HTTPException(status_code=500, detail="Internal server error") from None
+
 
 def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
     """Register organic discovery and capability registry endpoints."""
