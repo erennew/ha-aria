@@ -2,6 +2,7 @@
 
 import logging
 import subprocess
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,10 +10,28 @@ logger = logging.getLogger(__name__)
 
 # Cache last result in memory (survives across requests, reset on restart)
 _last_result = None
+_run_lock = threading.Lock()
 
 
 def run_validation() -> dict:
     """Execute validation suite via pytest subprocess, return structured results."""
+    global _last_result
+
+    if not _run_lock.acquire(blocking=False):
+        return {
+            "status": "already_running",
+            "error": "A validation run is already in progress",
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+    try:
+        return _run_validation_locked()
+    finally:
+        _run_lock.release()
+
+
+def _run_validation_locked() -> dict:
+    """Internal: execute validation suite (caller must hold _run_lock)."""
     global _last_result
 
     project_root = Path(__file__).resolve().parent.parent.parent

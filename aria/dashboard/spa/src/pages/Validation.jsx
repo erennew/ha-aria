@@ -96,7 +96,11 @@ export default function Validation() {
     setError(null);
     postJson('/api/validation/run', {})
       .then((result) => {
-        setData(result);
+        if (result.status === 'already_running') {
+          setError({ message: 'A validation run is already in progress. Try again shortly.' });
+        } else {
+          setData(result);
+        }
         setRunning(false);
       })
       .catch((err) => {
