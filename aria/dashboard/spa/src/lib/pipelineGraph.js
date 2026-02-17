@@ -140,22 +140,22 @@ export const NODE_DETAIL = {
     writes: 'Consumed by Discovery module',
   },
   mqtt_frigate: {
-    protocol: 'MQTT frigate/events (192.168.1.35:1883)',
+    protocol: 'MQTT frigate/events',
     reads: 'Person/face detection from cameras',
     writes: 'Consumed by Presence module',
   },
   logbook_json: {
     protocol: 'Disk files (ha-log-sync timer, every 15m)',
-    reads: '~/ha-logs/logbook/*.json',
+    reads: 'Logbook JSON files',
     writes: 'Consumed by Engine + Pattern Recognition',
   },
   snapshot_json: {
     protocol: 'Disk files (engine timers)',
-    reads: '~/ha-logs/intelligence/daily/*.json',
+    reads: 'Daily snapshot JSON files',
     writes: 'Consumed by Engine + ML Engine',
   },
   ollama_queue: {
-    protocol: 'HTTP POST to Ollama Queue (port 7683)',
+    protocol: 'HTTP POST to Ollama Queue',
     reads: 'LLM inference requests',
     writes: 'Consumed by Organic Discovery + Activity Labeler',
   },
@@ -177,7 +177,7 @@ export const NODE_DETAIL = {
   engine: {
     protocol: 'REST /api/states (systemd timers)',
     reads: 'All entity states, logbook, calendar, weather',
-    writes: '~/ha-logs/intelligence/*.json (predictions, baselines, correlations, anomalies)',
+    writes: 'Engine JSON files (predictions, baselines, correlations, anomalies)',
   },
   intelligence: {
     protocol: 'Reads engine JSON files from disk',
@@ -196,7 +196,7 @@ export const NODE_DETAIL = {
   },
   pattern_recognition: {
     protocol: 'Reads logbook JSON files',
-    reads: '~/ha-logs/logbook/*.json, intraday snapshots',
+    reads: 'Logbook JSON files, intraday snapshots',
     writes: 'patterns (temporal sequences per area)',
   },
   data_quality: {
