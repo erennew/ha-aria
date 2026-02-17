@@ -1975,5 +1975,80 @@ class TestOnlineBlending:
         assert "online_prediction" not in entry
 
 
+class TestWeightTunerIntegration:
+    """Test EnsembleWeightTuner wired into MLEngine."""
+
+    def test_engine_has_weight_tuner(self, ml_engine):
+        """MLEngine should have a weight_tuner attribute."""
+        assert hasattr(ml_engine, "weight_tuner")
+        from aria.engine.weight_tuner import EnsembleWeightTuner
+
+        assert isinstance(ml_engine.weight_tuner, EnsembleWeightTuner)
+
+    @pytest.mark.asyncio
+    async def test_apply_auto_weights_updates_model_weights(self, mock_hub, tmp_path):
+        """_apply_auto_weights should update model_weights from tuner."""
+        models_dir = tmp_path / "models"
+        training_data_dir = tmp_path / "training_data"
+        models_dir.mkdir()
+        training_data_dir.mkdir()
+
+        engine = MLEngine(mock_hub, str(models_dir), str(training_data_dir))
+
+        # Record some data in tuner
+        for _ in range(5):
+            engine.weight_tuner.record("gb", prediction=100.0, actual=102.0)  # MAE 2
+            engine.weight_tuner.record("rf", prediction=100.0, actual=110.0)  # MAE 10
+            engine.weight_tuner.record("lgbm", prediction=100.0, actual=103.0)  # MAE 3
+
+        await engine._apply_auto_weights()
+
+        # GB should have gotten a higher weight (lower MAE)
+        assert engine.model_weights["gb"] > engine.model_weights["rf"]
+        mock_hub.set_cache.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_apply_auto_weights_no_records(self, mock_hub, tmp_path):
+        """_apply_auto_weights with no tuner records should be a no-op."""
+        models_dir = tmp_path / "models"
+        training_data_dir = tmp_path / "training_data"
+        models_dir.mkdir()
+        training_data_dir.mkdir()
+
+        engine = MLEngine(mock_hub, str(models_dir), str(training_data_dir))
+        original_weights = dict(engine.model_weights)
+
+        await engine._apply_auto_weights()
+
+        # Weights should be unchanged
+        assert engine.model_weights == original_weights
+        mock_hub.set_cache.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_apply_auto_weights_partial_models(self, mock_hub, tmp_path):
+        """_apply_auto_weights only updates models present in both tuner and engine."""
+        models_dir = tmp_path / "models"
+        training_data_dir = tmp_path / "training_data"
+        models_dir.mkdir()
+        training_data_dir.mkdir()
+
+        engine = MLEngine(mock_hub, str(models_dir), str(training_data_dir))
+
+        # Only record for gb — rf and lgbm should keep original weights
+        for _ in range(5):
+            engine.weight_tuner.record("gb", prediction=100.0, actual=102.0)
+
+        original_rf = engine.model_weights["rf"]
+        original_lgbm = engine.model_weights["lgbm"]
+
+        await engine._apply_auto_weights()
+
+        # gb should be updated (tuner only has gb, so gb gets weight 1.0)
+        assert engine.model_weights["gb"] == pytest.approx(1.0, abs=0.01)
+        # rf and lgbm are not in tuner output, so they keep original values
+        assert engine.model_weights["rf"] == original_rf
+        assert engine.model_weights["lgbm"] == original_lgbm
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

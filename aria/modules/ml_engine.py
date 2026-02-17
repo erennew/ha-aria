@@ -177,6 +177,11 @@ class MLEngine(Module):
         # Online prediction blend weight (Phase 2)
         self.online_blend_weight = 0.3
 
+        # MAE-based ensemble weight auto-tuner (Phase 2)
+        from aria.engine.weight_tuner import EnsembleWeightTuner
+
+        self.weight_tuner = EnsembleWeightTuner(window_days=7)
+
         # Loaded models cache
         self.models: dict[str, dict[str, Any]] = {}
 
@@ -213,6 +218,17 @@ class MLEngine(Module):
 
             except Exception as e:
                 self.logger.error(f"Failed to load model {model_file}: {e}")
+
+    async def _apply_auto_weights(self):
+        """Recompute ensemble weights from tuner and apply."""
+        weights = self.weight_tuner.compute_weights()
+        if weights:
+            # Only update weights for models that are in both the tuner and the engine
+            for model_key in self.model_weights:
+                if model_key in weights:
+                    self.model_weights[model_key] = weights[model_key]
+            await self.hub.set_cache("ml_ensemble_weights", weights)
+            self.logger.info(f"Auto-tuned weights: {weights}")
 
     def _collect_training_result(self, target: str, capability_name: str) -> dict[str, Any] | None:
         """Collect training metrics for a single target if available."""
