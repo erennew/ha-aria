@@ -167,6 +167,7 @@ HA uses a three-tier hierarchy: **entity → device → area**. Only ~0.2% of en
 - **Presence cache access goes through hub** — Use `await self.hub.set_cache()` and `await self.hub.get_cache()`, NOT `self.hub.cache.set_cache()`. CacheManager doesn't expose set_cache directly; it goes through IntelligenceHub.
 - **PageBanner expects `page=` not `title=`** — JSX silently drops unrecognized props. Always check the component signature in `components/PageBanner.jsx` when creating new pages. Static code review won't catch this — smoke-test every page.
 - **Frigate Docker required for camera presence** — Frigate container at `~/frigate/` must be running for camera-based presence signals. Without it, only HA sensor signals (motion, lights, dimmers) feed into presence.
+- **Home page flow diagram must stay accurate** — `Home.jsx` contains `NODE_DETAIL`, `FLOW_INTAKE`, `FLOW_PROCESSING`, `FLOW_ENRICHMENT` that map the real module topology. When adding/removing/renaming modules, update these arrays AND `NODE_DETAIL` (reads/writes/protocol). The diagram uses science-backed visualization (Gestalt swim lanes, 3-color connection coding, progressive disclosure on hover) — maintain these patterns.
 
 ## Reference Docs
 
