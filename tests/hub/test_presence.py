@@ -726,3 +726,128 @@ class TestDiscoveryCameraMapping:
         m._refresh_camera_rooms = AsyncMock()
         await m.on_event("other_event", {})
         m._refresh_camera_rooms.assert_not_called()
+
+
+# ============================================================================
+# Frigate Camera Name Alias Resolution
+# ============================================================================
+
+
+class TestFrigateAliasResolution:
+    """Frigate short camera names should be added as alias keys to camera_rooms."""
+
+    async def test_alias_single_match(self, hub):
+        """Frigate short name matching one HA entity gets aliased."""
+        m = PresenceModule(hub, "http://x", "tok")
+        m.camera_rooms = {"backyard_high_resolution_channel": "pool"}
+        m._frigate_camera_names = {"backyard"}
+        m._add_frigate_aliases()
+        assert m.camera_rooms["backyard"] == "pool"
+
+    async def test_alias_multiple_cameras(self, hub):
+        """Multiple Frigate names each resolve to correct room."""
+        m = PresenceModule(hub, "http://x", "tok")
+        m.camera_rooms = {
+            "backyard_high_resolution_channel": "pool",
+            "driveway_high_resolution_channel": "front_door",
+            "pool_mainstream": "pool_area",
+        }
+        m._frigate_camera_names = {"backyard", "driveway", "pool"}
+        m._add_frigate_aliases()
+        assert m.camera_rooms["backyard"] == "pool"
+        assert m.camera_rooms["driveway"] == "front_door"
+        assert m.camera_rooms["pool"] == "pool_area"
+
+    async def test_alias_no_match_skipped(self, hub):
+        """Frigate name with no HA entity substring match is skipped."""
+        m = PresenceModule(hub, "http://x", "tok")
+        m.camera_rooms = {"driveway_cam": "front_door"}
+        m._frigate_camera_names = {"garage"}
+        m._add_frigate_aliases()
+        assert "garage" not in m.camera_rooms
+
+    async def test_alias_multiple_matches_uses_shortest(self, hub):
+        """When multiple HA entities match, shortest name wins."""
+        m = PresenceModule(hub, "http://x", "tok")
+        m.camera_rooms = {
+            "pool_cam": "pool_area",
+            "pool_high_resolution_channel": "pool_area",
+        }
+        m._frigate_camera_names = {"pool"}
+        m._add_frigate_aliases()
+        assert m.camera_rooms["pool"] == "pool_area"
+
+    async def test_alias_skips_existing_key(self, hub):
+        """Frigate name already in camera_rooms is not overwritten."""
+        m = PresenceModule(hub, "http://x", "tok")
+        m.camera_rooms = {
+            "backyard": "custom_room",
+            "backyard_high_resolution_channel": "pool",
+        }
+        m._frigate_camera_names = {"backyard"}
+        m._add_frigate_aliases()
+        assert m.camera_rooms["backyard"] == "custom_room"
+
+    async def test_alias_empty_frigate_names(self, hub):
+        """No aliases added when _frigate_camera_names is empty."""
+        m = PresenceModule(hub, "http://x", "tok")
+        m.camera_rooms = {"some_cam": "room"}
+        m._frigate_camera_names = set()
+        m._add_frigate_aliases()
+        assert len(m.camera_rooms) == 1
+
+    async def test_refresh_integrates_aliases(self, hub):
+        """Full _refresh_camera_rooms adds Frigate aliases after discovery."""
+        hub._cache_data["entities"] = {
+            "camera.backyard_high_resolution_channel": {
+                "area_id": "pool",
+                "_lifecycle": {"status": "active"},
+            },
+            "camera.driveway_high_resolution_channel": {
+                "area_id": "front_door",
+                "_lifecycle": {"status": "active"},
+            },
+        }
+        m = PresenceModule(hub, "http://x", "tok")
+        m._frigate_camera_names = {"backyard", "driveway"}
+        await m._refresh_camera_rooms()
+        # HA long names present
+        assert "backyard_high_resolution_channel" in m.camera_rooms
+        assert "driveway_high_resolution_channel" in m.camera_rooms
+        # Frigate short names aliased
+        assert m.camera_rooms["backyard"] == "pool"
+        assert m.camera_rooms["driveway"] == "front_door"
+
+    async def test_config_override_wins_over_alias(self, hub):
+        """Config override for a Frigate short name is not overwritten by alias."""
+        hub._cache_data["entities"] = {
+            "camera.backyard_high_resolution_channel": {
+                "area_id": "pool",
+                "_lifecycle": {"status": "active"},
+            },
+        }
+        m = PresenceModule(hub, "http://x", "tok", camera_rooms={"backyard": "garden"})
+        m._frigate_camera_names = {"backyard"}
+        await m._refresh_camera_rooms()
+        # Config override wins
+        assert m.camera_rooms["backyard"] == "garden"
+
+    async def test_initialize_fetches_frigate_before_refresh(self, hub):
+        """Face config (Frigate cameras) is fetched before camera room refresh."""
+        m = PresenceModule(hub, "http://x", "tok")
+        call_order = []
+
+        async def mock_fetch():
+            call_order.append("fetch_face_config")
+            m._frigate_camera_names = {"backyard"}
+
+        async def mock_refresh():
+            call_order.append("refresh_camera_rooms")
+
+        m._fetch_face_config = mock_fetch
+        m._refresh_camera_rooms = mock_refresh
+        await m.initialize()
+        # face config must come before camera refresh
+        assert "fetch_face_config" in call_order
+        assert "refresh_camera_rooms" in call_order
+        assert call_order.index("fetch_face_config") < call_order.index("refresh_camera_rooms")

@@ -94,6 +94,9 @@ class PresenceModule(Module):
         # Frigate API base URL (Docker runs locally even though MQTT is on HA Pi)
         self._frigate_url = os.environ.get("FRIGATE_URL", "http://127.0.0.1:5000")
 
+        # Frigate camera names (populated from /api/config, used for alias resolution)
+        self._frigate_camera_names: set[str] = set()
+
         # Face recognition config (fetched lazily from Frigate)
         self._face_config: dict | None = None
         self._labeled_faces: dict[str, int] = {}  # name -> count
@@ -161,7 +164,46 @@ class PresenceModule(Module):
                 continue
             self.camera_rooms[cam] = room
 
+        # Add Frigate short-name aliases
+        self._add_frigate_aliases()
+
         self.logger.info(f"Camera rooms refreshed: {len(self.camera_rooms)} cameras ({len(discovered)} discovered)")
+
+    def _add_frigate_aliases(self):
+        """Add Frigate short-name aliases to camera_rooms.
+
+        For each Frigate camera name, find the HA camera entity whose name
+        contains the Frigate name as a substring. Add the short name as
+        an alias pointing to the same room.
+        """
+        if not self._frigate_camera_names:
+            return
+
+        ha_camera_names = {
+            name: room for name, room in self.camera_rooms.items() if name not in self._frigate_camera_names
+        }
+
+        aliases_added = 0
+        for frigate_name in self._frigate_camera_names:
+            if frigate_name in self.camera_rooms:
+                continue  # already exists (config override or exact match)
+
+            # Find HA entity name containing this Frigate name
+            matches = [(ha_name, room) for ha_name, room in ha_camera_names.items() if frigate_name in ha_name]
+
+            if len(matches) == 1:
+                self.camera_rooms[frigate_name] = matches[0][1]
+                aliases_added += 1
+            elif len(matches) > 1:
+                # Multiple matches — use shortest (most specific)
+                best = min(matches, key=lambda m: len(m[0]))
+                self.camera_rooms[frigate_name] = best[1]
+                aliases_added += 1
+            else:
+                self.logger.debug(f"No HA entity match for Frigate camera: {frigate_name}")
+
+        if aliases_added:
+            self.logger.info(f"Added {aliases_added} Frigate camera aliases")
 
     async def initialize(self):
         """Start MQTT listener and HA WebSocket listener."""
@@ -199,7 +241,13 @@ class PresenceModule(Module):
             run_immediately=True,
         )
 
-        # Discover camera->room mapping from entity cache
+        # Fetch Frigate config first (populates _frigate_camera_names for alias resolution)
+        try:
+            await self._fetch_face_config()
+        except Exception as e:
+            self.logger.warning(f"Frigate config fetch failed (non-fatal): {e}")
+
+        # Discover camera->room mapping from entity cache (uses Frigate names for aliases)
         try:
             await self._refresh_camera_rooms()
         except Exception as e:
@@ -238,6 +286,11 @@ class PresenceModule(Module):
                         config = await resp.json()
                         self._face_config = config.get("face_recognition", {})
                         self._face_config_fetched = True
+
+                        # Extract camera names for MQTT alias resolution
+                        cameras = config.get("cameras", {})
+                        if cameras:
+                            self._frigate_camera_names = set(cameras.keys())
 
                 # Fetch labeled faces (name -> list of face images)
                 async with session.get(
