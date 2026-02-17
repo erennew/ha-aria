@@ -290,7 +290,7 @@ class IntelligenceHub:
 
         return version
 
-    async def get_module(self, module_id: str) -> Module | None:
+    def get_module(self, module_id: str) -> Module | None:
         """Get registered module by ID.
 
         Args:

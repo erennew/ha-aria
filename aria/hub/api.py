@@ -240,7 +240,7 @@ def _register_utility_routes(router: APIRouter, hub: IntelligenceHub, ws_manager
     async def get_module(module_id: str):
         """Get module information."""
         try:
-            module = await hub.get_module(module_id)
+            module = hub.get_module(module_id)
             if module is None:
                 raise HTTPException(status_code=404, detail=f"Module '{module_id}' not found")
 
@@ -426,8 +426,8 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
     async def get_online_learning_stats():
         """Get online learning model stats, weight tuner data, and blend config."""
         try:
-            online_learner = await hub.get_module("online_learner")
-            ml_engine = await hub.get_module("ml_engine")
+            online_learner = hub.get_module("online_learner")
+            ml_engine = hub.get_module("ml_engine")
             return {
                 "models": online_learner.get_all_stats() if online_learner else {},
                 "weight_tuner": ml_engine.weight_tuner.to_dict()
@@ -445,7 +445,7 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
     async def get_patterns():
         """Pattern recognition state — trajectory, anomaly explanations, stats."""
         try:
-            pattern_mod = await hub.get_module("pattern_recognition")
+            pattern_mod = hub.get_module("pattern_recognition")
             if pattern_mod is None:
                 return {
                     "trajectory": None,

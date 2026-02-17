@@ -81,7 +81,7 @@ async def test_module_registration(initialized_hub):
 
         # Verify registration
         assert discovery.module_id in initialized_hub.modules
-        module = await initialized_hub.get_module("discovery")
+        module = initialized_hub.get_module("discovery")
         assert module == discovery
 
 
@@ -295,7 +295,7 @@ async def test_error_recovery_model_training_failure(initialized_hub, temp_dirs)
         await ml_engine.train_models()
 
     # ML engine should still be registered and functional
-    module = await initialized_hub.get_module("ml_engine")
+    module = initialized_hub.get_module("ml_engine")
     assert module is not None
 
 

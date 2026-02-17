@@ -1,6 +1,6 @@
 """Tests for GET /api/patterns endpoint."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 
 class TestPatternsEndpoint:
@@ -21,12 +21,12 @@ class TestPatternsEndpoint:
             "window_count": {"power_watts": 6},
         }
 
-        async def mock_get_module(name):
+        def mock_get_module(name):
             if name == "pattern_recognition":
                 return pattern_mod
             return None
 
-        api_hub.get_module = AsyncMock(side_effect=mock_get_module)
+        api_hub.get_module = MagicMock(side_effect=mock_get_module)
 
         resp = api_client.get("/api/patterns")
         assert resp.status_code == 200
@@ -37,7 +37,7 @@ class TestPatternsEndpoint:
 
     def test_module_not_available(self, api_hub, api_client):
         """Returns empty state when module not registered."""
-        api_hub.get_module = AsyncMock(return_value=None)
+        api_hub.get_module = MagicMock(return_value=None)
 
         resp = api_client.get("/api/patterns")
         assert resp.status_code == 200
@@ -47,7 +47,7 @@ class TestPatternsEndpoint:
 
     def test_module_error(self, api_hub, api_client):
         """Returns 500 on unexpected error."""
-        api_hub.get_module = AsyncMock(side_effect=Exception("boom"))
+        api_hub.get_module = MagicMock(side_effect=Exception("boom"))
 
         resp = api_client.get("/api/patterns")
         assert resp.status_code == 500
