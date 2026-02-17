@@ -2,6 +2,8 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+**Status:** Completed — merged at `c21caab` on 2026-02-17
+
 **Goal:** Build hardware-aware tiered model registry with graceful fallback, close existing pipeline gaps, add cross-validation and feature selection feedback.
 
 **Architecture:** New `aria/engine/hardware.py` for hardware scanning, wire existing dead `aria/engine/models/registry.py` into `aria/modules/ml_engine.py`, add fallback tracking to hub cache, replace single train/val split with expanding-window CV, add feature pruning loop.
