@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 import { computeLayout, computeTraceback } from '../lib/sankeyLayout.js';
 import { ALL_NODES, LINKS, NODE_DETAIL, getNodeMetric, ACTION_CONDITIONS } from '../lib/pipelineGraph.js';
+import PipelineStepper from './PipelineStepper.jsx';
 
 // --- Color mapping ---
 const FLOW_COLORS = {
@@ -223,6 +224,11 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
   }
 
   const svgHeight = layout.svgHeight + (hoveredNode ? 66 : 0);
+
+  // Mobile responsive switch
+  if (width < 640) {
+    return <PipelineStepper moduleStatuses={moduleStatuses} cacheData={cacheData} />;
+  }
 
   return (
     <section ref={containerRef} class="t-terminal-bg rounded-lg p-4 overflow-x-auto">
