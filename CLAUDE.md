@@ -165,6 +165,7 @@ HA uses a three-tier hierarchy: **entity → device → area**. Only ~0.2% of en
 - **Feedback data requires service restart** — New backend code writes to cache but the running service uses old code until `systemctl --user restart aria-hub`. Always restart + vertical trace after deploying feedback changes.
 - **Engine conftest collision** — `from conftest import X` resolves to the wrong conftest in full-suite runs. Use `importlib.util.spec_from_file_location` for explicit file-based conftest imports. Tests that pass in isolation may break in full-suite runs due to implicit pytest conftest namespacing.
 - **Presence cache access goes through hub** — Use `await self.hub.set_cache()` and `await self.hub.get_cache()`, NOT `self.hub.cache.set_cache()`. CacheManager doesn't expose set_cache directly; it goes through IntelligenceHub.
+- **PageBanner expects `page=` not `title=`** — JSX silently drops unrecognized props. Always check the component signature in `components/PageBanner.jsx` when creating new pages. Static code review won't catch this — smoke-test every page.
 - **Frigate Docker required for camera presence** — Frigate container at `~/frigate/` must be running for camera-based presence signals. Without it, only HA sensor signals (motion, lights, dimmers) feed into presence.
 
 ## Reference Docs
