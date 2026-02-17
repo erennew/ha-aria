@@ -99,7 +99,7 @@ class DeviceRoster:
             )
 
         # 2 persons
-        for name in ["justin", "lisa"]:
+        for name in ["alice", "bob"]:
             devices.append(
                 Device(
                     entity_id=f"person.{name}",
@@ -208,7 +208,7 @@ class DeviceRoster:
             )
 
         # 3 device trackers
-        for name in ["justin_iphone", "lisa_iphone", "justin_macbook"]:
+        for name in ["alice_phone", "bob_phone", "alice_laptop"]:
             devices.append(
                 Device(
                     entity_id=f"device_tracker.{name}",
@@ -249,7 +249,7 @@ class DeviceRoster:
         )
 
         # 4 automations
-        for name in ["arrive_justin", "arrive_lisa", "bedtime", "morning_lights"]:
+        for name in ["arrive_alice", "arrive_bob", "bedtime", "morning_lights"]:
             devices.append(
                 Device(
                     entity_id=f"automation.{name}",

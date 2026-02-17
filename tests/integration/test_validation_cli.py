@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+from pathlib import Path
 
 from tests.synthetic.pipeline import PipelineRunner
 from tests.synthetic.simulator import HouseholdSimulator
@@ -31,7 +32,7 @@ class TestCLIStatus:
             capture_output=True,
             text=True,
             timeout=30,
-            cwd="/home/justin/Documents/projects/ha-aria",
+            cwd=str(Path(__file__).resolve().parents[2]),
             env={**__import__("os").environ, "COLUMNS": "80"},
             input="",
         )
@@ -46,7 +47,7 @@ class TestCLIStatus:
             capture_output=True,
             text=True,
             timeout=30,
-            cwd="/home/justin/Documents/projects/ha-aria",
+            cwd=str(Path(__file__).resolve().parents[2]),
         )
         # May exit non-zero if hub not running, but should not traceback
         assert "Traceback" not in result.stderr, f"Status command tracebacked:\n{result.stderr}"

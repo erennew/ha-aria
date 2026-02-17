@@ -95,7 +95,7 @@ tailscale serve --bg --https=8000 http://localhost:8000
 
 From any device on your Tailscale network:
 ```
-https://justin-linux.tail828051.ts.net:8000/ui
+https://<your-machine>.<your-tailnet>.ts.net:8000/ui
 ```
 
 ### 3. Stop Tailscale Serve
@@ -368,7 +368,7 @@ Restrict access to specific devices in Tailscale ACL:
     {
       "action": "accept",
       "src": ["justin@github"],
-      "dst": ["justin-linux:8000"]
+      "dst": ["<your-machine>:8000"]
     }
   ]
 }

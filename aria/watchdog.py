@@ -30,7 +30,7 @@ class WatchdogResult:
 # Constants
 # ---------------------------------------------------------------------------
 
-HUB_URL = "http://127.0.0.1:8001"
+HUB_URL = os.environ.get("ARIA_HUB_URL", "http://127.0.0.1:8001")
 HTTP_TIMEOUT = 10
 LOG_DIR = Path(os.path.expanduser("~/ha-logs/watchdog"))
 LOG_FILE = LOG_DIR / "aria-watchdog.log"

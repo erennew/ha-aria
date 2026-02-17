@@ -56,6 +56,7 @@ credentials*.json
 
 # Dashboard build
 aria/dashboard/spa/dist/bundle.js
+aria/dashboard/spa/dist/bundle.css
 aria/dashboard/spa/node_modules/
 
 # Worktrees

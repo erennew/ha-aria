@@ -350,7 +350,7 @@ export const NODE_DETAIL = {
     writes: 'Consumed by Discovery module',
   },
   mqtt_frigate: {
-    protocol: 'MQTT frigate/events (192.168.1.35:1883)',
+    protocol: 'MQTT frigate/events (<mqtt-broker-ip>:1883)',
     reads: 'Person/face detection from cameras',
     writes: 'Consumed by Presence module',
   },

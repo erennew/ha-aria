@@ -207,7 +207,7 @@ from pathlib import Path
 
 @dataclass
 class HAConfig:
-    url: str = "http://192.168.1.35:8123"
+    url: str = "http://<ha-host>:8123"
     token: str = ""
 
     @classmethod

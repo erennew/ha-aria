@@ -34,7 +34,7 @@ class TestBayesianOccupancy(unittest.TestCase):
     def test_occupied_home_high_probability(self):
         estimator = BayesianOccupancy()
         snap = _make_snapshot(
-            people_home=["Justin", "Lisa"],
+            people_home=["Alice", "Bob"],
             motion={"Closet motion": "on"},
             power_watts=300,
         )
@@ -65,8 +65,8 @@ class TestBayesianOccupancy(unittest.TestCase):
 
     def test_high_power_increases_probability(self):
         estimator = BayesianOccupancy()
-        low_power = _make_snapshot(people_home=["Justin"], power_watts=30)
-        high_power = _make_snapshot(people_home=["Justin"], power_watts=400)
+        low_power = _make_snapshot(people_home=["Alice"], power_watts=30)
+        high_power = _make_snapshot(people_home=["Alice"], power_watts=400)
 
         result_low = estimator.estimate(low_power)
         result_high = estimator.estimate(high_power)
@@ -75,7 +75,7 @@ class TestBayesianOccupancy(unittest.TestCase):
     def test_signals_included_in_output(self):
         estimator = BayesianOccupancy()
         snap = _make_snapshot(
-            people_home=["Justin"],
+            people_home=["Alice"],
             motion={"Hall": "on"},
             power_watts=200,
         )
@@ -89,7 +89,7 @@ class TestBayesianOccupancy(unittest.TestCase):
     def test_confidence_high_with_many_signals(self):
         estimator = BayesianOccupancy()
         snap = _make_snapshot(
-            people_home=["Justin", "Lisa"],
+            people_home=["Alice", "Bob"],
             motion={"Hall": "on", "Kitchen": "on"},
             power_watts=350,
             media={"TV": "playing"},
@@ -116,7 +116,7 @@ class TestPerAreaOccupancy(unittest.TestCase):
         }
         estimator = BayesianOccupancy(area_sensors=area_sensors)
         snap = _make_snapshot(
-            people_home=["Justin"],
+            people_home=["Alice"],
             motion={"living_room_motion": "on"},
             power_watts=200,
         )
@@ -133,7 +133,7 @@ class TestPerAreaOccupancy(unittest.TestCase):
         }
         estimator = BayesianOccupancy(area_sensors=area_sensors)
         snap = _make_snapshot(
-            people_home=["Justin"],
+            people_home=["Alice"],
             motion={"Hall": "on"},  # No garage motion
             power_watts=200,
         )
@@ -146,9 +146,9 @@ class TestPerAreaOccupancy(unittest.TestCase):
 class TestLearnPriors(unittest.TestCase):
     def test_learns_from_timestamps(self):
         snapshots = [
-            {"occupancy": {"people_home": ["Justin"]}},
-            {"occupancy": {"people_home": ["Justin"]}},
-            {"occupancy": {"people_home": ["Justin"]}},
+            {"occupancy": {"people_home": ["Alice"]}},
+            {"occupancy": {"people_home": ["Alice"]}},
+            {"occupancy": {"people_home": ["Alice"]}},
             {"occupancy": {"people_home": []}},
             {"occupancy": {"people_home": []}},
         ]
@@ -166,7 +166,7 @@ class TestLearnPriors(unittest.TestCase):
 
     def test_minimum_samples_required(self):
         snapshots = [
-            {"occupancy": {"people_home": ["Justin"]}},
+            {"occupancy": {"people_home": ["Alice"]}},
             {"occupancy": {"people_home": []}},
         ]
         timestamps = [("Tuesday", 10), ("Tuesday", 10)]

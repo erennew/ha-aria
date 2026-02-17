@@ -86,11 +86,11 @@ def hub():
 def module(hub):
     return PresenceModule(
         hub=hub,
-        ha_url="http://192.168.1.35:8123",
+        ha_url="http://localhost:8123",
         ha_token="test_token",
-        mqtt_host="192.168.1.35",
+        mqtt_host="localhost",
         mqtt_port=1883,
-        mqtt_user="frigate",
+        mqtt_user="test_user",
         mqtt_password="test_password",
     )
 
@@ -212,7 +212,7 @@ class TestFrigateEvents:
                 "camera": "carters_room",
                 "label": "person",
                 "score": 0.9,
-                "sub_label": ["Carter"],
+                "sub_label": ["person_a"],
                 "sub_label_score": 0.92,
             }
         }
@@ -223,8 +223,8 @@ class TestFrigateEvents:
         assert "camera_person" in types
         assert "camera_face" in types
         # Should track identified person
-        assert "Carter" in module._identified_persons
-        assert module._identified_persons["Carter"]["room"] == "carters_room"
+        assert "person_a" in module._identified_persons
+        assert module._identified_persons["person_a"]["room"] == "carters_room"
 
     async def test_handle_event_no_after(self, module):
         await module._handle_frigate_event({})
@@ -555,18 +555,18 @@ class TestFlushPresenceState:
 
     async def test_flush_tracks_identified_persons(self, module):
         now = datetime.now()
-        module._identified_persons["Carter"] = {
+        module._identified_persons["person_a"] = {
             "room": "carters_room",
             "last_seen": now.isoformat(),
             "confidence": 0.92,
             "camera": "carters_room",
         }
-        module._add_signal("carters_room", "camera_face", 0.92, "Carter", now)
+        module._add_signal("carters_room", "camera_face", 0.92, "person_a", now)
         await module._flush_presence_state()
 
         cached = module.hub.cache._cache.get(CACHE_PRESENCE)
-        assert "Carter" in cached["identified_persons"]
-        assert cached["identified_persons"]["Carter"]["room"] == "carters_room"
+        assert "person_a" in cached["identified_persons"]
+        assert cached["identified_persons"]["person_a"]["room"] == "carters_room"
 
     async def test_flush_occupied_rooms_threshold(self, module):
         now = datetime.now()
@@ -606,12 +606,12 @@ class TestEdgeCases:
                 "camera": "driveway",
                 "label": "person",
                 "score": 0.9,
-                "sub_label": ["Justin"],
+                "sub_label": ["person_a"],
                 "sub_label_score": 0.88,
             }
         }
         await module._handle_frigate_event(event)
-        assert "Justin" in module._identified_persons
+        assert "person_a" in module._identified_persons
 
     async def test_score_capped_at_099(self, module):
         event = {

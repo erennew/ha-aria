@@ -8,20 +8,22 @@ Usage:
   . ~/.env && ./bin/discover.py > /tmp/capabilities.json
   cat /tmp/capabilities.json | jq '.capabilities | keys'
 """
+
 import json
 import os
+import random
 import socket
 import ssl
-import time
-import urllib.request
-import urllib.error
-from datetime import datetime, timezone
-from base64 import b64encode
 import struct
-import random
+import sys
+import time
+import urllib.error
+import urllib.request
+from base64 import b64encode
+from datetime import UTC, datetime
 
 # === Config ===
-HA_URL = os.environ.get("HA_URL", "http://192.168.1.35:8123")
+HA_URL = os.environ.get("HA_URL", "")
 HA_TOKEN = os.environ.get("HA_TOKEN", "")
 
 # Domains to exclude from unavailable counts (normally unavailable)
@@ -30,28 +32,26 @@ UNAVAILABLE_EXCLUDE_DOMAINS = {"update", "tts", "stt"}
 
 def log(msg):
     """Print to stderr for debugging."""
-    print(f"[discover] {msg}", file=__import__('sys').stderr)
+    print(f"[discover] {msg}", file=__import__("sys").stderr)
 
 
 # === REST API Client ===
 
+
 def fetch_rest_api(endpoint, retries=3):
     """Fetch data from HA REST API with retries and exponential backoff."""
     url = f"{HA_URL}{endpoint}"
-    headers = {
-        "Authorization": f"Bearer {HA_TOKEN}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"}
 
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=30) as response:
-                data = response.read().decode('utf-8')
+                data = response.read().decode("utf-8")
                 return json.loads(data)
         except urllib.error.HTTPError as e:
             if e.code == 401:
-                raise Exception(f"Authentication failed: {e}")
+                raise Exception(f"Authentication failed: {e}") from e
             log(f"HTTP error {e.code} on {endpoint}, attempt {attempt + 1}/{retries}")
         except urllib.error.URLError as e:
             log(f"Connection error on {endpoint}, attempt {attempt + 1}/{retries}: {e}")
@@ -59,7 +59,7 @@ def fetch_rest_api(endpoint, retries=3):
             log(f"Unexpected error on {endpoint}, attempt {attempt + 1}/{retries}: {e}")
 
         if attempt < retries - 1:
-            backoff = 2 ** attempt
+            backoff = 2**attempt
             time.sleep(backoff)
 
     raise Exception(f"Failed to fetch {endpoint} after {retries} attempts")
@@ -67,9 +67,10 @@ def fetch_rest_api(endpoint, retries=3):
 
 # === WebSocket Client (Manual Implementation) ===
 
+
 def create_websocket_handshake(host, path):
     """Create WebSocket handshake HTTP request."""
-    key = b64encode(random.randbytes(16)).decode('utf-8')
+    key = b64encode(random.randbytes(16)).decode("utf-8")
 
     request = (
         f"GET {path} HTTP/1.1\r\n"
@@ -81,10 +82,10 @@ def create_websocket_handshake(host, path):
         "\r\n"
     )
 
-    return request.encode('utf-8'), key
+    return request.encode("utf-8"), key
 
 
-def parse_websocket_frame(sock):
+def parse_websocket_frame(sock):  # noqa: C901
     """Parse a WebSocket frame from socket."""
     # Read first 2 bytes
     header = sock.recv(2)
@@ -104,17 +105,17 @@ def parse_websocket_frame(sock):
     # Extended payload length
     if payload_len == 126:
         ext_len = sock.recv(2)
-        payload_len = struct.unpack('>H', ext_len)[0]
+        payload_len = struct.unpack(">H", ext_len)[0]
     elif payload_len == 127:
         ext_len = sock.recv(8)
-        payload_len = struct.unpack('>Q', ext_len)[0]
+        payload_len = struct.unpack(">Q", ext_len)[0]
 
     # Masking key (if present)
     if masked:
         mask = sock.recv(4)
 
     # Payload data
-    payload = b''
+    payload = b""
     while len(payload) < payload_len:
         chunk = sock.recv(payload_len - len(payload))
         if not chunk:
@@ -127,12 +128,12 @@ def parse_websocket_frame(sock):
 
     # Handle opcodes
     if opcode == 0x1:  # Text frame
-        return payload.decode('utf-8')
+        return payload.decode("utf-8")
     elif opcode == 0x8:  # Close frame
         raise Exception("WebSocket closed by server")
     elif opcode == 0x9:  # Ping frame
         # Send pong
-        send_websocket_frame(sock, b'', opcode=0xA)
+        send_websocket_frame(sock, b"", opcode=0xA)
         return None
     else:
         return None
@@ -141,7 +142,7 @@ def parse_websocket_frame(sock):
 def send_websocket_frame(sock, data, opcode=0x1):
     """Send a WebSocket frame."""
     if isinstance(data, str):
-        data = data.encode('utf-8')
+        data = data.encode("utf-8")
 
     frame = bytearray()
 
@@ -154,10 +155,10 @@ def send_websocket_frame(sock, data, opcode=0x1):
         frame.append(0b10000000 | payload_len)
     elif payload_len < 65536:
         frame.append(0b10000000 | 126)
-        frame.extend(struct.pack('>H', payload_len))
+        frame.extend(struct.pack(">H", payload_len))
     else:
         frame.append(0b10000000 | 127)
-        frame.extend(struct.pack('>Q', payload_len))
+        frame.extend(struct.pack(">Q", payload_len))
 
     # Masking key (required for client-to-server)
     mask = random.randbytes(4)
@@ -170,7 +171,7 @@ def send_websocket_frame(sock, data, opcode=0x1):
     sock.sendall(frame)
 
 
-def websocket_connect(url, token):
+def websocket_connect(url, token):  # noqa: C901, PLR0912, PLR0915
     """Connect to WebSocket, authenticate, return socket."""
     # Parse URL
     if url.startswith("http://"):
@@ -215,15 +216,15 @@ def websocket_connect(url, token):
     sock.sendall(handshake)
 
     # Read handshake response
-    response = b''
-    while b'\r\n\r\n' not in response:
+    response = b""
+    while b"\r\n\r\n" not in response:
         chunk = sock.recv(1024)
         if not chunk:
             raise Exception("Connection closed during handshake")
         response += chunk
 
     # Verify handshake
-    if b'HTTP/1.1 101' not in response:
+    if b"HTTP/1.1 101" not in response:
         raise Exception(f"WebSocket handshake failed: {response.decode('utf-8', errors='ignore')}")
 
     # Wait for auth_required message
@@ -281,12 +282,12 @@ def fetch_websocket_data(command_type, retries=3):
         except Exception as e:
             log(f"WebSocket error on {command_type}, attempt {attempt + 1}/{retries}: {e}")
             if attempt < retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
+                time.sleep(2**attempt)  # Exponential backoff
         finally:
             if sock:
                 try:
                     # Send close frame
-                    send_websocket_frame(sock, b'', opcode=0x8)
+                    send_websocket_frame(sock, b"", opcode=0x8)
                     sock.close()
                 except Exception:
                     pass
@@ -296,13 +297,15 @@ def fetch_websocket_data(command_type, retries=3):
 
 # === Capability Detection ===
 
-def detect_capabilities(states, entity_registry, device_registry):
+
+def detect_capabilities(states, entity_registry, device_registry):  # noqa: C901, PLR0912
     """Detect capabilities based on discovered entities."""
     capabilities = {}
 
     # Power monitoring
     power_entities = [
-        e["entity_id"] for e in states
+        e["entity_id"]
+        for e in states
         if e.get("attributes", {}).get("device_class") == "power"
         and e.get("attributes", {}).get("unit_of_measurement") == "W"
     ]
@@ -312,15 +315,21 @@ def detect_capabilities(states, entity_registry, device_registry):
             "entities": power_entities,
             "total_count": len(power_entities),
             "measurement_unit": "W",
-            "can_predict": True
+            "can_predict": True,
         }
 
     # Lighting
     light_entities = [e["entity_id"] for e in states if e["entity_id"].startswith("light.")]
     if light_entities:
-        supports_color = sum(1 for e in states if e["entity_id"].startswith("light.") and "rgb_color" in e.get("attributes", {}))
-        supports_color_temp = sum(1 for e in states if e["entity_id"].startswith("light.") and "color_temp" in e.get("attributes", {}))
-        supports_brightness = sum(1 for e in states if e["entity_id"].startswith("light.") and "brightness" in e.get("attributes", {}))
+        supports_color = sum(
+            1 for e in states if e["entity_id"].startswith("light.") and "rgb_color" in e.get("attributes", {})
+        )
+        supports_color_temp = sum(
+            1 for e in states if e["entity_id"].startswith("light.") and "color_temp" in e.get("attributes", {})
+        )
+        supports_brightness = sum(
+            1 for e in states if e["entity_id"].startswith("light.") and "brightness" in e.get("attributes", {})
+        )
 
         capabilities["lighting"] = {
             "available": True,
@@ -329,7 +338,7 @@ def detect_capabilities(states, entity_registry, device_registry):
             "supports_color": supports_color,
             "supports_color_temp": supports_color_temp,
             "supports_brightness": supports_brightness,
-            "can_predict": True
+            "can_predict": True,
         }
 
     # Occupancy
@@ -341,7 +350,7 @@ def detect_capabilities(states, entity_registry, device_registry):
             "method": [],
             "people": person_entities,
             "tracked_devices": len(device_tracker_entities),
-            "can_predict": True
+            "can_predict": True,
         }
         if person_entities:
             capabilities["occupancy"]["method"].append("person")
@@ -362,13 +371,15 @@ def detect_capabilities(states, entity_registry, device_registry):
             "entities": climate_entities,
             "total_count": len(climate_entities),
             "modes": list(modes),
-            "can_predict": True
+            "can_predict": True,
         }
 
     # EV Charging
     ev_entities = [
-        e["entity_id"] for e in states
-        if "battery" in e["entity_id"].lower() and "vehicle" in e["entity_id"].lower()
+        e["entity_id"]
+        for e in states
+        if "battery" in e["entity_id"].lower()
+        and "vehicle" in e["entity_id"].lower()
         or "tars" in e["entity_id"].lower()
     ]
     if ev_entities:
@@ -376,12 +387,13 @@ def detect_capabilities(states, entity_registry, device_registry):
             "available": True,
             "entities": ev_entities,
             "vehicle_count": 1,  # Simplified for MVP
-            "can_predict": True
+            "can_predict": True,
         }
 
     # Battery devices
     battery_entities = [
-        e["entity_id"] for e in states
+        e["entity_id"]
+        for e in states
         if "battery" in e.get("attributes", {}) or "battery_level" in e.get("attributes", {})
     ]
     if battery_entities:
@@ -389,33 +401,29 @@ def detect_capabilities(states, entity_registry, device_registry):
             "available": True,
             "entities": battery_entities,
             "total_count": len(battery_entities),
-            "can_predict": True
+            "can_predict": True,
         }
 
     # Motion sensors
-    motion_entities = [
-        e["entity_id"] for e in states
-        if e.get("attributes", {}).get("device_class") == "motion"
-    ]
+    motion_entities = [e["entity_id"] for e in states if e.get("attributes", {}).get("device_class") == "motion"]
     if motion_entities:
         capabilities["motion"] = {
             "available": True,
             "entities": motion_entities,
             "total_count": len(motion_entities),
-            "can_predict": False
+            "can_predict": False,
         }
 
     # Doors/Windows
     door_window_entities = [
-        e["entity_id"] for e in states
-        if e.get("attributes", {}).get("device_class") in ["door", "window"]
+        e["entity_id"] for e in states if e.get("attributes", {}).get("device_class") in ["door", "window"]
     ]
     if door_window_entities:
         capabilities["doors_windows"] = {
             "available": True,
             "entities": door_window_entities,
             "total_count": len(door_window_entities),
-            "can_predict": False
+            "can_predict": False,
         }
 
     # Locks
@@ -425,7 +433,7 @@ def detect_capabilities(states, entity_registry, device_registry):
             "available": True,
             "entities": lock_entities,
             "total_count": len(lock_entities),
-            "can_predict": False
+            "can_predict": False,
         }
 
     # Media
@@ -435,7 +443,7 @@ def detect_capabilities(states, entity_registry, device_registry):
             "available": True,
             "entities": media_entities,
             "total_count": len(media_entities),
-            "can_predict": False
+            "can_predict": False,
         }
 
     # Vacuum
@@ -445,7 +453,7 @@ def detect_capabilities(states, entity_registry, device_registry):
             "available": True,
             "entities": vacuum_entities,
             "total_count": len(vacuum_entities),
-            "can_predict": False
+            "can_predict": False,
         }
 
     return capabilities
@@ -453,12 +461,13 @@ def detect_capabilities(states, entity_registry, device_registry):
 
 # === Main Discovery ===
 
-def discover_all():
+
+def discover_all():  # noqa: PLR0915
     """Run full discovery - fetch all data from HA."""
     log("Starting discovery...")
 
     discovery = {
-        "discovery_timestamp": datetime.now(timezone.utc).isoformat(),
+        "discovery_timestamp": datetime.now(UTC).isoformat(),
         "ha_version": None,
         "entity_count": 0,
         "capabilities": {},
@@ -466,7 +475,7 @@ def discover_all():
         "devices": {},
         "areas": {},
         "integrations": [],
-        "labels": []
+        "labels": [],
     }
 
     # Fetch REST data
@@ -534,7 +543,7 @@ def discover_all():
             "unit_of_measurement": state.get("attributes", {}).get("unit_of_measurement"),
             "disabled": registry_entry.get("disabled_by") is not None,
             "hidden": registry_entry.get("hidden_by") is not None,
-            "icon": registry_entry.get("icon") or state.get("attributes", {}).get("icon")
+            "icon": registry_entry.get("icon") or state.get("attributes", {}).get("icon"),
         }
 
     # Process devices
@@ -547,13 +556,13 @@ def discover_all():
             "manufacturer": device.get("manufacturer"),
             "model": device.get("model"),
             "area_id": device.get("area_id"),
-            "via_device_id": device.get("via_device_id")
+            "via_device_id": device.get("via_device_id"),
         }
 
     # Backfill entity area_id from parent device when entity has no direct area
     log("Resolving entity areas from devices...")
     backfilled = 0
-    for eid, entity in discovery["entities"].items():
+    for _eid, entity in discovery["entities"].items():
         if not entity.get("area_id") and entity.get("device_id"):
             device = discovery["devices"].get(entity["device_id"])
             if device and device.get("area_id"):
@@ -566,21 +575,18 @@ def discover_all():
     for area in area_registry:
         area_id = area["area_id"]
         # Count entities in this area (includes device-inherited areas)
-        entities_in_area = [
-            eid for eid, e in discovery["entities"].items()
-            if e.get("area_id") == area_id
-        ]
+        entities_in_area = [eid for eid, e in discovery["entities"].items() if e.get("area_id") == area_id]
 
         discovery["areas"][area_id] = {
             "area_id": area_id,
             "name": area.get("name"),
-            "entity_count": len(entities_in_area)
+            "entity_count": len(entities_in_area),
         }
 
     # Extract integrations (unique domains)
     log("Extracting integrations...")
     domains = {}
-    for entity_id in discovery["entities"].keys():
+    for entity_id in discovery["entities"]:
         domain = entity_id.split(".")[0]
         if domain not in UNAVAILABLE_EXCLUDE_DOMAINS:
             domains[domain] = domains.get(domain, 0) + 1
@@ -600,18 +606,23 @@ def discover_all():
 
 if __name__ == "__main__":
     try:
+        if not HA_URL:
+            print("Error: HA_URL environment variable not set", file=sys.stderr)
+            print("Usage: . ~/.env && ./bin/discover.py", file=sys.stderr)
+            sys.exit(1)
         if not HA_TOKEN:
-            print("Error: HA_TOKEN environment variable not set", file=__import__('sys').stderr)
-            print("Usage: . ~/.env && ./bin/discover.py", file=__import__('sys').stderr)
-            exit(1)
+            print("Error: HA_TOKEN environment variable not set", file=sys.stderr)
+            print("Usage: . ~/.env && ./bin/discover.py", file=sys.stderr)
+            sys.exit(1)
 
         result = discover_all()
         print(json.dumps(result, indent=2))
     except KeyboardInterrupt:
         log("Interrupted by user")
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         log(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

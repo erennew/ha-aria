@@ -8,12 +8,12 @@ This is a collection of real answers that Home Assistant gives when ARIA asks it
 
 ARIA needs to talk to Home Assistant's API to learn about your home -- what devices exist, what rooms they are in, and what states they are in right now. The API responses have specific structures that change between HA versions, and getting the parsing wrong means ARIA sees garbage data. This document captures actual live responses so developers can build and test against real formats instead of guessing from documentation that may be outdated.
 
-Documentation of actual API responses from HA 2026.2.1 (justin-linux instance).
+Documentation of actual API responses from HA 2026.2.1 (local instance).
 
 ## Discovery Summary (Live Run)
 
 **Run:** 2026-02-11T11:22
-**Instance:** 192.168.1.35:8123 (HAOS 2026.2.1)
+**Instance:** <ha-host>:8123 (HAOS 2026.2.1)
 
 ```
 Entities: 3,065 (states)
@@ -138,7 +138,7 @@ Returns available service domains and their services.
 
 ### Protocol Flow
 
-1. Client connects to `ws://192.168.1.35:8123/api/websocket`
+1. Client connects to `ws://<ha-host>:8123/api/websocket`
 2. Server sends: `{"type": "auth_required", "ha_version": "2026.2.1"}`
 3. Client sends: `{"type": "auth", "access_token": "TOKEN"}`
 4. Server sends: `{"type": "auth_ok", "ha_version": "2026.2.1"}`
@@ -170,7 +170,7 @@ Returns all entity registry entries (includes disabled/hidden metadata).
       "disabled_by": null,
       "hidden_by": null,
       "original_name": "Hue color lamp",
-      "unique_id": "00:17:88:01:00:00:00:01-0b"
+      "unique_id": "00:17:88:AA:BB:CC:DD:EE-0b"
     },
     {
       "entity_id": "sensor.disabled_sensor",

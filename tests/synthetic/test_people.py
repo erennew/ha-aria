@@ -41,27 +41,27 @@ class TestSchedule:
 class TestPerson:
     def test_person_has_name_and_schedule(self):
         p = Person(
-            "justin", schedule_weekday=Schedule.weekday_office(6.5, 23.0), schedule_weekend=Schedule.weekend(8.0, 23.5)
+            "alice", schedule_weekday=Schedule.weekday_office(6.5, 23.0), schedule_weekend=Schedule.weekend(8.0, 23.5)
         )
-        assert p.name == "justin"
+        assert p.name == "alice"
 
     def test_get_schedule_for_weekday(self):
         p = Person(
-            "justin", schedule_weekday=Schedule.weekday_office(6.5, 23.0), schedule_weekend=Schedule.weekend(8.0, 23.5)
+            "alice", schedule_weekday=Schedule.weekday_office(6.5, 23.0), schedule_weekend=Schedule.weekend(8.0, 23.5)
         )
         sched = p.get_schedule(day=0, is_weekend=False)
         assert sched.depart is not None
 
     def test_get_schedule_for_weekend(self):
         p = Person(
-            "justin", schedule_weekday=Schedule.weekday_office(6.5, 23.0), schedule_weekend=Schedule.weekend(8.0, 23.5)
+            "alice", schedule_weekday=Schedule.weekday_office(6.5, 23.0), schedule_weekend=Schedule.weekend(8.0, 23.5)
         )
         sched = p.get_schedule(day=5, is_weekend=True)
         assert sched.depart is None
 
     def test_room_transitions_for_day(self):
         p = Person(
-            "justin", schedule_weekday=Schedule.weekday_office(6.5, 23.0), schedule_weekend=Schedule.weekend(8.0, 23.5)
+            "alice", schedule_weekday=Schedule.weekday_office(6.5, 23.0), schedule_weekend=Schedule.weekend(8.0, 23.5)
         )
         transitions = p.get_room_transitions(day=0, is_weekend=False, seed=42)
         assert len(transitions) >= 4

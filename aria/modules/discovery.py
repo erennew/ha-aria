@@ -46,7 +46,7 @@ class DiscoveryModule(Module):
 
         Args:
             hub: IntelligenceHub instance
-            ha_url: Home Assistant URL (e.g., "http://192.168.1.35:8123")
+            ha_url: Home Assistant URL (e.g., "http://<ha-host>:8123")
             ha_token: Home Assistant long-lived access token
         """
         super().__init__("discovery", hub)

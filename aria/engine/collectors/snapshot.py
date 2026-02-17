@@ -6,6 +6,7 @@ import sqlite3
 import statistics
 import urllib.request
 from datetime import datetime
+from pathlib import Path
 
 import aria.engine.collectors.extractors  # noqa: F401 — trigger decorator registration
 from aria.engine.collectors.ha_api import (
@@ -38,7 +39,7 @@ def _fetch_presence_cache():
         pass
 
     # Fallback: direct SQLite read
-    db_path = "/home/justin/ha-logs/intelligence/cache/hub.db"
+    db_path = str(Path.home() / "ha-logs" / "intelligence" / "cache" / "hub.db")
     try:
         conn = sqlite3.connect(db_path, timeout=5)
         cursor = conn.execute("SELECT data FROM cache WHERE category = ?", ("presence",))

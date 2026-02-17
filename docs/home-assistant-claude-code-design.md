@@ -20,10 +20,10 @@ Give Claude Code full access to a large (100+ devices) Home Assistant OS instanc
 
 ## Current State
 
-- **Home Assistant OS** on Raspberry Pi, same LAN as justin-linux
+- **Home Assistant OS** on Raspberry Pi, same LAN as <your-machine>
 - **100+ devices**, many automations/scripts, multiple integrations
 - **Pi is NOT on Tailscale** — LAN-only access via local IP on port 8123
-- **Claude Code** on justin-linux (Ubuntu 24.04, Docker, established MCP server pattern)
+- **Claude Code** on <your-machine> (Ubuntu 24.04, Docker, established MCP server pattern)
 - **Existing brief pipeline** — `telegram-brief` sends daily sitreps at 7am, 12pm, 9pm
 
 ## Goals
@@ -39,7 +39,7 @@ Give Claude Code full access to a large (100+ devices) Home Assistant OS instanc
 
 ```
 ┌─────────────────────────┐          ┌──────────────────────────┐
-│   justin-linux          │          │   Raspberry Pi           │
+│   <your-machine>          │          │   Raspberry Pi           │
 │                         │          │                          │
 │  Claude Code            │          │  Home Assistant OS       │
 │    ├─ hass-mcp server ──┼─── LAN ─▶│    ├─ REST API :8123     │
@@ -76,7 +76,7 @@ Give Claude Code full access to a large (100+ devices) Home Assistant OS instanc
 
 ### Step 1: MCP Server Setup
 
-Install voska/hass-mcp on justin-linux:
+Install voska/hass-mcp on <your-machine>:
 
 ```bash
 claude mcp add hass-mcp \
@@ -98,7 +98,7 @@ This gives Claude Code:
 HAOS doesn't expose logs easily via API alone. Set up periodic pull:
 
 1. Install **Advanced SSH & Web Terminal** add-on on HAOS
-2. Generate SSH key on justin-linux, add public key to the add-on
+2. Generate SSH key on <your-machine>, add public key to the add-on
 3. Cron job every 15 minutes syncs logs:
 
 ```bash
@@ -255,7 +255,7 @@ Restores last known-good config from `~/ha-config-backups/` and reloads.
 ### Phase 1 (MVP — 2-3 sessions)
 1. Create dedicated HA user + read-only long-lived token
 2. Install Advanced SSH & Web Terminal add-on on HAOS
-3. Set up SSH key auth from justin-linux → Pi
+3. Set up SSH key auth from <your-machine> → Pi
 4. Install voska/hass-mcp Docker container + `claude mcp add`
 5. Set up log sync cron (15-min rsync)
 6. Build `/ha-status` skill

@@ -12,7 +12,7 @@ from pathlib import Path
 class HAConfig:
     """Home Assistant connection settings."""
 
-    url: str = "http://192.168.1.35:8123"
+    url: str = ""
     token: str = ""
 
     @classmethod
@@ -114,7 +114,7 @@ class OllamaConfig:
 class WeatherConfig:
     """Weather API settings."""
 
-    location: str = "Shalimar+FL"
+    location: str = ""
 
 
 @dataclass

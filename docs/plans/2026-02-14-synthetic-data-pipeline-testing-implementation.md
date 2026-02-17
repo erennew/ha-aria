@@ -115,24 +115,24 @@ class TestSchedule:
 
 class TestPerson:
     def test_person_has_name_and_schedule(self):
-        p = Person("justin", schedule_weekday=Schedule.weekday_office(6.5, 23.0),
+        p = Person("alice", schedule_weekday=Schedule.weekday_office(6.5, 23.0),
                     schedule_weekend=Schedule.weekend(8.0, 23.5))
-        assert p.name == "justin"
+        assert p.name == "alice"
 
     def test_get_schedule_for_weekday(self):
-        p = Person("justin", schedule_weekday=Schedule.weekday_office(6.5, 23.0),
+        p = Person("alice", schedule_weekday=Schedule.weekday_office(6.5, 23.0),
                     schedule_weekend=Schedule.weekend(8.0, 23.5))
         sched = p.get_schedule(day=0, is_weekend=False)
         assert sched.depart is not None
 
     def test_get_schedule_for_weekend(self):
-        p = Person("justin", schedule_weekday=Schedule.weekday_office(6.5, 23.0),
+        p = Person("alice", schedule_weekday=Schedule.weekday_office(6.5, 23.0),
                     schedule_weekend=Schedule.weekend(8.0, 23.5))
         sched = p.get_schedule(day=5, is_weekend=True)
         assert sched.depart is None
 
     def test_room_transitions_for_day(self):
-        p = Person("justin", schedule_weekday=Schedule.weekday_office(6.5, 23.0),
+        p = Person("alice", schedule_weekday=Schedule.weekday_office(6.5, 23.0),
                     schedule_weekend=Schedule.weekend(8.0, 23.5))
         transitions = p.get_room_transitions(day=0, is_weekend=False, seed=42)
         # Should have at least wake-up, leave, arrive, sleep transitions
@@ -348,7 +348,7 @@ class TestEntityStateGenerator:
     def test_generates_states_for_time(self):
         roster = DeviceRoster.typical_home()
         people = [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
         ]
         gen = EntityStateGenerator(roster, people, seed=42)
         states = gen.generate_states(day=0, hour=12.0, is_weekend=False)
@@ -362,7 +362,7 @@ class TestEntityStateGenerator:
     def test_lights_on_when_occupied_and_dark(self):
         roster = DeviceRoster.typical_home()
         people = [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
         ]
         gen = EntityStateGenerator(roster, people, seed=42)
         # Evening, person home — lights should be on in occupied rooms
@@ -374,18 +374,18 @@ class TestEntityStateGenerator:
     def test_person_away_during_work(self):
         roster = DeviceRoster.typical_home()
         people = [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
         ]
         gen = EntityStateGenerator(roster, people, seed=42)
         # Midday weekday — person should be away
         states = gen.generate_states(day=1, hour=12.0, is_weekend=False)
-        person_states = [s for s in states if s["entity_id"] == "person.justin"]
+        person_states = [s for s in states if s["entity_id"] == "person.alice"]
         assert len(person_states) == 1
         assert person_states[0]["state"] == "not_home"
 
     def test_deterministic_with_seed(self):
         roster = DeviceRoster.typical_home()
-        people = [Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5))]
+        people = [Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5))]
         gen_a = EntityStateGenerator(roster, people, seed=42)
         gen_b = EntityStateGenerator(roster, people, seed=42)
         states_a = gen_a.generate_states(day=0, hour=12.0, is_weekend=False)
@@ -464,8 +464,8 @@ class DeviceRoster:
             devices.append(Device(f"light.{room}", "light", None, 60, [room]))
 
         # Persons (2)
-        devices.append(Device("person.justin", "person", None, 0, []))
-        devices.append(Device("person.lisa", "person", None, 0, []))
+        devices.append(Device("person.alice", "person", None, 0, []))
+        devices.append(Device("person.bob", "person", None, 0, []))
 
         # Climate (2)
         devices.append(Device("climate.bedroom", "climate", None, 0, ["bedroom"]))
@@ -502,9 +502,9 @@ class DeviceRoster:
         devices.append(Device("media_player.bedroom", "media_player", None, 50, ["bedroom"]))
 
         # Device trackers (3)
-        devices.append(Device("device_tracker.justin_iphone", "device_tracker", None, 0, []))
-        devices.append(Device("device_tracker.lisa_iphone", "device_tracker", None, 0, []))
-        devices.append(Device("device_tracker.justin_macbook", "device_tracker", None, 0, []))
+        devices.append(Device("device_tracker.alice_phone", "device_tracker", None, 0, []))
+        devices.append(Device("device_tracker.bob_phone", "device_tracker", None, 0, []))
+        devices.append(Device("device_tracker.alice_laptop", "device_tracker", None, 0, []))
 
         # Switches (3)
         devices.append(Device("switch.coffee_maker", "switch", "outlet", 1200, ["kitchen"]))
@@ -512,8 +512,8 @@ class DeviceRoster:
         devices.append(Device("switch.garage_opener", "switch", None, 200, ["garage"]))
 
         # Automations (4)
-        devices.append(Device("automation.arrive_justin", "automation", None, 0, []))
-        devices.append(Device("automation.arrive_lisa", "automation", None, 0, []))
+        devices.append(Device("automation.arrive_alice", "automation", None, 0, []))
+        devices.append(Device("automation.arrive_bob", "automation", None, 0, []))
         devices.append(Device("automation.bedtime", "automation", None, 0, []))
         devices.append(Device("automation.morning_lights", "automation", None, 0, []))
 
@@ -900,8 +900,8 @@ from tests.synthetic.weather import WeatherProfile
 def assembler():
     roster = DeviceRoster.typical_home()
     people = [
-        Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
-        Person("lisa", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
+        Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+        Person("bob", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
     ]
     weather = WeatherProfile("southeast_us", month=2)
     return SnapshotAssembler(roster, people, weather, seed=42)
@@ -1179,8 +1179,8 @@ def stable_couple(seed: int = 42) -> dict:
     """Two residents with consistent schedules."""
     return {
         "people": [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
-            Person("lisa", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("bob", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
         ],
         "roster": DeviceRoster.typical_home(),
         "weather": WeatherProfile("southeast_us", month=2),
@@ -1191,8 +1191,8 @@ def new_roommate(seed: int = 42) -> dict:
     """Two residents for 14 days, third joins at day 15."""
     return {
         "people": [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
-            Person("lisa", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("bob", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
         ],
         "roster": DeviceRoster.typical_home(),
         "weather": WeatherProfile("southeast_us", month=2),
@@ -1205,8 +1205,8 @@ def vacation(seed: int = 42) -> dict:
     """Both residents away days 10-17."""
     return {
         "people": [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
-            Person("lisa", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("bob", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
         ],
         "roster": DeviceRoster.typical_home(),
         "weather": WeatherProfile("southeast_us", month=2),
@@ -1218,12 +1218,12 @@ def work_from_home(seed: int = 42) -> dict:
     """One resident switches to WFH at day 8."""
     return {
         "people": [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
-            Person("lisa", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("bob", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
         ],
         "roster": DeviceRoster.typical_home(),
         "weather": WeatherProfile("southeast_us", month=2),
-        "wfh_person": "justin",
+        "wfh_person": "alice",
         "wfh_start_day": 8,
     }
 
@@ -1232,8 +1232,8 @@ def sensor_degradation(seed: int = 42) -> dict:
     """Battery sensors start reporting unavailable at day 20."""
     return {
         "people": [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
-            Person("lisa", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("bob", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
         ],
         "roster": DeviceRoster.typical_home(),
         "weather": WeatherProfile("southeast_us", month=2),
@@ -1245,8 +1245,8 @@ def holiday_week(seed: int = 42) -> dict:
     """Normal schedule with holiday flags."""
     return {
         "people": [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
-            Person("lisa", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("bob", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
         ],
         "roster": DeviceRoster.typical_home(),
         "weather": WeatherProfile("southeast_us", month=12),

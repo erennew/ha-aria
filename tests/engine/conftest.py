@@ -29,7 +29,7 @@ SAMPLE_STATES = [
         "state": "home",
         "attributes": {"friendly_name": "Justin", "source": "device_tracker.ipad_pro"},
     },
-    {"entity_id": "person.lisa", "state": "not_home", "attributes": {"friendly_name": "Lisa"}},
+    {"entity_id": "person.bob", "state": "not_home", "attributes": {"friendly_name": "Bob"}},
     {
         "entity_id": "climate.bedroom",
         "state": "cool",

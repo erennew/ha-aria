@@ -70,7 +70,10 @@ def test_fetch_rest_api_success():
     mock_response.__enter__ = MagicMock(return_value=mock_response)
     mock_response.__exit__ = MagicMock(return_value=False)
 
-    with patch("urllib.request.urlopen", return_value=mock_response):
+    with (
+        patch.object(discover, "HA_URL", "http://localhost:8123"),
+        patch("urllib.request.urlopen", return_value=mock_response),
+    ):
         result = discover.fetch_rest_api("/api/states")
 
     assert result == MOCK_STATES
@@ -85,7 +88,7 @@ def test_fetch_rest_api_retry_on_connection_error():
     mock_response.__exit__ = MagicMock(return_value=False)
 
     # Fail twice, then succeed
-    with patch("urllib.request.urlopen") as mock_urlopen:
+    with patch.object(discover, "HA_URL", "http://localhost:8123"), patch("urllib.request.urlopen") as mock_urlopen:
         mock_urlopen.side_effect = [Exception("Connection refused"), Exception("Timeout"), mock_response]
 
         with patch("time.sleep"):  # Don't actually sleep during tests
@@ -101,13 +104,18 @@ def test_fetch_rest_api_auth_error_no_retry():
 
     error = HTTPError("/api/states", 401, "Unauthorized", {}, BytesIO(b"Invalid token"))
 
-    with patch("urllib.request.urlopen", side_effect=error), pytest.raises(Exception, match="Authentication failed"):
+    with (
+        patch.object(discover, "HA_URL", "http://localhost:8123"),
+        patch("urllib.request.urlopen", side_effect=error),
+        pytest.raises(Exception, match="Authentication failed"),
+    ):
         discover.fetch_rest_api("/api/states")
 
 
 def test_fetch_rest_api_exhausted_retries():
     """Test failure after exhausting all retries."""
     with (
+        patch.object(discover, "HA_URL", "http://localhost:8123"),
         patch("urllib.request.urlopen", side_effect=Exception("Network error")),
         patch("time.sleep"),
         pytest.raises(Exception, match="after 2 attempts"),
@@ -179,6 +187,8 @@ def test_fetch_websocket_data_mocked():
     parse_responses = [auth_required_msg, auth_ok_msg, result_msg]
 
     with (
+        patch.object(discover, "HA_URL", "http://localhost:8123"),
+        patch.object(discover, "HA_TOKEN", "test-token"),
         patch("socket.socket", return_value=mock_sock),
         patch.object(discover, "parse_websocket_frame", side_effect=parse_responses),
         patch("random.randint", return_value=fixed_request_id),

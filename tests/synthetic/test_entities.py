@@ -58,7 +58,7 @@ class TestEntityStateGenerator:
     def test_generates_states_for_time(self):
         roster = DeviceRoster.typical_home()
         people = [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
         ]
         gen = EntityStateGenerator(roster, people, seed=42)
         states = gen.generate_states(day=0, hour=12.0, is_weekend=False)
@@ -71,7 +71,7 @@ class TestEntityStateGenerator:
     def test_lights_on_when_occupied_and_dark(self):
         roster = DeviceRoster.typical_home()
         people = [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
         ]
         gen = EntityStateGenerator(roster, people, seed=42)
         states = gen.generate_states(day=5, hour=20.0, is_weekend=True)
@@ -82,11 +82,11 @@ class TestEntityStateGenerator:
     def test_person_away_during_work(self):
         roster = DeviceRoster.typical_home()
         people = [
-            Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+            Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
         ]
         gen = EntityStateGenerator(roster, people, seed=42)
         states = gen.generate_states(day=1, hour=12.0, is_weekend=False)
-        person_states = [s for s in states if s["entity_id"] == "person.justin"]
+        person_states = [s for s in states if s["entity_id"] == "person.alice"]
         assert len(person_states) == 1
         assert person_states[0]["state"] == "not_home"
 

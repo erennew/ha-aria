@@ -43,7 +43,7 @@ HA Sensors (motion, lights, dimmers) → HA WebSocket
    - Config: `~/frigate/config/config.yml`
 
 2. **Mosquitto MQTT** (HA addon `core_mosquitto`)
-   - Broker on HA Pi at 192.168.1.35:1883
+   - Broker on HA Pi at <mqtt-broker-ip>:1883
    - Credentials: configured via MQTT_USER / MQTT_PASSWORD env vars in ~/.env
    - Bridge between Frigate and ARIA
 
@@ -71,13 +71,13 @@ HA Sensors (motion, lights, dimmers) → HA WebSocket
 
 | Camera | Type | IP | Status in Frigate |
 |--------|------|----|--------------------|
-| Driveway (I91BF) | ONVIF | 192.168.1.253 | Active |
-| Backyard (I91BF) | ONVIF | 192.168.1.125 | Active |
-| Axis M4308-PLE | ONVIF/Axis | 192.168.1.212 | Active |
-| Front Doorbell | UniFi Protect | 192.168.1.93 | Disabled (needs RTSP alias) |
-| G4 Instant Carter's | UniFi Protect | 192.168.1.216 | Disabled (needs RTSP alias) |
-| G4 Instant Collins's | UniFi Protect | 192.168.1.28 | Disabled (needs RTSP alias) |
-| Pool Camera | UniFi Protect | 192.168.3.196 | Disabled (needs RTSP alias) |
+| Driveway | ONVIF | <camera-ip-1> | Active |
+| Backyard | ONVIF | <camera-ip-2> | Active |
+| Panoramic | ONVIF | <camera-ip-3> | Active |
+| Front Doorbell | UniFi Protect | <camera-ip-4> | Disabled (needs RTSP alias) |
+| G4 Instant Bedroom 1 | UniFi Protect | <camera-ip-5> | Disabled (needs RTSP alias) |
+| G4 Instant Bedroom 2 | UniFi Protect | <camera-ip-6> | Disabled (needs RTSP alias) |
+| Pool Camera | UniFi Protect | <camera-ip-7> | Disabled (needs RTSP alias) |
 
 ### Room Resolution
 

@@ -461,7 +461,7 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
     # ── Presence Tracking ─────────────────────────────────────────────
     {
         "key": "presence.mqtt_host",
-        "default_value": "192.168.1.35",
+        "default_value": "",
         "value_type": "string",
         "label": "MQTT Host",
         "description": "Hostname or IP of the MQTT broker (Mosquitto on HA).",
@@ -480,7 +480,7 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
     },
     {
         "key": "presence.mqtt_user",
-        "default_value": "frigate",
+        "default_value": "",
         "value_type": "string",
         "label": "MQTT User",
         "description": "Username for MQTT broker authentication.",
@@ -500,8 +500,7 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
         "value_type": "string",
         "label": "Camera-to-Room Mapping",
         "description": (
-            "Comma-separated camera:room pairs"
-            " (e.g. driveway:driveway,carters_room:carters_room). Leave empty for defaults."
+            "Comma-separated camera:room pairs (e.g. front_yard:front_yard,bedroom:bedroom). Leave empty for defaults."
         ),
         "category": "Presence Tracking",
     },

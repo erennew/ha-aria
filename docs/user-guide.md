@@ -30,7 +30,7 @@ Complete guide to using the ARIA dashboard and understanding its outputs.
 
 2. Open your browser and navigate to:
    - Local: `http://localhost:8000/ui`
-   - Remote (via Tailscale): `https://justin-linux.tail828051.ts.net:8000/ui`
+   - Remote (via Tailscale): `https://<your-machine>.<your-tailnet>.ts.net:8000/ui`
 
 ### First-Time Setup
 

@@ -46,7 +46,7 @@ class OrchestratorModule(Module):
 
         Args:
             hub: IntelligenceHub instance
-            ha_url: Home Assistant URL (e.g., http://192.168.1.35:8123)
+            ha_url: Home Assistant URL (e.g., http://<ha-host>:8123)
             ha_token: Long-lived access token
             min_confidence: Minimum pattern confidence for suggestions (0-1)
         """

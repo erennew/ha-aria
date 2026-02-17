@@ -12,8 +12,8 @@ from tests.synthetic.weather import WeatherProfile
 def assembler():
     roster = DeviceRoster.typical_home()
     people = [
-        Person("justin", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
-        Person("lisa", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
+        Person("alice", Schedule.weekday_office(6.5, 23), Schedule.weekend(8, 23.5)),
+        Person("bob", Schedule.weekday_office(7, 22.5), Schedule.weekend(8.5, 23)),
     ]
     weather = WeatherProfile("southeast_us", month=2)
     return SnapshotAssembler(roster, people, weather, seed=42)

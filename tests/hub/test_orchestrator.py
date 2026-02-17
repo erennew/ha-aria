@@ -74,7 +74,7 @@ def module(hub):
     """Create an OrchestratorModule with mock hub and dummy HA credentials."""
     return OrchestratorModule(
         hub=hub,
-        ha_url="http://192.168.1.35:8123",
+        ha_url="http://localhost:8123",
         ha_token="fake-token",
         min_confidence=0.7,
     )
@@ -126,7 +126,7 @@ class TestInitialization:
 
     def test_constructor_stores_config(self, module):
         """Constructor stores HA URL, token, and min_confidence."""
-        assert module.ha_url == "http://192.168.1.35:8123"
+        assert module.ha_url == "http://localhost:8123"
         assert module.ha_token == "fake-token"
         assert module.min_confidence == 0.7
 

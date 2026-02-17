@@ -135,7 +135,7 @@ Record which signal types are working, which aren't. This informs Phase 2 priori
 **Step 1: Document instructions for user**
 
 The user needs to do this in the UniFi Protect UI:
-1. Open Protect → Cameras → Select camera (Front Doorbell, Carter's, Collins's, Pool)
+1. Open Protect → Cameras → Select camera (Front Doorbell, Bedroom 1, Bedroom 2, Pool)
 2. Go to Settings → Advanced → RTSP
 3. Enable RTSP stream
 4. Note the RTSP alias shown (e.g., `doorbell_high`, `doorbell_low`)
@@ -151,10 +151,10 @@ Example for front_doorbell:
     enabled: true  # ← was false
     ffmpeg:
       inputs:
-        - path: rtsps://192.168.1.1:7441/<ACTUAL_HIGH_ALIAS>
+        - path: rtsps://<unifi-ip>:7441/<ACTUAL_HIGH_ALIAS>
           roles:
             - record
-        - path: rtsps://192.168.1.1:7441/<ACTUAL_LOW_ALIAS>
+        - path: rtsps://<unifi-ip>:7441/<ACTUAL_LOW_ALIAS>
           roles:
             - detect
 ```

@@ -90,7 +90,7 @@ class TestEntityExtraction(unittest.TestCase):
         snapshot = self._snap()
         OccupancyCollector().extract(snapshot, SAMPLE_STATES)
         self.assertIn("Justin", snapshot["occupancy"]["people_home"])
-        self.assertIn("Lisa", snapshot["occupancy"]["people_away"])
+        self.assertIn("Bob", snapshot["occupancy"]["people_away"])
         self.assertGreater(snapshot["occupancy"]["device_count_home"], 0)
 
     def test_extract_climate(self):

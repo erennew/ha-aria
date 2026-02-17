@@ -14,7 +14,7 @@ export function Configuration({ config }) {
   return (
     <Section
       title="Configuration"
-      subtitle="Current engine settings. Edit ~/ha-logs/intelligence/feature_config.json to change."
+      subtitle="Current engine settings. Adjust via the Settings page."
     >
       <details class="t-card">
         <summary class="px-4 py-3 cursor-pointer text-sm font-medium" style="color: var(--text-secondary)">

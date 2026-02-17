@@ -35,14 +35,14 @@ This plan is grounded in real data pulled from HA on 2026-02-10:
 | automation | 31 | 13 on, 14 off, 4 unavailable — departure, arrival, doorbell, TTS, lighting |
 | media_player | 18 | Sonos multiroom — living room, atrium |
 | cover | 8 | Tesla doors/trunk/frunk/windows |
-| person | 6 | Justin, Lisa, Patrick, dashboard, Test, Claude Code Analysis |
+| person | 6 | Alice, Bob, Charlie, dashboard, Test, Claude Code Analysis |
 | vacuum | 3 | Roborock — status, missions |
 
 **Key assets for prediction:**
 - **USP PDU Pro**: 20 outlets with real-time wattage → energy prediction
 - **2 Teslas** (TARS active): charging rate, battery %, range, departure times → EV prediction
 - **Hue motion sensors**: closet motion = 38 events/day → occupancy proxy
-- **Person tracking**: Justin + Lisa home/not_home → occupancy ground truth
+- **Person tracking**: Alice + Bob home/not_home → occupancy ground truth
 - **10 cameras**: motion events → activity patterns
 - **Weather**: wttr.in (already in brief) → HVAC/lighting correlation
 - **Calendar**: gog CLI (already in brief) → occupancy prediction
@@ -161,7 +161,7 @@ import urllib.error
 from datetime import datetime, timedelta
 
 # === Config ===
-HA_URL = os.environ.get("HA_URL", "http://192.168.1.35:8123")
+HA_URL = os.environ.get("HA_URL", "http://<ha-host>:8123")
 HA_TOKEN = os.environ.get("HA_TOKEN", "")
 OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_MODEL = "qwen2.5:7b"
@@ -172,7 +172,7 @@ BASELINES_PATH = os.path.join(DATA_DIR, "baselines.json")
 PREDICTIONS_PATH = os.path.join(DATA_DIR, "predictions.json")
 ACCURACY_PATH = os.path.join(DATA_DIR, "accuracy.json")
 CORRELATIONS_PATH = os.path.join(DATA_DIR, "correlations.json")
-WEATHER_LOCATION = "Shalimar+FL"
+WEATHER_LOCATION = ""  # Set via environment
 LOGBOOK_PATH = os.path.expanduser("~/ha-logs/current.json")
 
 # Entities to exclude from unavailable counts (normally unavailable)
@@ -247,10 +247,10 @@ class TestEntityExtraction(unittest.TestCase):
     SAMPLE_STATES = [
         {"entity_id": "sensor.usp_pdu_pro_ac_power_consumption", "state": "156.5",
          "attributes": {"unit_of_measurement": "W", "friendly_name": "USP PDU Pro AC Power Consumption"}},
-        {"entity_id": "person.justin", "state": "home",
-         "attributes": {"friendly_name": "Justin", "source": "device_tracker.ipad_pro"}},
-        {"entity_id": "person.lisa", "state": "not_home",
-         "attributes": {"friendly_name": "Lisa"}},
+        {"entity_id": "person.alice", "state": "home",
+         "attributes": {"friendly_name": "Alice", "source": "device_tracker.ipad_pro"}},
+        {"entity_id": "person.bob", "state": "not_home",
+         "attributes": {"friendly_name": "Bob"}},
         {"entity_id": "climate.bedroom", "state": "cool",
          "attributes": {"current_temperature": 72, "temperature": 68, "friendly_name": "Bedroom"}},
         {"entity_id": "lock.back_door", "state": "unlocked",
@@ -259,7 +259,7 @@ class TestEntityExtraction(unittest.TestCase):
          "attributes": {"brightness": 143, "friendly_name": "Atrium"}},
         {"entity_id": "light.office", "state": "off", "attributes": {"friendly_name": "Office"}},
         {"entity_id": "automation.arrive_justin", "state": "on",
-         "attributes": {"friendly_name": "Arrive Justin", "last_triggered": "2026-02-10T22:23:00"}},
+         "attributes": {"friendly_name": "Arrive Alice", "last_triggered": "2026-02-10T22:23:00"}},
         {"entity_id": "sensor.luda_battery", "state": "71",
          "attributes": {"unit_of_measurement": "%", "friendly_name": "TARS Battery"}},
         {"entity_id": "sensor.luda_charger_power", "state": "4.0",
@@ -284,8 +284,8 @@ class TestEntityExtraction(unittest.TestCase):
         ha = SourceFileLoader("ha_intelligence", os.path.expanduser("~/.local/bin/aria")).load_module()
         snapshot = ha.build_empty_snapshot("2026-02-10")
         ha.extract_occupancy(snapshot, self.SAMPLE_STATES)
-        self.assertIn("Justin", snapshot["occupancy"]["people_home"])
-        self.assertIn("Lisa", snapshot["occupancy"]["people_away"])
+        self.assertIn("Alice", snapshot["occupancy"]["people_home"])
+        self.assertIn("Bob", snapshot["occupancy"]["people_away"])
         self.assertGreater(snapshot["occupancy"]["device_count_home"], 0)
 
     def test_extract_climate(self):
