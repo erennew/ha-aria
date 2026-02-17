@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import useCache from '../hooks/useCache.js';
 import useComputed from '../hooks/useComputed.js';
-import { getCategory } from '../store.js';
 import { fetchJson } from '../api.js';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
@@ -27,35 +26,26 @@ const PHASE_MILESTONES = [
 // Bus Architecture Diagram
 // ---------------------------------------------------------------------------
 
-const PLANE_DATA = {
-  data: {
-    label: 'DATA PLANE',
-    nodes: [
-      { id: 'discovery', label: 'Discovery', metricKey: 'entity_count' },
-      { id: 'activity_monitor', label: 'Activity', metricKey: 'event_rate' },
-      { id: 'data_quality', label: 'Curation', metricKey: 'included_count' },
-      { id: 'activity_labeler', label: 'Labeler', metricKey: 'current_activity' },
-    ],
-  },
-  learning: {
-    label: 'LEARNING PLANE',
-    nodes: [
-      { id: 'intelligence', label: 'Intel.', metricKey: 'day_count' },
-      { id: 'ml_engine', label: 'ML Engine', metricKey: 'mean_r2' },
-      { id: 'pattern_recognition', label: 'Patterns', metricKey: 'sequence_count' },
-      { id: 'drift_monitor', label: 'Drift', metricKey: 'drift_count' },
-    ],
-  },
-  action: {
-    label: 'ACTION PLANE',
-    nodes: [
-      { id: 'shadow_engine', label: 'Shadow', metricKey: 'accuracy' },
-      { id: 'orchestrator', label: 'Orchestr.', metricKey: 'pending_count' },
-      { id: 'pipeline_gates', label: 'Gates', metricKey: 'pipeline_stage' },
-      { id: 'feedback_health', label: 'Feedback', metricKey: 'feedback_fresh' },
-    ],
-  },
-};
+const FLOW_INTAKE = [
+  { id: 'engine', label: 'Engine', metricKey: 'pipeline_day' },
+  { id: 'discovery', label: 'Discovery', metricKey: 'entity_count' },
+  { id: 'activity_monitor', label: 'Activity', metricKey: 'event_rate' },
+  { id: 'presence', label: 'Presence', metricKey: 'presence_status' },
+];
+
+const FLOW_PROCESSING = [
+  { id: 'intelligence', label: 'Intelligence', metricKey: 'day_count' },
+  { id: 'ml_engine', label: 'ML Engine', metricKey: 'mean_r2' },
+  { id: 'shadow_engine', label: 'Shadow', metricKey: 'accuracy' },
+  { id: 'pattern_recognition', label: 'Patterns', metricKey: 'sequence_count' },
+];
+
+const FLOW_ENRICHMENT = [
+  { id: 'orchestrator', label: 'Orchestrator', metricKey: 'pending_count' },
+  { id: 'organic_discovery', label: 'Organic Disc.', metricKey: 'organic_count' },
+  { id: 'data_quality', label: 'Curation', metricKey: 'included_count' },
+  { id: 'activity_labeler', label: 'Labeler', metricKey: 'current_activity' },
+];
 
 function getNodeStatus(moduleStatuses, nodeId) {
   const status = moduleStatuses?.[nodeId];
@@ -70,19 +60,14 @@ function getNodeMetric(cacheData, node) {
   const pipeline = cacheData?.pipeline?.data || {};
   const shadow = cacheData?.shadow_accuracy?.data || {};
   const activity = cacheData?.activity_labels?.data || {};
-  const feedback = cacheData?.feedback_health || {};
-
   switch (node.id) {
+    case 'engine': return pipeline?.intelligence_day ? `Day ${pipeline.intelligence_day}` : '\u2014';
     case 'discovery': {
       const count = Object.values(caps).filter((entry) => entry && typeof entry === 'object' && entry.entities).reduce((sum, entry) => sum + (entry.entities?.length || 0), 0);
       return count ? `${count} entities` : '\u2014';
     }
     case 'activity_monitor': return pipeline?.events_per_minute ? `${pipeline.events_per_minute.toFixed(1)} ev/m` : '\u2014';
-    case 'data_quality': return pipeline?.included_entities ? `${pipeline.included_entities} incl.` : '\u2014';
-    case 'activity_labeler': {
-      const curr = activity?.current_activity;
-      return curr?.predicted || '\u2014';
-    }
+    case 'presence': return '\u2014';
     case 'intelligence': return pipeline?.intelligence_day ? `Day ${pipeline.intelligence_day}` : '\u2014';
     case 'ml_engine': {
       const mlCaps = Object.values(caps).filter((entry) => entry?.ml_accuracy);
@@ -90,17 +75,17 @@ function getNodeMetric(cacheData, node) {
       const avgR2 = mlCaps.reduce((s, entry) => s + (entry.ml_accuracy.mean_r2 || 0), 0) / mlCaps.length;
       return `R\u00B2: ${avgR2.toFixed(2)}`;
     }
-    case 'pattern_recognition': return '\u2014';
-    case 'drift_monitor': {
-      const drifted = Object.values(caps).filter((entry) => entry?.drift_flagged).length;
-      return `${drifted} flagged`;
-    }
     case 'shadow_engine': return shadow?.overall_accuracy ? `${(shadow.overall_accuracy * 100).toFixed(0)}%` : '\u2014';
+    case 'pattern_recognition': return '\u2014';
     case 'orchestrator': return '\u2014';
-    case 'pipeline_gates': return pipeline?.stage || 'shadow';
-    case 'feedback_health': {
-      const fresh = (feedback?.capabilities_with_ml_feedback || 0) + (feedback?.capabilities_with_shadow_feedback || 0);
-      return `${fresh} fresh`;
+    case 'organic_discovery': {
+      const organic = Object.values(caps).filter((entry) => entry?.source === 'organic').length;
+      return organic ? `${organic} organic` : '\u2014';
+    }
+    case 'data_quality': return pipeline?.included_entities ? `${pipeline.included_entities} incl.` : '\u2014';
+    case 'activity_labeler': {
+      const curr = activity?.current_activity;
+      return curr?.predicted || '\u2014';
     }
     default: return '\u2014';
   }
@@ -134,117 +119,12 @@ function ModuleNode({ x, y, status, label, metric, glowing, animateMetric }) {
   );
 }
 
-function PlaneLabel({ x, y, label }) {
-  return <text x={x} y={y} text-anchor="middle" fill="var(--text-tertiary)" font-size="10" font-weight="700" font-family="var(--font-mono)" letter-spacing="2">{label}</text>;
-}
 
-function BusConnector({ x, y1, y2, label, stale, flashing }) {
-  const lineClass = stale ? '' : 'bus-connector-line';
-  const stroke = stale ? 'var(--status-error)' : 'var(--border-primary)';
-  const dasharray = stale ? '2 4' : undefined;
-  const flashClass = flashing ? ' animate-data-refresh' : '';
+function BusArchitecture({ moduleStatuses, cacheData }) {
+  const nodeX = [30, 235, 440, 645];
+  const nodeW = 180;
 
-  return (
-    <g class={flashClass}>
-      <line
-        x1={x} y1={y1} x2={x} y2={y2}
-        class={lineClass}
-        stroke={stroke}
-        stroke-width="1"
-        stroke-dasharray={dasharray}
-      />
-      {stale && (
-        <g transform={`translate(${x - 4}, ${(y1 + y2) / 2 - 6})`}>
-          <circle cx="4" cy="4" r="6" fill="var(--status-error)" opacity="0.2" />
-          <text x="4" y="7" text-anchor="middle" fill="var(--status-error)" font-size="9" font-weight="bold" font-family="var(--font-mono)">!</text>
-        </g>
-      )}
-      {label && <text x={x + 4} y={(y1 + y2) / 2} fill={stale ? 'var(--status-error)' : 'var(--text-tertiary)'} font-size="8" font-family="var(--font-mono)">{label}</text>}
-    </g>
-  );
-}
-
-// Map cache categories to connector indices for flash animation
-const CACHE_CONNECTOR_MAP = {
-  capabilities: { section: 'data', index: 0 },
-  entities: { section: 'data', index: 0 },
-  activity_summary: { section: 'data', index: 1 },
-  entity_curation: { section: 'data', index: 2 },
-  activity_labels: { section: 'data', index: 3 },
-  ml_accuracy: { section: 'learning', index: 1 },
-  shadow_accuracy: { section: 'learning', index: 1 },
-};
-
-const STALE_THRESHOLD_MS = 48 * 60 * 60 * 1000; // 48 hours
-
-function isStaleTimestamp(ts) {
-  if (!ts) return true;
-  const d = typeof ts === 'string' ? new Date(ts).getTime() : ts;
-  if (isNaN(d)) return true;
-  return Date.now() - d > STALE_THRESHOLD_MS;
-}
-
-function computeBusLoad(feedbackHealth) {
-  if (!feedbackHealth) return 1.5;
-  const metrics = [
-    feedbackHealth.capabilities_with_ml_feedback,
-    feedbackHealth.capabilities_with_shadow_feedback,
-    feedbackHealth.total_feedback_entries,
-    feedbackHealth.feedback_sources_active,
-    feedbackHealth.capabilities_with_drift_feedback,
-  ];
-  const active = metrics.filter((v) => v && v > 0).length;
-  if (active >= 5) return 3;
-  if (active >= 3) return 2.5;
-  if (active >= 1) return 2;
-  return 1.5;
-}
-
-function BusArchitecture({ moduleStatuses, cacheData, feedbackHealth }) {
-  const nodeX = [50, 260, 470, 680];
-  const connectorLabelsData = ['entities', 'events', 'rules', 'labels'];
-  const connectorLabelsLearning = ['', 'accuracy', '', ''];
-
-  // --- Animation 1: Cache update flash ---
-  const [flashingConnectors, setFlashingConnectors] = useState({});
-  const flashTimerRef = useRef({});
-
-  useEffect(() => {
-    const categories = Object.keys(CACHE_CONNECTOR_MAP);
-    const lastFetchedRef = {};
-
-    // Snapshot current lastFetched values
-    categories.forEach((cat) => {
-      const sig = getCategory(cat);
-      lastFetchedRef[cat] = sig.value.lastFetched || 0;
-    });
-
-    const interval = setInterval(() => {
-      categories.forEach((cat) => {
-        const sig = getCategory(cat);
-        const current = sig.value.lastFetched || 0;
-        if (current > lastFetchedRef[cat] && lastFetchedRef[cat] > 0) {
-          const mapping = CACHE_CONNECTOR_MAP[cat];
-          const connKey = `${mapping.section}-${mapping.index}`;
-          setFlashingConnectors((prev) => ({ ...prev, [connKey]: true }));
-
-          // Clear after 300ms
-          clearTimeout(flashTimerRef.current[connKey]);
-          flashTimerRef.current[connKey] = setTimeout(() => {
-            setFlashingConnectors((prev) => ({ ...prev, [connKey]: false }));
-          }, 300);
-        }
-        lastFetchedRef[cat] = current;
-      });
-    }, 200);
-
-    return () => {
-      clearInterval(interval);
-      Object.values(flashTimerRef.current).forEach(clearTimeout);
-    };
-  }, []);
-
-  // --- Animation 3: Activity Labeler pulse ---
+  // --- Activity Labeler pulse animation (kept from original) ---
   const prevActivityRef = useRef(null);
   const [labelerGlowing, setLabelerGlowing] = useState(false);
   const [labelerAnimateMetric, setLabelerAnimateMetric] = useState(false);
@@ -266,70 +146,56 @@ function BusArchitecture({ moduleStatuses, cacheData, feedbackHealth }) {
     return () => clearTimeout(glowTimerRef.current);
   }, [currentActivity]);
 
-  // --- Animation 4: Stale indicators ---
-  const feedbackTimestamps = feedbackHealth || {};
-  const staleLearning = [
-    false,
-    isStaleTimestamp(feedbackTimestamps.last_ml_feedback_at),
-    false,
-    false,
-  ];
-  const staleFeedback = [
-    isStaleTimestamp(feedbackTimestamps.last_shadow_feedback_at),
-    false,
-    false,
-    isStaleTimestamp(feedbackTimestamps.last_feedback_at),
-  ];
+  function renderRow(nodes, yOffset) {
+    return nodes.map((node, idx) => {
+      const isLabeler = node.id === 'activity_labeler';
+      return (
+        <ModuleNode
+          key={node.id}
+          x={nodeX[idx]}
+          y={yOffset}
+          status={node.id === 'engine' ? 'healthy' : getNodeStatus(moduleStatuses, node.id)}
+          label={node.label}
+          metric={getNodeMetric(cacheData, node)}
+          glowing={isLabeler && labelerGlowing}
+          animateMetric={isLabeler && labelerAnimateMetric}
+        />
+      );
+    });
+  }
 
-  // --- Animation 5: Bus load indicator ---
-  const busLoad = computeBusLoad(feedbackHealth);
-
-  function renderPlane(planeKey, yOffset) {
-    const plane = PLANE_DATA[planeKey];
+  // Arrow helper — small downward arrow
+  function Arrow({ x, y, label }) {
     return (
-      <g transform={`translate(0, ${yOffset})`}>
-        <PlaneLabel x={450} y={15} label={plane.label} />
-        {plane.nodes.map((node, idx) => {
-          const isLabeler = node.id === 'activity_labeler';
-          return (
-            <ModuleNode
-              key={node.id}
-              x={nodeX[idx]}
-              y={25}
-              status={getNodeStatus(moduleStatuses, node.id)}
-              label={node.label}
-              metric={getNodeMetric(cacheData, node)}
-              glowing={isLabeler && labelerGlowing}
-              animateMetric={isLabeler && labelerAnimateMetric}
-            />
-          );
-        })}
+      <g>
+        <line x1={x} y1={y} x2={x} y2={y + 18} stroke="var(--border-primary)" stroke-width="1" />
+        <polygon points={`${x - 3},${y + 14} ${x + 3},${y + 14} ${x},${y + 18}`} fill="var(--border-primary)" />
+        {label && <text x={x + 6} y={y + 12} fill="var(--text-tertiary)" font-size="7" font-family="var(--font-mono)">{label}</text>}
       </g>
     );
   }
 
-  // Full feedback loop path: ML Engine → down to feedback bus → left → up to capabilities bus → right → down to Discovery
-  // ML Engine node is at nodeX[1]=260 + 90 center = 350, learning plane y=150+25+55=230
-  // Feedback bus at y=272 (260+12 center)
-  // Capabilities bus at y=122 (110+12 center)
-  // Discovery node is at nodeX[0]=50 + 90 center = 140, data plane y=25+55=80
-  const tracerPath = 'M350,230 L350,272 L140,272 L140,122 L870,122 L870,175';
+  // Banner bar helper
+  function Banner({ y, label, sublabel, color }) {
+    return (
+      <g>
+        <rect x="20" y={y} width="820" height="28" rx="4" fill="var(--bg-inset)" stroke={color || 'var(--accent)'} stroke-width="1.5" />
+        <text x="430" y={y + 13} text-anchor="middle" fill={color || 'var(--accent)'} font-size="11" font-weight="700" font-family="var(--font-mono)">{label}</text>
+        {sublabel && <text x="430" y={y + 24} text-anchor="middle" fill="var(--text-tertiary)" font-size="8" font-family="var(--font-mono)">{sublabel}</text>}
+      </g>
+    );
+  }
+
+  // Center x for each node column
+  const cx = nodeX.map((x) => x + nodeW / 2);
+
+  // Vertical tracer path down center
+  const tracerPath = 'M430,28 L430,80 L430,250 L430,325 L430,405 L430,475 L430,530';
 
   return (
     <section class="t-terminal-bg rounded-lg p-4 overflow-x-auto">
-      <svg viewBox="0 0 900 530" class="w-full" style="min-width: 700px; max-width: 100%;">
-        {/* Defs for animations and filters */}
+      <svg viewBox="0 0 860 560" class="w-full" style="min-width: 700px; max-width: 100%;">
         <defs>
-          <pattern id="bus-flow" width="20" height="4" patternUnits="userSpaceOnUse">
-            <rect width="10" height="4" fill="var(--accent)" opacity="0.5">
-              <animate attributeName="x" from="-20" to="20" dur="1.5s" repeatCount="indefinite" />
-            </rect>
-          </pattern>
-          <pattern id="feedback-flow" width="20" height="4" patternUnits="userSpaceOnUse">
-            <rect width="10" height="4" fill="var(--status-healthy)" opacity="0.5">
-              <animate attributeName="x" from="20" to="-20" dur="2s" repeatCount="indefinite" />
-            </rect>
-          </pattern>
           <filter id="led-glow">
             <feGaussianBlur stdDeviation="2" result="blur" />
             <feMerge>
@@ -346,98 +212,68 @@ function BusArchitecture({ moduleStatuses, cacheData, feedbackHealth }) {
           </filter>
         </defs>
 
-        {/* DATA PLANE */}
-        {renderPlane('data', 0)}
+        {/* Layer 1: HOME ASSISTANT banner */}
+        <Banner y={0} label="HOME ASSISTANT" sublabel="REST API \u00B7 WebSocket \u00B7 MQTT" />
 
-        {/* Connectors: data plane -> capabilities bus */}
-        {nodeX.map((nx, idx) => (
-          <BusConnector
-            key={`dc${idx}`}
-            x={nx + 90}
-            y1={80}
-            y2={110}
-            label={connectorLabelsData[idx]}
-            flashing={flashingConnectors[`data-${idx}`]}
-          />
-        ))}
+        {/* Connection labels from HA to intake */}
+        <Arrow x={cx[0]} y={28} label="scheduled" />
+        <Arrow x={cx[1]} y={28} label="on startup" />
+        <Arrow x={cx[2]} y={28} label="real-time" />
+        <Arrow x={cx[3]} y={28} label="mqtt" />
 
-        {/* CAPABILITIES BUS */}
-        <g transform="translate(0, 110)">
-          <rect x="30" y="0" width="840" height="24" rx="4" fill="url(#bus-flow)" />
-          <rect x="30" y="0" width="840" height="24" rx="4" fill="none" stroke="var(--accent)" stroke-width={busLoad} opacity="0.4" style="transition: stroke-width 0.5s ease;" />
-          <text x="450" y="16" text-anchor="middle" fill="var(--accent)" font-size="9" font-family="var(--font-mono)">
-            CAPABILITIES BUS  [entities] [activity] [curation] [labels] [usefulness]
+        {/* Layer 2: INTAKE row */}
+        <text x="430" y={58} text-anchor="middle" fill="var(--text-tertiary)" font-size="9" font-weight="700" font-family="var(--font-mono)" letter-spacing="2">INTAKE</text>
+        {renderRow(FLOW_INTAKE, 62)}
+
+        {/* Engine Pipeline detail box */}
+        <g transform="translate(30, 125)">
+          <rect width="800" height="42" rx="4" fill="none" stroke="var(--border-primary)" stroke-width="1" stroke-dasharray="4 2" />
+          <text x="12" y="14" fill="var(--text-tertiary)" font-size="8" font-weight="600" font-family="var(--font-mono)">ENGINE PIPELINE</text>
+          <text x="12" y="32" fill="var(--text-tertiary)" font-size="8" font-family="var(--font-mono)">
+            {'snapshots \u2192 baselines \u2192 ML training \u2192 predictions \u2192 correlations \u2192 anomalies'}
           </text>
-          <circle r="3" fill="var(--accent)">
-            <animateMotion dur="3s" repeatCount="indefinite" path="M30,12 L870,12" />
-          </circle>
         </g>
 
-        {/* Connectors: capabilities bus -> learning plane */}
-        {nodeX.map((nx, idx) => (
-          <BusConnector key={`cl${idx}`} x={nx + 90} y1={134} y2={160} />
-        ))}
+        {/* Arrows from intake to Hub Cache */}
+        {cx.map((x, i) => <Arrow key={`a1-${i}`} x={x} y={170} label={['JSON files', 'entities', 'events', 'occupancy'][i]} />)}
 
-        {/* LEARNING PLANE */}
-        {renderPlane('learning', 150)}
+        {/* Layer 3: HUB CACHE banner */}
+        <Banner y={192} label="HUB CACHE" sublabel="SQLite \u00B7 15 categories" color="var(--status-healthy)" />
 
-        {/* Connectors: learning plane -> feedback bus */}
-        {nodeX.map((nx, idx) => (
-          <BusConnector
-            key={`lf${idx}`}
-            x={nx + 90}
-            y1={230}
-            y2={260}
-            label={connectorLabelsLearning[idx]}
-            stale={staleLearning[idx]}
-            flashing={flashingConnectors[`learning-${idx}`]}
-          />
-        ))}
+        {/* Arrows from cache to processing */}
+        {cx.map((x, i) => <Arrow key={`a2-${i}`} x={x} y={220} />)}
 
-        {/* FEEDBACK BUS */}
-        <g transform="translate(0, 260)">
-          <rect x="30" y="0" width="840" height="24" rx="4" fill="url(#feedback-flow)" />
-          <rect x="30" y="0" width="840" height="24" rx="4" fill="none" stroke="var(--status-healthy)" stroke-width={busLoad} opacity="0.4" style="transition: stroke-width 0.5s ease;" />
-          <text x="450" y="16" text-anchor="middle" fill="var(--status-healthy)" font-size="9" font-family="var(--font-mono)">
-            FEEDBACK BUS  [accuracy] [hit_rate] [suggestions] [drift] [corrections]
-          </text>
-          <circle r="3" fill="var(--status-healthy)">
-            <animateMotion dur="4s" repeatCount="indefinite" path="M870,12 L30,12" />
-          </circle>
-        </g>
+        {/* Layer 4: PROCESSING row */}
+        <text x="430" y={248} text-anchor="middle" fill="var(--text-tertiary)" font-size="9" font-weight="700" font-family="var(--font-mono)" letter-spacing="2">PROCESSING</text>
+        {renderRow(FLOW_PROCESSING, 255)}
 
-        {/* Connectors: feedback bus -> action plane */}
-        {nodeX.map((nx, idx) => (
-          <BusConnector
-            key={`fa${idx}`}
-            x={nx + 90}
-            y1={284}
-            y2={310}
-            stale={staleFeedback[idx]}
-          />
-        ))}
+        {/* Layer 5: ENRICHMENT row */}
+        <text x="430" y={328} text-anchor="middle" fill="var(--text-tertiary)" font-size="9" font-weight="700" font-family="var(--font-mono)" letter-spacing="2">ENRICHMENT</text>
+        {renderRow(FLOW_ENRICHMENT, 335)}
 
-        {/* ACTION PLANE */}
-        {renderPlane('action', 300)}
+        {/* Arrows to YOU */}
+        <Arrow x={430} y={395} />
 
-        {/* YOU node at bottom */}
-        <g transform="translate(310, 390)">
-          <rect x="0" y="0" width="280" height="35" rx="4" fill="var(--bg-inset)" stroke="var(--accent)" stroke-width="2" />
-          <text x="140" y="22" text-anchor="middle" fill="var(--accent)" font-size="12" font-weight="bold" font-family="var(--font-mono)">
+        {/* Layer 6: YOU banner */}
+        <g transform="translate(200, 418)">
+          <rect x="0" y="0" width="460" height="35" rx="4" fill="var(--bg-inset)" stroke="var(--accent)" stroke-width="2" />
+          <text x="230" y="22" text-anchor="middle" fill="var(--accent)" font-size="12" font-weight="bold" font-family="var(--font-mono)">
             {'YOU:  Label \u00B7 Curate \u00B7 Review \u00B7 Advance'}
           </text>
         </g>
 
-        {/* Feedback loop tracer — full loop path */}
-        {/* Lead tracer */}
-        <circle r="4" fill="var(--status-healthy)" opacity="0.9" filter="url(#tracer-glow)">
-          <animateMotion dur="10s" repeatCount="indefinite" path={tracerPath} />
-          <animate attributeName="r" values="4;6;4" dur="10s" repeatCount="indefinite" />
+        {/* Arrow to Dashboard */}
+        <Arrow x={430} y={453} />
+
+        {/* Layer 7: DASHBOARD banner */}
+        <Banner y={475} label="DASHBOARD" sublabel="13 pages \u00B7 WebSocket push" />
+
+        {/* Flowing dot tracer along center vertical */}
+        <circle r="3" fill="var(--accent)" opacity="0.7" filter="url(#tracer-glow)">
+          <animateMotion dur="8s" repeatCount="indefinite" path={tracerPath} />
         </circle>
-        {/* Trailing glow (larger, dimmer, 0.5s behind) */}
-        <circle r="7" fill="var(--status-healthy)" opacity="0.25" filter="url(#tracer-glow)">
-          <animateMotion dur="10s" repeatCount="indefinite" path={tracerPath} begin="0.5s" />
-          <animate attributeName="r" values="7;10;7" dur="10s" repeatCount="indefinite" begin="0.5s" />
+        <circle r="5" fill="var(--accent)" opacity="0.2" filter="url(#tracer-glow)">
+          <animateMotion dur="8s" repeatCount="indefinite" path={tracerPath} begin="0.4s" />
         </circle>
       </svg>
     </section>
@@ -539,7 +375,6 @@ export default function Home() {
   const [shadow, setShadow] = useState(null);
   const [pipeline, setPipeline] = useState(null);
   const [curation, setCuration] = useState(null);
-  const [feedbackHealth, setFeedbackHealth] = useState(null);
   const [fetchError, setFetchError] = useState(null);
 
   useEffect(() => {
@@ -548,14 +383,12 @@ export default function Home() {
       fetchJson('/api/shadow/accuracy').catch(() => null),
       fetchJson('/api/pipeline').catch(() => null),
       fetchJson('/api/curation/summary').catch(() => null),
-      fetchJson('/api/capabilities/feedback/health').catch(() => null),
       fetchJson('/api/activity/current').catch(() => null),
-    ]).then(([hlth, s, p, c, fb, act]) => {
+    ]).then(([hlth, s, p, c, act]) => {
       setHealth(hlth);
       setShadow(s);
       setPipeline(p);
       setCuration(c);
-      setFeedbackHealth(fb);
     }).catch((err) => setFetchError(err.message || String(err)));
   }, []);
 
@@ -581,8 +414,7 @@ export default function Home() {
     pipeline: { data: pipeline },
     shadow_accuracy: { data: shadow },
     activity_labels: activity.data,
-    feedback_health: feedbackHealth,
-  }), [entities.data, pipeline, shadow, activity.data, feedbackHealth]);
+  }), [entities.data, pipeline, shadow, activity.data]);
 
   if (loading && !intelligence.data) {
     return (
@@ -643,7 +475,6 @@ export default function Home() {
       <BusArchitecture
         moduleStatuses={health?.modules || {}}
         cacheData={cacheData}
-        feedbackHealth={feedbackHealth}
       />
     </div>
   );
