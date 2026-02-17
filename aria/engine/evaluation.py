@@ -19,6 +19,8 @@ def expanding_window_cv(
 
     n_folds=1 is equivalent to a single 80/20 split.
     """
+    if n_folds < 1:
+        raise ValueError(f"n_folds must be >= 1, got {n_folds}")
     n = len(X)
     if n_folds == 1:
         split = int(n * 0.8)
@@ -26,6 +28,8 @@ def expanding_window_cv(
         return
 
     chunk_size = n // (n_folds + 1)
+    if chunk_size == 0:
+        raise ValueError(f"Not enough samples ({n}) for {n_folds} folds — need at least {n_folds + 1}")
     for k in range(n_folds):
         train_end = chunk_size * (k + 1)
         val_end = min(train_end + chunk_size, n)

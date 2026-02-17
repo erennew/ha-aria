@@ -156,14 +156,23 @@ class MLEngine(Module):
             f"ML Engine tier: {self.current_tier} (hw: {hw_profile.ram_gb}GB RAM, {hw_profile.cpu_cores} cores)"
         )
 
-        # Model configuration — derived from Tier 2 registry entries which match
-        # the current training pipeline (gb, rf, lgbm). Full registry-driven
+        # Model configuration — derived from registry entries that match the
+        # current training pipeline (gb, rf, lgbm). Full registry-driven
         # training will replace this when _fit_all_models is refactored.
         _TRAINING_MODELS = {"gb", "rf", "lgbm"}
         resolved = [e for e in self.registry.resolve("power_watts", self.current_tier) if e.name in _TRAINING_MODELS]
-        self.enabled_models: dict[str, bool] = {e.name: True for e in resolved}
-        total_w = sum(e.weight for e in resolved)
-        self.model_weights: dict[str, float] = {e.name: e.weight / total_w for e in resolved} if total_w else {}
+        if not resolved:
+            # Tier 1 or dependency-missing: fall back to legacy defaults so
+            # the training pipeline still works with hardcoded model creation.
+            logger.warning(
+                f"No registry models matched training pipeline at tier {self.current_tier} — using legacy defaults"
+            )
+            self.enabled_models: dict[str, bool] = {"gb": True, "rf": True, "lgbm": True}
+            self.model_weights: dict[str, float] = {"gb": 0.35, "rf": 0.25, "lgbm": 0.40}
+        else:
+            self.enabled_models = {e.name: True for e in resolved}
+            total_w = sum(e.weight for e in resolved)
+            self.model_weights = {e.name: e.weight / total_w for e in resolved} if total_w else {}
 
         # Loaded models cache
         self.models: dict[str, dict[str, Any]] = {}

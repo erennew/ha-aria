@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from aria.engine.evaluation import expanding_window_cv
 
@@ -46,3 +47,17 @@ class TestExpandingWindowCV:
         X_tr, _, X_val, _ = folds[0]
         assert len(X_tr) == 48  # 80% of 60
         assert len(X_val) == 12  # 20% of 60
+
+    def test_zero_folds_raises(self):
+        """n_folds=0 should raise ValueError, not silently produce nothing."""
+        X = np.random.randn(60, 5)
+        y = np.random.randn(60)
+        with pytest.raises(ValueError, match="n_folds must be >= 1"):
+            list(expanding_window_cv(X, y, n_folds=0))
+
+    def test_too_few_samples_raises(self):
+        """More folds than samples should raise ValueError."""
+        X = np.random.randn(3, 2)
+        y = np.random.randn(3)
+        with pytest.raises(ValueError, match="Not enough samples"):
+            list(expanding_window_cv(X, y, n_folds=3))
