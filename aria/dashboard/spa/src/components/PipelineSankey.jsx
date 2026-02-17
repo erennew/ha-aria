@@ -35,7 +35,58 @@ function getGroupHealth(moduleStatuses, childIds) {
 
 // --- SVG Primitives ---
 
-function SankeyNode({ node, status, metric, onClick, highlighted, dimmed, onMouseEnter, onMouseLeave }) {
+function SvgSparkline({ data, x, y, w, h, color }) {
+  if (!data || data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const points = data.map((v, i) =>
+    `${x + (i / (data.length - 1)) * w},${y + h - ((v - min) / range) * h}`
+  ).join(' ');
+  return <polyline points={points} fill="none" stroke={color} stroke-width="1.5" opacity="0.7" />;
+}
+
+function getNodeSparklineData(cacheData, nodeId) {
+  const sparklineMap = {
+    intelligence: () => cacheData?.intelligence?.data?.intraday_trend,
+    shadow_engine: () => cacheData?.shadow_accuracy?.history,
+    ml_engine: () => cacheData?.ml_pipeline?.training?.r2_history,
+    activity_monitor: () => cacheData?.pipeline?.event_rate_history,
+  };
+  const getter = sparklineMap[nodeId];
+  if (!getter) return null;
+  const data = getter();
+  return Array.isArray(data) && data.length >= 2 ? data : null;
+}
+
+function getNodeFreshness(cacheData, nodeId) {
+  const categoryMap = {
+    discovery: 'capabilities',
+    activity_monitor: 'activity_summary',
+    presence: 'presence',
+    intelligence: 'intelligence',
+    ml_engine: 'ml_pipeline',
+    shadow_engine: 'shadow_accuracy',
+    pattern_recognition: 'patterns',
+    data_quality: 'curation',
+    orchestrator: 'automations',
+    organic_discovery: 'capabilities',
+    activity_labeler: 'activity_labels',
+  };
+  const cat = categoryMap[nodeId];
+  if (!cat) return null;
+  const ts = cacheData?.[cat]?.timestamp || cacheData?.[cat]?.updated_at;
+  if (!ts) return null;
+  const age = Date.now() - new Date(ts).getTime();
+  const minutes = Math.floor(age / 60000);
+  if (minutes < 1) return { text: '<1m', status: 'healthy' };
+  if (minutes < 15) return { text: `${minutes}m`, status: 'healthy' };
+  if (minutes < 60) return { text: `${minutes}m`, status: 'warning' };
+  const hours = Math.floor(minutes / 60);
+  return { text: `${hours}h`, status: 'blocked' };
+}
+
+function SankeyNode({ node, status, metric, onClick, highlighted, dimmed, onMouseEnter, onMouseLeave, sparklineData, freshness }) {
   const color = STATUS_COLORS[status] || STATUS_COLORS.waiting;
   const opacity = dimmed ? 0.12 : 1;
 
@@ -65,7 +116,16 @@ function SankeyNode({ node, status, metric, onClick, highlighted, dimmed, onMous
       <text x="26" y="18" fill="var(--text-primary)" font-size="11" font-weight="600" font-family="var(--font-mono)">
         {node.label}
       </text>
-      {/* Metric */}
+      {/* Freshness timestamp (expanded nodes only) */}
+      {freshness && (
+        <text x={node.w - 28} y="14" fill={STATUS_COLORS[freshness.status]} font-size="8" font-family="var(--font-mono)" text-anchor="end">
+          {freshness.text}
+        </text>
+      )}
+      {/* Sparkline or Metric */}
+      {sparklineData ? (
+        <SvgSparkline data={sparklineData} x={60} y={22} w={70} h={14} color={color} />
+      ) : null}
       <text x="14" y={node.h - 10} fill="var(--text-tertiary)" font-size="10" font-family="var(--font-mono)">
         {metric}
       </text>
@@ -178,6 +238,7 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
   const [expandedColumn, setExpandedColumn] = useState(-1);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [traceTarget, setTraceTarget] = useState(null);
+  const [transitioning, setTransitioning] = useState(false);
 
   // Responsive width
   useEffect(() => {
@@ -204,7 +265,11 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
 
   function handleNodeClick(node) {
     if (node.isGroup) {
-      setExpandedColumn((prev) => (prev === node.column ? -1 : node.column));
+      setTransitioning(true);
+      setTimeout(() => {
+        setExpandedColumn((prev) => (prev === node.column ? -1 : node.column));
+        setTimeout(() => setTransitioning(false), 150);
+      }, 150);
       setTraceTarget(null);
     } else if (node.column === 4) {
       // Output node — toggle trace-back
@@ -245,6 +310,7 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
         </defs>
 
         {/* Flows (behind nodes) */}
+        <g style={`opacity: ${transitioning ? 0 : 1}; transition: opacity 150ms;`}>
         {layout.links.map((link) => (
           <SankeyFlow
             key={`${link.source}-${link.target}`}
@@ -253,6 +319,7 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
             highlighted={traceSet && !isLinkDimmed(link)}
           />
         ))}
+        </g>
 
         {/* Bus Bar */}
         <BusBar busBar={layout.busBar} />
@@ -265,6 +332,9 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
           const metric = node.isGroup
             ? `${node.children?.length || 0} modules`
             : getNodeMetric(cacheData, node.id);
+          const isExpanded = !node.isGroup && node.column === expandedColumn;
+          const sparklineData = isExpanded ? getNodeSparklineData(cacheData, node.id) : null;
+          const freshness = isExpanded ? getNodeFreshness(cacheData, node.id) : null;
 
           return (
             <SankeyNode
@@ -277,6 +347,8 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
               dimmed={isNodeDimmed(node)}
               onMouseEnter={() => !node.isGroup && setHoveredNode(node.id)}
               onMouseLeave={() => setHoveredNode(null)}
+              sparklineData={sparklineData}
+              freshness={freshness}
             />
           );
         })}
