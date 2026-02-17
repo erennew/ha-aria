@@ -5,7 +5,14 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from aria.modules.ml_engine import MLEngine
+try:
+    from aria.modules.ml_engine import MLEngine
+
+    HAS_LIGHTGBM = True
+except ImportError:
+    HAS_LIGHTGBM = False
+
+pytestmark = pytest.mark.skipif(not HAS_LIGHTGBM, reason="lightgbm not installed")
 
 
 @pytest.fixture

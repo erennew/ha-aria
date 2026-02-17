@@ -7,17 +7,17 @@ class TestTieredModelRegistry:
     def test_register_and_resolve_tier_2(self):
         registry = TieredModelRegistry()
         entry = ModelEntry(
-            name="lgbm_power",
+            name="gb_power",
             tier=2,
-            model_factory=lambda: "mock_lgbm",
+            model_factory=lambda: "mock_gb",
             params={"n_estimators": 100},
             weight=0.40,
-            requires=["lightgbm"],
+            requires=[],
         )
         registry.register("power_watts", entry)
         resolved = registry.resolve("power_watts", current_tier=2)
         assert len(resolved) == 1
-        assert resolved[0].name == "lgbm_power"
+        assert resolved[0].name == "gb_power"
 
     def test_resolve_excludes_higher_tiers(self):
         registry = TieredModelRegistry()
