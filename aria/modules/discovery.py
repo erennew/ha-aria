@@ -10,7 +10,7 @@ import logging
 import os
 import subprocess
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -113,30 +113,128 @@ class DiscoveryModule(Module):
             self.logger.error(f"Discovery error: {e}")
             raise
 
+    async def _merge_with_lifecycle(self, cache_key: str, new_items: dict[str, Any], now: datetime) -> dict[str, Any]:
+        """Merge new discovery items with existing cache, tracking lifecycle state.
+
+        For each item:
+        - In new discovery: set active, update fields, preserve first_discovered,
+          clear stale_since/archived_at.
+        - In old cache but NOT new: active→stale (set stale_since).
+          Already stale/archived→keep as-is (don't re-stamp).
+
+        Returns:
+            Merged dict with lifecycle metadata on every item.
+        """
+        now_iso = now.isoformat()
+
+        # Load existing cache
+        existing_entry = await self.hub.get_cache(cache_key)
+        existing = {}
+        if existing_entry and existing_entry.get("data"):
+            existing = existing_entry["data"]
+
+        merged: dict[str, Any] = {}
+
+        # Process items present in new discovery
+        for item_id, item_data in new_items.items():
+            old = existing.get(item_id, {})
+            old_lc = old.get("_lifecycle", {})
+
+            entry = dict(item_data)
+            entry["_lifecycle"] = {
+                "status": "active",
+                "first_discovered": old_lc.get("first_discovered", now_iso),
+                "last_seen_in_discovery": now_iso,
+                "stale_since": None,
+                "archived_at": None,
+            }
+            merged[item_id] = entry
+
+        # Process items in old cache but NOT in new discovery
+        for item_id, item_data in existing.items():
+            if item_id in merged:
+                continue  # already handled above
+
+            old_lc = item_data.get("_lifecycle", {})
+            status = old_lc.get("status", "active")
+
+            entry = dict(item_data)
+            if status == "active":
+                # Transition active → stale
+                entry["_lifecycle"] = {
+                    **old_lc,
+                    "status": "stale",
+                    "stale_since": now_iso,
+                }
+            # Already stale or archived — keep as-is (don't re-stamp)
+            merged[item_id] = entry
+
+        return merged
+
+    async def _archive_expired_entities(self, cache_key: str):
+        """Archive stale entities that have exceeded the stale TTL.
+
+        Reads discovery.stale_ttl_hours config (default 72). For each stale
+        entity, if stale_since exceeds the TTL, transitions to archived.
+        Only writes cache if something changed.
+        """
+        existing_entry = await self.hub.get_cache(cache_key)
+        if not existing_entry or not existing_entry.get("data"):
+            return
+
+        data = existing_entry["data"]
+        ttl_hours_str = await self.hub.cache.get_config_value("discovery.stale_ttl_hours", "72")
+        ttl_hours = int(ttl_hours_str)
+        now = datetime.utcnow()
+        changed = False
+
+        for _item_id, item_data in data.items():
+            lc = item_data.get("_lifecycle", {})
+            if lc.get("status") != "stale":
+                continue
+
+            stale_since_str = lc.get("stale_since")
+            if not stale_since_str:
+                continue
+
+            stale_since = datetime.fromisoformat(stale_since_str)
+            if (now - stale_since) > timedelta(hours=ttl_hours):
+                lc["status"] = "archived"
+                lc["archived_at"] = now.isoformat()
+                changed = True
+
+        if changed:
+            await self.hub.set_cache(cache_key, data, {"source": "lifecycle_archive"})
+
     async def _store_discovery_results(self, capabilities: dict[str, Any]):
-        """Store discovery results in hub cache.
+        """Store discovery results in hub cache with lifecycle tracking.
 
         Stores separate cache entries for:
-        - entities: Entity registry data
-        - devices: Device registry data
-        - areas: Area registry data
-        - capabilities: Detected capabilities
+        - entities: Entity registry data (lifecycle-aware merge)
+        - devices: Device registry data (lifecycle-aware merge)
+        - areas: Area registry data (lifecycle-aware merge)
+        - capabilities: Detected capabilities (organic preservation)
         - discovery_metadata: Discovery run metadata
         """
-        # Store entities
+        now = datetime.utcnow()
+
+        # Store entities with lifecycle merge
         entities = capabilities.get("entities", {})
         if entities:
-            await self.hub.set_cache("entities", entities, {"count": len(entities), "source": "discovery"})
+            merged = await self._merge_with_lifecycle("entities", entities, now)
+            await self.hub.set_cache("entities", merged, {"count": len(merged), "source": "discovery"})
 
-        # Store devices
+        # Store devices with lifecycle merge
         devices = capabilities.get("devices", {})
         if devices:
-            await self.hub.set_cache("devices", devices, {"count": len(devices), "source": "discovery"})
+            merged = await self._merge_with_lifecycle("devices", devices, now)
+            await self.hub.set_cache("devices", merged, {"count": len(merged), "source": "discovery"})
 
-        # Store areas
+        # Store areas with lifecycle merge
         areas = capabilities.get("areas", {})
         if areas:
-            await self.hub.set_cache("areas", areas, {"count": len(areas), "source": "discovery"})
+            merged = await self._merge_with_lifecycle("areas", areas, now)
+            await self.hub.set_cache("areas", merged, {"count": len(merged), "source": "discovery"})
 
         # Store capabilities — merge with existing to preserve organic discoveries
         caps = capabilities.get("capabilities", {})
