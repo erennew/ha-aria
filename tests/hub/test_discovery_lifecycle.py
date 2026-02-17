@@ -378,7 +378,7 @@ async def test_merge_with_empty_data_cache(module, mock_hub):
 @pytest.mark.asyncio
 async def test_archive_stale_past_ttl(module, mock_hub):
     """Stale entities past TTL get archived."""
-    stale_since = (datetime(2026, 2, 17, 12, 0, 0) - timedelta(hours=100)).isoformat()
+    stale_since = (datetime.now() - timedelta(hours=100)).isoformat()
     mock_hub.get_cache = AsyncMock(
         return_value={
             "data": {
@@ -398,7 +398,7 @@ async def test_archive_stale_past_ttl(module, mock_hub):
                         "status": "stale",
                         "first_discovered": "2026-01-01T00:00:00",
                         "last_seen_in_discovery": "2026-02-16T00:00:00",
-                        "stale_since": datetime(2026, 2, 17, 11, 0, 0).isoformat(),
+                        "stale_since": (datetime.now() - timedelta(hours=1)).isoformat(),
                         "archived_at": None,
                     },
                 },
@@ -426,7 +426,7 @@ async def test_archive_stale_past_ttl(module, mock_hub):
 @pytest.mark.asyncio
 async def test_archive_noop_when_nothing_expired(module, mock_hub):
     """No cache write when nothing needs archiving."""
-    recent_stale = datetime(2026, 2, 17, 11, 0, 0).isoformat()
+    recent_stale = (datetime.now() - timedelta(hours=1)).isoformat()
     mock_hub.get_cache = AsyncMock(
         return_value={
             "data": {
@@ -474,7 +474,7 @@ async def test_archive_no_cache_entry(module, mock_hub):
 async def test_archive_uses_config_ttl(module, mock_hub):
     """Archive respects custom TTL from config."""
     # 10-hour TTL, entity stale for 11 hours
-    stale_since = (datetime(2026, 2, 17, 12, 0, 0) - timedelta(hours=11)).isoformat()
+    stale_since = (datetime.now() - timedelta(hours=11)).isoformat()
     mock_hub.get_cache = AsyncMock(
         return_value={
             "data": {

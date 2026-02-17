@@ -197,10 +197,19 @@ class DiscoveryModule(Module):
         if not existing_entry or not existing_entry.get("data"):
             return
 
-        data = existing_entry["data"]
+        import copy
+
+        data = copy.deepcopy(existing_entry["data"])
+
         ttl_hours_str = await self.hub.cache.get_config_value("discovery.stale_ttl_hours", "72")
-        ttl_hours = int(ttl_hours_str)
-        now = datetime.utcnow()
+        try:
+            ttl_hours = float(ttl_hours_str)
+            if not (0 <= ttl_hours <= 720):
+                ttl_hours = 72
+        except (ValueError, TypeError):
+            ttl_hours = 72
+
+        now = datetime.now()
         changed = False
 
         for _item_id, item_data in data.items():
@@ -231,7 +240,7 @@ class DiscoveryModule(Module):
         - capabilities: Detected capabilities (organic preservation)
         - discovery_metadata: Discovery run metadata
         """
-        now = datetime.utcnow()
+        now = datetime.now()
 
         # Store entities with lifecycle merge
         entities = capabilities.get("entities", {})
