@@ -94,10 +94,10 @@ async def test_discovery_to_cache_pipeline(initialized_hub):
             "lighting": {"count": 1, "entities": ["light.living_room"]},
             "power_monitoring": {"count": 1, "entities": ["sensor.power_meter"]},
         },
-        "entities": [
-            {"entity_id": "light.living_room", "domain": "light"},
-            {"entity_id": "sensor.power_meter", "domain": "sensor"},
-        ],
+        "entities": {
+            "light.living_room": {"domain": "light"},
+            "sensor.power_meter": {"domain": "sensor"},
+        },
     }
 
     with patch("subprocess.run") as mock_run:
