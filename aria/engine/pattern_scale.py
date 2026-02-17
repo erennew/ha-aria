@@ -8,10 +8,10 @@ Patterns in ARIA span three scales:
 Used to tag detected patterns, shadow predictions, and accuracy tracking.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class PatternScale(str, Enum):
+class PatternScale(StrEnum):
     """Time-scale classification for detected patterns."""
 
     MICRO = "micro"
