@@ -567,3 +567,21 @@ async def test_store_preserves_capabilities_organic_merge(module, mock_hub):
     assert "new_cap" in caps
     assert "organic_cap" in caps
     assert caps["organic_cap"]["source"] == "organic"
+
+
+# ============================================================================
+# Archive Scheduling
+# ============================================================================
+
+
+class TestArchiveScheduling:
+    """Archive check should run periodically via initialize()."""
+
+    @pytest.mark.asyncio
+    async def test_initialize_schedules_archive_check(self, module, mock_hub):
+        """initialize() should schedule periodic archive expiry checks."""
+        module.run_discovery = AsyncMock()
+        await module.initialize()
+
+        task_ids = [call.kwargs.get("task_id", "") for call in mock_hub.schedule_task.call_args_list]
+        assert "discovery_archive_check" in task_ids

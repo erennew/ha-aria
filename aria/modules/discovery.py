@@ -58,7 +58,7 @@ class DiscoveryModule(Module):
             raise FileNotFoundError(f"Discovery script not found: {self.discover_script}")
 
     async def initialize(self):
-        """Initialize module - run initial discovery."""
+        """Initialize module - run initial discovery and schedule archive checks."""
         self.logger.info("Discovery module initializing...")
 
         # Run initial discovery
@@ -67,6 +67,21 @@ class DiscoveryModule(Module):
             self.logger.info("Initial discovery complete")
         except Exception as e:
             self.logger.error(f"Initial discovery failed: {e}")
+
+        # Schedule periodic archive expiry check (every 6 hours)
+        async def _check_archives():
+            for cache_key in ("entities", "devices", "areas"):
+                try:
+                    await self._archive_expired_entities(cache_key)
+                except Exception as e:
+                    self.logger.warning(f"Archive check failed for {cache_key}: {e}")
+
+        await self.hub.schedule_task(
+            task_id="discovery_archive_check",
+            coro=_check_archives,
+            interval=timedelta(hours=6),
+            run_immediately=False,
+        )
 
     async def run_discovery(self) -> dict[str, Any]:
         """Run discovery script and store results in hub cache.
