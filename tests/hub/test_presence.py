@@ -17,7 +17,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from aria.engine.analysis.occupancy import SENSOR_CONFIG
 from aria.hub.constants import CACHE_PRESENCE
 from aria.modules.presence import (
-    DEFAULT_CAMERA_ROOMS,
     SIGNAL_STALE_S,
     PresenceModule,
 )
@@ -106,9 +105,6 @@ class TestInitialization:
 
     def test_module_id(self, module):
         assert module.module_id == "presence"
-
-    def test_default_camera_rooms(self, module):
-        assert module.camera_rooms == DEFAULT_CAMERA_ROOMS
 
     def test_custom_camera_rooms(self, hub):
         custom = {"my_cam": "living_room"}
@@ -260,6 +256,7 @@ class TestFrigateEvents:
         assert len(module._room_signals.get("backyard", [])) == 0
 
     async def test_camera_room_mapping(self, module):
+        module.camera_rooms = {"panoramic": "backyard"}
         event = {
             "after": {
                 "camera": "panoramic",
@@ -268,7 +265,6 @@ class TestFrigateEvents:
             }
         }
         await module._handle_frigate_event(event)
-        # panoramic maps to "backyard" in DEFAULT_CAMERA_ROOMS
         assert "backyard" in module._room_signals
 
     async def test_unknown_camera_uses_camera_name(self, module):
@@ -449,18 +445,6 @@ class TestRoomResolution:
         room = await module._resolve_room("binary_sensor.sensor1", {})
         assert room == "kitchen"
 
-    async def test_resolve_fallback_bedroom(self, module):
-        room = await module._resolve_room("light.master_bedroom_lamp", {})
-        assert room == "bedroom"
-
-    async def test_resolve_fallback_front_door(self, module):
-        room = await module._resolve_room("binary_sensor.front_door_motion", {})
-        assert room == "front_door"
-
-    async def test_resolve_fallback_doorbell(self, module):
-        room = await module._resolve_room("camera.doorbell", {})
-        assert room == "front_door"
-
     async def test_resolve_unknown_returns_none(self, module):
         room = await module._resolve_room("sensor.unknown_thing", {})
         assert room is None
@@ -604,7 +588,7 @@ class TestFlushPresenceState:
         await module._flush_presence_state()
         cached = module.hub.cache._cache.get(CACHE_PRESENCE)
         assert "camera_rooms" in cached
-        assert cached["camera_rooms"] == DEFAULT_CAMERA_ROOMS
+        assert isinstance(cached["camera_rooms"], dict)
 
 
 # ============================================================================
@@ -642,11 +626,10 @@ class TestEdgeCases:
         assert signal[1] <= 0.99
 
     async def test_resolve_room_cache_exception(self, module):
-        """Cache errors should not propagate."""
+        """Cache errors should not propagate — returns None."""
         module.hub.get_cache = AsyncMock(side_effect=RuntimeError("broken"))
-        # Should fall through to fallback parsing
         room = await module._resolve_room("light.bedroom_lamp", {})
-        assert room == "bedroom"
+        assert room is None  # No hard-coded fallback
 
     async def test_stale_identified_persons_excluded(self, module):
         stale = datetime.now() - timedelta(seconds=SIGNAL_STALE_S + 60)
@@ -660,7 +643,86 @@ class TestEdgeCases:
         cached = module.hub.cache._cache.get(CACHE_PRESENCE)
         assert "OldPerson" not in cached["identified_persons"]
 
-    def test_default_camera_rooms_coverage(self):
-        """All expected cameras should be mapped."""
-        expected = {"driveway", "backyard", "panoramic", "front_doorbell", "carters_room", "collins_room", "pool"}
-        assert set(DEFAULT_CAMERA_ROOMS.keys()) == expected
+
+# ============================================================================
+# Discovery-Based Camera Mapping
+# ============================================================================
+
+
+class TestDiscoveryCameraMapping:
+    """Camera-to-room mapping should come from discovery cache."""
+
+    async def test_discover_cameras_from_entity_cache(self, hub):
+        hub._cache_data["entities"] = {
+            "camera.driveway": {"area_id": "driveway", "_lifecycle": {"status": "active"}},
+            "camera.backyard": {"device_id": "dev1", "_lifecycle": {"status": "active"}},
+            "light.kitchen": {"area_id": "kitchen", "_lifecycle": {"status": "active"}},
+        }
+        hub._cache_data["devices"] = {"dev1": {"area_id": "backyard"}}
+        m = PresenceModule(hub, "http://x", "tok")
+        mapping = await m._discover_camera_rooms()
+        assert mapping["driveway"] == "driveway"
+        assert mapping["backyard"] == "backyard"
+        assert "kitchen" not in mapping
+
+    async def test_discover_cameras_excludes_archived(self, hub):
+        hub._cache_data["entities"] = {
+            "camera.old_cam": {"area_id": "garage", "_lifecycle": {"status": "archived"}},
+            "camera.active_cam": {"area_id": "pool", "_lifecycle": {"status": "active"}},
+        }
+        m = PresenceModule(hub, "http://x", "tok")
+        mapping = await m._discover_camera_rooms()
+        assert "old_cam" not in mapping
+        assert mapping["active_cam"] == "pool"
+
+    async def test_discover_cameras_includes_stale(self, hub):
+        hub._cache_data["entities"] = {
+            "camera.temp_offline": {"area_id": "patio", "_lifecycle": {"status": "stale"}},
+        }
+        m = PresenceModule(hub, "http://x", "tok")
+        mapping = await m._discover_camera_rooms()
+        assert mapping["temp_offline"] == "patio"
+
+    async def test_discover_cameras_fallback_to_name(self, hub):
+        hub._cache_data["entities"] = {"camera.mystery_cam": {"_lifecycle": {"status": "active"}}}
+        hub._cache_data["devices"] = {}
+        m = PresenceModule(hub, "http://x", "tok")
+        mapping = await m._discover_camera_rooms()
+        assert mapping["mystery_cam"] == "mystery_cam"
+
+    async def test_discover_cameras_empty_cache(self, hub):
+        m = PresenceModule(hub, "http://x", "tok")
+        mapping = await m._discover_camera_rooms()
+        assert mapping == {}
+
+    async def test_refresh_merges_not_replaces(self, hub):
+        m = PresenceModule(hub, "http://x", "tok")
+        m.camera_rooms = {"old_cam": "garage"}
+        hub._cache_data["entities"] = {
+            "camera.new_cam": {"area_id": "pool", "_lifecycle": {"status": "active"}},
+        }
+        await m._refresh_camera_rooms()
+        assert m.camera_rooms["old_cam"] == "garage"
+        assert m.camera_rooms["new_cam"] == "pool"
+
+    async def test_config_override_wins(self, hub):
+        hub._cache_data["entities"] = {
+            "camera.driveway": {"area_id": "driveway", "_lifecycle": {"status": "active"}},
+        }
+        m = PresenceModule(hub, "http://x", "tok", camera_rooms={"driveway": "front_yard"})
+        await m._refresh_camera_rooms()
+        assert m.camera_rooms["driveway"] == "front_yard"
+
+    async def test_on_event_discovery_complete(self, hub):
+        hub._cache_data["entities"] = {
+            "camera.pool": {"area_id": "pool", "_lifecycle": {"status": "active"}},
+        }
+        m = PresenceModule(hub, "http://x", "tok")
+        await m.on_event("discovery_complete", {})
+        assert m.camera_rooms.get("pool") == "pool"
+
+    async def test_on_event_ignores_other_events(self, hub):
+        m = PresenceModule(hub, "http://x", "tok")
+        m._refresh_camera_rooms = AsyncMock()
+        await m.on_event("other_event", {})
+        m._refresh_camera_rooms.assert_not_called()

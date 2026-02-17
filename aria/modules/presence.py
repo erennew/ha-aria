@@ -4,7 +4,7 @@ Subscribes to Frigate MQTT events (person detection, face recognition) and
 HA WebSocket events (motion sensors, light states, dimmer switches, device trackers).
 Feeds all signals into BayesianOccupancy for per-room probability estimation.
 
-Camera-to-room mapping is configured via the camera_rooms dict.
+Camera-to-room mapping is discovered dynamically from HA entity registry.
 """
 
 import asyncio
@@ -14,6 +14,7 @@ import logging
 import os
 from collections import defaultdict
 from datetime import datetime, timedelta
+from typing import Any
 
 import aiohttp
 
@@ -34,17 +35,8 @@ PRESENCE_FLUSH_INTERVAL_S = 30
 # Decay: how long after last signal before a room goes "unoccupied"
 SIGNAL_STALE_S = 600  # 10 minutes with no signal = likely empty
 
-# Camera-to-room mapping (Frigate camera name -> ARIA area name)
-# Update this when adding/removing cameras
-DEFAULT_CAMERA_ROOMS = {
-    "driveway": "driveway",
-    "backyard": "backyard",
-    "panoramic": "backyard",
-    "front_doorbell": "front_door",
-    "carters_room": "carters_room",
-    "collins_room": "collins_room",
-    "pool": "pool",
-}
+# Camera-to-room mapping is discovered dynamically from HA entity registry.
+# Manual overrides via presence.camera_rooms config key.
 
 
 class PresenceModule(Module):
@@ -86,7 +78,8 @@ class PresenceModule(Module):
         self.mqtt_port = mqtt_port
         self.mqtt_user = mqtt_user
         self.mqtt_password = mqtt_password
-        self.camera_rooms = camera_rooms or DEFAULT_CAMERA_ROOMS
+        self._config_camera_rooms = camera_rooms  # Explicit overrides (always win)
+        self.camera_rooms: dict[str, str] = dict(camera_rooms) if camera_rooms else {}
 
         # Per-room signal state: {room: [(signal_type, value, detail, timestamp), ...]}
         self._room_signals: dict[str, list] = defaultdict(list)
@@ -112,6 +105,63 @@ class PresenceModule(Module):
         # MQTT client (lazy init)
         self._mqtt_client = None
         self._mqtt_connected = False
+
+    async def _discover_camera_rooms(self) -> dict[str, str]:
+        """Build camera->room mapping from HA entity/device registry cache.
+
+        Filters entity cache for camera.* entities with active or stale
+        lifecycle status, resolves area via entity->device->area chain.
+        """
+        mapping: dict[str, str] = {}
+
+        entities_entry = await self.hub.get_cache("entities")
+        devices_entry = await self.hub.get_cache("devices")
+
+        if not entities_entry:
+            return mapping
+
+        entities_data = entities_entry.get("data", entities_entry) if isinstance(entities_entry, dict) else {}
+        devices_data = {}
+        if devices_entry:
+            devices_data = devices_entry.get("data", devices_entry) if isinstance(devices_entry, dict) else {}
+
+        for entity_id, entity_info in entities_data.items():
+            if not entity_id.startswith("camera."):
+                continue
+
+            # Skip archived cameras
+            lifecycle = entity_info.get("_lifecycle", {})
+            if lifecycle.get("status") == "archived":
+                continue
+
+            camera_name = entity_id.removeprefix("camera.")
+
+            # Resolve area: entity -> device -> area
+            area = entity_info.get("area_id")
+            if not area:
+                device_id = entity_info.get("device_id")
+                if device_id and device_id in devices_data:
+                    area = devices_data[device_id].get("area_id")
+
+            mapping[camera_name] = area if area else camera_name
+
+        return mapping
+
+    async def _refresh_camera_rooms(self):
+        """Refresh camera->room mapping from discovery cache (merge, not replace).
+
+        Config overrides always take priority over discovered mappings.
+        """
+        discovered = await self._discover_camera_rooms()
+
+        # Merge: discovered cameras added/updated, existing preserved
+        for cam, room in discovered.items():
+            # Config overrides always win
+            if self._config_camera_rooms and cam in self._config_camera_rooms:
+                continue
+            self.camera_rooms[cam] = room
+
+        self.logger.info(f"Camera rooms refreshed: {len(self.camera_rooms)} cameras ({len(discovered)} discovered)")
 
     async def initialize(self):
         """Start MQTT listener and HA WebSocket listener."""
@@ -149,6 +199,12 @@ class PresenceModule(Module):
             run_immediately=True,
         )
 
+        # Discover camera->room mapping from entity cache
+        try:
+            await self._refresh_camera_rooms()
+        except Exception as e:
+            self.logger.warning(f"Camera discovery failed (non-fatal): {e}")
+
         self.logger.info("Presence module started")
 
     async def shutdown(self):
@@ -157,6 +213,14 @@ class PresenceModule(Module):
             with contextlib.suppress(Exception):
                 self._mqtt_client.disconnect()
         self.logger.info("Presence module shut down")
+
+    async def on_event(self, event_type: str, data: dict[str, Any]):
+        """Handle hub events — refresh cameras on discovery completion."""
+        if event_type == "discovery_complete":
+            try:
+                await self._refresh_camera_rooms()
+            except Exception as e:
+                self.logger.warning(f"Camera refresh on discovery event failed: {e}")
 
     # ------------------------------------------------------------------
     # Frigate API helpers (face config, thumbnails, labeled faces)
@@ -487,15 +551,6 @@ class PresenceModule(Module):
                             return area
         except Exception:
             pass
-
-        # Fallback: parse entity_id for known patterns
-        eid = entity_id.lower()
-        if "bedroom" in eid:
-            return "bedroom"
-        if "closet" in eid:
-            return "closet"
-        if "front_door" in eid or "doorbell" in eid:
-            return "front_door"
 
         self.logger.debug("Could not resolve room for %s", entity_id)
         return None
