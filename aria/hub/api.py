@@ -49,6 +49,7 @@ class ConfigUpdate(BaseModel):
 
 class CurationUpdate(BaseModel):
     status: str
+    tier: int = 3
     decided_by: str = "user"
 
 
@@ -1157,11 +1158,11 @@ def _register_curation_routes(router: APIRouter, hub: IntelligenceHub) -> None:
     async def put_curation(entity_id: str, body: CurationUpdate):
         """Override a single entity's curation classification."""
         try:
-            result = await hub.cache.upsert_curation(
-                entity_id, status=body.status, decided_by=body.decided_by, human_override=True
+            await hub.cache.upsert_curation(
+                entity_id, status=body.status, tier=body.tier, decided_by=body.decided_by, human_override=True
             )
             await hub.publish("curation_updated", {"entity_id": entity_id, "status": body.status})
-            return result
+            return {"status": "ok", "entity_id": entity_id, "curation_status": body.status}
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
         except Exception:

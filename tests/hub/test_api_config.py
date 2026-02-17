@@ -248,14 +248,9 @@ class TestGetCurationSummary:
 
 class TestPutCuration:
     def test_put_curation_override(self, api_hub, api_client):
-        """Upserts with human_override=True."""
-        result = {
-            "entity_id": "light.living_room",
-            "status": "tracked",
-            "decided_by": "user",
-            "human_override": True,
-        }
-        api_hub.cache.upsert_curation = AsyncMock(return_value=result)
+        """Upserts with human_override=True and default tier."""
+        api_hub.cache.upsert_curation = AsyncMock(return_value=None)
+        api_hub.publish = AsyncMock()
 
         response = api_client.put(
             "/api/curation/light.living_room",
@@ -264,13 +259,48 @@ class TestPutCuration:
         assert response.status_code == 200
 
         data = response.json()
-        assert data["human_override"] is True
+        assert data["status"] == "ok"
+        assert data["entity_id"] == "light.living_room"
         api_hub.cache.upsert_curation.assert_called_once_with(
             "light.living_room",
             status="tracked",
+            tier=3,
             decided_by="user",
             human_override=True,
         )
+
+    def test_put_curation_passes_tier(self, api_hub, api_client):
+        """Upsert must pass tier parameter to cache method."""
+        api_hub.cache.upsert_curation = AsyncMock(return_value=None)
+        api_hub.publish = AsyncMock()
+
+        response = api_client.put(
+            "/api/curation/light.living_room",
+            json={"status": "tracked", "tier": 2, "decided_by": "user"},
+        )
+        assert response.status_code == 200
+
+        api_hub.cache.upsert_curation.assert_called_once_with(
+            "light.living_room",
+            status="tracked",
+            tier=2,
+            decided_by="user",
+            human_override=True,
+        )
+
+    def test_put_curation_default_tier(self, api_hub, api_client):
+        """Tier defaults to 3 when not specified."""
+        api_hub.cache.upsert_curation = AsyncMock(return_value=None)
+        api_hub.publish = AsyncMock()
+
+        response = api_client.put(
+            "/api/curation/light.living_room",
+            json={"status": "tracked"},
+        )
+        assert response.status_code == 200
+
+        call_kwargs = api_hub.cache.upsert_curation.call_args
+        assert call_kwargs[1]["tier"] == 3
 
 
 # ============================================================================
