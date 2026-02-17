@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Status:** Draft
+**Status:** Completed — merged to main on 2026-02-17
 
 **Goal:** Add River online learning models that learn from every shadow engine resolution, blend online predictions with batch predictions, and auto-tune ensemble weights based on rolling accuracy.
 
