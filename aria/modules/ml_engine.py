@@ -37,6 +37,7 @@ warnings.filterwarnings(
 )
 
 from aria.capabilities import Capability, DemandSignal  # noqa: E402
+from aria.engine.fallback import FallbackTracker  # noqa: E402
 from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG as _ENGINE_FEATURE_CONFIG  # noqa: E402
 from aria.engine.features.vector_builder import build_feature_vector as _engine_build_feature_vector  # noqa: E402
 from aria.engine.hardware import recommend_tier, scan_hardware  # noqa: E402
@@ -150,6 +151,7 @@ class MLEngine(Module):
         self.registry = TieredModelRegistry.with_defaults()
         hw_profile = scan_hardware()
         self.current_tier = recommend_tier(hw_profile)
+        self.fallback_tracker = FallbackTracker(ttl_days=7)
         logger.info(
             f"ML Engine tier: {self.current_tier} (hw: {hw_profile.ram_gb}GB RAM, {hw_profile.cpu_cores} cores)"
         )
