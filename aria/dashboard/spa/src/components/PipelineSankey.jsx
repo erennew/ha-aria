@@ -321,6 +321,30 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
         ))}
         </g>
 
+        {/* Trace labels on highlighted flows */}
+        {traceSet && layout.links
+          .filter((link) => !isLinkDimmed(link))
+          .map((link) => {
+            const midX = (link.x0 + link.x1) / 2;
+            const midY = (link.y0 + link.y1) / 2;
+            const label = getNodeMetric(cacheData, link.source);
+            if (!label || label === '\u2014') return null;
+            return (
+              <text
+                key={`trace-${link.source}-${link.target}`}
+                x={midX}
+                y={midY - 6}
+                text-anchor="middle"
+                fill="var(--accent)"
+                font-size="7"
+                font-family="var(--font-mono)"
+                opacity="0.8"
+              >
+                {label}
+              </text>
+            );
+          })}
+
         {/* Bus Bar */}
         <BusBar busBar={layout.busBar} />
 
