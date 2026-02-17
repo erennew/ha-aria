@@ -34,7 +34,7 @@ function getGroupHealth(moduleStatuses, childIds) {
 
 // --- SVG Primitives ---
 
-function SankeyNode({ node, status, metric, onClick, highlighted, dimmed }) {
+function SankeyNode({ node, status, metric, onClick, highlighted, dimmed, onMouseEnter, onMouseLeave }) {
   const color = STATUS_COLORS[status] || STATUS_COLORS.waiting;
   const opacity = dimmed ? 0.12 : 1;
 
@@ -42,6 +42,8 @@ function SankeyNode({ node, status, metric, onClick, highlighted, dimmed }) {
     <g
       transform={`translate(${node.x}, ${node.y})`}
       onClick={() => onClick && onClick(node)}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       style={`cursor: ${onClick ? 'pointer' : 'default'}; opacity: ${opacity}; transition: opacity 0.3s;`}
     >
       <rect
@@ -267,6 +269,8 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
               onClick={handleNodeClick}
               highlighted={traceSet && traceSet.has(node.id)}
               dimmed={isNodeDimmed(node)}
+              onMouseEnter={() => !node.isGroup && setHoveredNode(node.id)}
+              onMouseLeave={() => setHoveredNode(null)}
             />
           );
         })}
