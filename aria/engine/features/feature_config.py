@@ -99,6 +99,7 @@ def validate_feature_config(config):
         "lag_features",
         "interaction_features",
         "presence_features",
+        "pattern_features",
     ]:
         sub = config.get(section, {})
         if not isinstance(sub, dict):
