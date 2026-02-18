@@ -1360,11 +1360,12 @@ def _register_audit_routes(router: APIRouter, hub: Any) -> None:
         subject: str,
         since: str | None = Query(None),
         until: str | None = Query(None),
+        limit: int = Query(default=1000, le=10000),
     ):
         """Event timeline for a specific subject."""
         if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
             return {"subject": subject, "events": []}
-        events = await hub._audit_logger.query_timeline(subject=subject, since=since, until=until)
+        events = await hub._audit_logger.query_timeline(subject=subject, since=since, until=until, limit=limit)
         return {"subject": subject, "events": events}
 
     @router.get("/api/audit/stats")
@@ -1545,14 +1546,20 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
 
                     # Handle client messages
                     if message.get("type") == "ping":
-                        await websocket.send_json({"type": "pong"})
+                        try:
+                            await websocket.send_json({"type": "pong"})
+                        except RuntimeError:
+                            break  # dirty disconnect on pong send
                     else:
                         logger.debug(f"Received WebSocket message: {message}")
 
                 except WebSocketDisconnect:
                     break
                 except json.JSONDecodeError:
-                    await websocket.send_json({"type": "error", "message": "Invalid JSON"})
+                    try:
+                        await websocket.send_json({"type": "error", "message": "Invalid JSON"})
+                    except RuntimeError:
+                        break  # dirty disconnect on error send
                 except Exception as e:
                     logger.error(f"WebSocket error: {e}")
                     break

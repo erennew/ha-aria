@@ -350,6 +350,7 @@ class AuditLogger:
         subject: str,
         since: str | None = None,
         until: str | None = None,
+        limit: int = 1000,
     ) -> list[dict]:
         """All events for a subject, chronological."""
         clauses = ["subject = ?"]
@@ -363,7 +364,8 @@ class AuditLogger:
             params.append(until)
 
         where = " AND ".join(clauses)
-        sql = f"SELECT * FROM audit_events WHERE {where} ORDER BY timestamp ASC"
+        sql = f"SELECT * FROM audit_events WHERE {where} ORDER BY timestamp ASC LIMIT ?"
+        params.append(limit)
 
         async with self._db.execute(sql, params) as cursor:
             rows = await cursor.fetchall()
@@ -474,16 +476,21 @@ class AuditLogger:
             month_key = d["timestamp"][:7]  # YYYY-MM
             groups.setdefault(month_key, []).append(d)
 
+        # Write files in executor to avoid blocking event loop
+        loop = asyncio.get_event_loop()
         out_path = Path(output_dir)
-        files: list[str] = []
-        for month_key, events in groups.items():
-            fpath = out_path / f"{month_key}.jsonl"
-            with open(fpath, "w") as f:
-                for event in events:
-                    f.write(json.dumps(event) + "\n")
-            files.append(str(fpath))
 
-        return files
+        def _write_archive_files():
+            files: list[str] = []
+            for month_key, events in groups.items():
+                fpath = out_path / f"{month_key}.jsonl"
+                with open(fpath, "w") as f:
+                    for event in events:
+                        f.write(json.dumps(event) + "\n")
+                files.append(str(fpath))
+            return files
+
+        return await loop.run_in_executor(None, _write_archive_files)
 
     # ------------------------------------------------------------------
     # Buffer management
