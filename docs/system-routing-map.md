@@ -69,7 +69,7 @@
 | Route | Method | Handler Purpose |
 |-------|--------|----------------|
 | `/health` | GET | Hub health check (uptime, module status, cache categories) |
-| `/` | GET | Redirect to `/ui/` |
+| `/` | GET | JSON status check (`{"status": "ok", "service": "ARIA"}`) |
 | **Cache** | | |
 | `/api/cache` | GET | List all cache categories |
 | `/api/cache/keys` | GET | List categories with timestamps |
@@ -225,6 +225,8 @@ Events propagate through **two channels**: explicit `hub.subscribe()` callbacks 
 | `automation_suggestions` | orchestrator | (API/dashboard) |
 | `pending_automations` | orchestrator | (API/dashboard) |
 | `created_automations` | orchestrator | (API/dashboard) |
+| `automation_feedback` | API route handler | orchestrator |
+| `ml_predictions` | ml_engine | Predictions.jsx (via useCache) |
 | `ml_ensemble_weights` | ml_engine | (API/dashboard) |
 | `feature_config` | ml_engine | ml_engine |
 | `ml_training_metadata` | ml_engine | ml_engine |
@@ -245,7 +247,7 @@ Events propagate through **two channels**: explicit `hub.subscribe()` callbacks 
 | `activity_monitor.py` | `aria snapshot-intraday` | Intraday snapshot JSON file | TimeoutExpired (30s), stderr[:200] logged |
 | `cli.py` (`sync-logs`) | `bin/ha-log-sync` script | Logbook sync to `~/ha-logs/logbook/` | `check=True` — raises on failure |
 | `validation_runner.py` | `pytest` subprocess | JSON test results | TimeoutExpired caught |
-| `ha_api.py` (collector) | `subprocess.run` for HA CLI | HA state data | (varies) |
+| `ha_api.py` (collector) | `gog calendar list --today --all --plain` | Google Calendar events for today | stderr logged on failure |
 | `watchdog.py` | `systemctl --user` commands | Timer status, journal output | Multiple subprocess.run calls |
 
 ---
@@ -475,7 +477,7 @@ Which page components call which API endpoints. All pages also receive real-time
 | Page | File | Cache Categories | Additional API Calls |
 |------|------|-----------------|---------------------|
 | Home | `pages/Home.jsx` | `intelligence`, `activity_summary`, `entities` | `/api/shadow/accuracy`, `/api/pipeline`, `/api/curation/summary`, `/api/activity/current` |
-| Intelligence | `pages/Intelligence.jsx` | `intelligence` | `/api/shadow/accuracy`, `/api/pipeline`, `/api/ml/drift`, `/api/ml/anomalies`, `/api/ml/shap` |
+| Intelligence | `pages/Intelligence.jsx` + 13 sub-files in `pages/intelligence/` (ActivitySection, AnomalyAlerts, Baselines, Configuration, Correlations, DailyInsight, DriftStatus, HomeRightNow, LearningProgress, PredictionsVsActuals, ShapAttributions, SystemStatus, TrendsOverTime) | `intelligence` | `/api/shadow/accuracy`, `/api/pipeline`, `/api/ml/drift`, `/api/ml/anomalies`, `/api/ml/shap` |
 | Discovery | `pages/Discovery.jsx` | `entities`, `devices`, `areas`, `capabilities` | — |
 | Capabilities | `pages/Capabilities.jsx` | `capabilities` | `/api/capabilities/registry`, `PUT /api/capabilities/{name}/can-predict` |
 | Presence | `pages/Presence.jsx` | `presence` | `/api/frigate/thumbnail/{event_id}` |
@@ -541,6 +543,10 @@ Modules initialize **sequentially** in this exact order. Each module's `initiali
 | 12 | `activity_monitor` | No | WebSocket listener, 15min summary | No activity data, shadow engine starved |
 | 13 | `activity_labeler` | No | Loads classifier, schedules prediction | No activity labels |
 | 14 | `presence` | No | MQTT + WebSocket listeners | No presence data, snapshots get zero features |
+
+**Registration structure:** `cli.py` uses 4 functions: `_register_modules()` (1–4), `_register_analysis_modules()` (5–8), `_register_ml_modules()` (9–11), `_register_monitor_modules()` (12–14). Analysis → ML → Monitors is the group order.
+
+**Label collision:** Module #3 (`patterns` from `patterns.py`) and module #10 (`pattern_recognition` from `pattern_recognition.py`) are registered under different IDs (`"pattern_recognition"` for init label vs module_id). These are distinct modules — `patterns` detects recurring sequences from logbook data, `pattern_recognition` does DTW trajectory classification on shadow results.
 
 **Cold-start ordering risks:**
 - `data_quality` (#6) reads `entities` cache written by `discovery` (#1) — if discovery's initial scan hasn't finished by the time data_quality runs, it gets empty data. Self-corrects on next 24h cycle.
