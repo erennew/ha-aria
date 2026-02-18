@@ -16,6 +16,7 @@ def mock_hub():
     hub.subscribers = {}
     hub.subscribe = MagicMock()
     hub._request_count = 0
+    hub._audit_logger = None
     hub.get_uptime_seconds = MagicMock(return_value=0)
     hub.get_module = MagicMock(return_value=None)
     hub.get_cache = AsyncMock(return_value=None)

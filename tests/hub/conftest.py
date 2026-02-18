@@ -32,6 +32,7 @@ def api_hub():
     mock_hub.subscribers = {}
     mock_hub.subscribe = MagicMock()
     mock_hub._request_count = 0
+    mock_hub._audit_logger = None
     mock_hub.get_uptime_seconds = MagicMock(return_value=0)
     return mock_hub
 

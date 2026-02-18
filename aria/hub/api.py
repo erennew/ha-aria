@@ -1286,6 +1286,124 @@ def _register_frigate_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         return Response(content=data, media_type="image/jpeg")
 
 
+def _register_audit_routes(router: APIRouter, hub: Any) -> None:
+    """Register /api/audit/* endpoints."""
+
+    @router.get("/api/audit/events")
+    async def audit_events(  # noqa: PLR0913
+        type: str | None = Query(None),
+        source: str | None = Query(None),
+        subject: str | None = Query(None),
+        severity: str | None = Query(None),
+        since: str | None = Query(None),
+        until: str | None = Query(None),
+        request_id: str | None = Query(None),
+        limit: int = Query(100),
+        offset: int = Query(0),
+    ):
+        """Query audit events with optional filters."""
+        if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
+            return {"events": [], "total": 0}
+        events = await hub._audit_logger.query_events(
+            event_type=type,
+            source=source,
+            subject=subject,
+            severity=severity,
+            since=since,
+            until=until,
+            request_id=request_id,
+            limit=limit,
+            offset=offset,
+        )
+        return {"events": events, "total": len(events)}
+
+    @router.get("/api/audit/requests")
+    async def audit_requests(
+        path: str | None = Query(None),
+        method: str | None = Query(None),
+        status_min: int | None = Query(None),
+        since: str | None = Query(None),
+        limit: int = Query(100),
+    ):
+        """Query API request audit log."""
+        if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
+            return {"requests": [], "total": 0}
+        requests = await hub._audit_logger.query_requests(
+            path=path,
+            method=method,
+            status_min=status_min,
+            since=since,
+            limit=limit,
+        )
+        return {"requests": requests, "total": len(requests)}
+
+    @router.get("/api/audit/timeline/{subject}")
+    async def audit_timeline(
+        subject: str,
+        since: str | None = Query(None),
+        until: str | None = Query(None),
+    ):
+        """Event timeline for a specific subject."""
+        if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
+            return {"subject": subject, "events": []}
+        events = await hub._audit_logger.query_timeline(subject=subject, since=since, until=until)
+        return {"subject": subject, "events": events}
+
+    @router.get("/api/audit/stats")
+    async def audit_stats(since: str | None = Query(None)):
+        """Aggregate audit event counts by type and severity."""
+        if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
+            return {"total_events": 0, "by_type": {}, "by_severity": {}}
+        stats = await hub._audit_logger.get_stats(since=since)
+        total = sum(stats.get("by_type", {}).values())
+        return {"total_events": total, **stats}
+
+    @router.get("/api/audit/startups")
+    async def audit_startups(limit: int = Query(10)):
+        """Recent startup snapshots."""
+        if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
+            return {"startups": []}
+        startups = await hub._audit_logger.query_startups(limit=limit)
+        return {"startups": startups}
+
+    @router.get("/api/audit/curation/{entity_id}")
+    async def audit_curation(entity_id: str, limit: int = Query(50)):
+        """Curation history for a specific entity."""
+        if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
+            return {"entity_id": entity_id, "history": []}
+        history = await hub._audit_logger.query_curation(entity_id=entity_id, limit=limit)
+        return {"entity_id": entity_id, "history": history}
+
+    @router.get("/api/audit/integrity")
+    async def audit_integrity(since: str | None = Query(None)):
+        """Verify checksum integrity of audit events."""
+        if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
+            return {"total": 0, "valid": 0, "invalid": 0, "details": []}
+        result = await hub._audit_logger.verify_integrity(since=since)
+        return result
+
+    @router.post("/api/audit/export")
+    async def audit_export(
+        before_date: str = Body(...),
+        format: str = Body("jsonl"),
+    ):
+        """Export audit events older than before_date to archive files."""
+        if not (hasattr(hub, "_audit_logger") and hub._audit_logger):
+            return {"exported_files": [], "message": "Audit logger not available"}
+        from datetime import UTC, datetime
+
+        try:
+            before_dt = datetime.fromisoformat(before_date).replace(tzinfo=UTC)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid before_date format: {e}") from e
+
+        output_dir = os.path.expanduser("~/ha-logs/intelligence/audit-archive")
+        os.makedirs(output_dir, exist_ok=True)
+
+        files = await hub._audit_logger.export_archive(before_date=before_dt, output_dir=output_dir)
+        return {"exported_files": files, "output_dir": output_dir, "format": format}
+
+
 def create_api(hub: IntelligenceHub) -> FastAPI:
     """Create FastAPI application with hub routes.
 
@@ -1305,17 +1423,38 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
 
     ws_manager = WebSocketManager()
 
-    # --- Request timing middleware ---
+    # --- Request timing + audit middleware ---
     @app.middleware("http")
-    async def request_timing_middleware(request: Request, call_next):
+    async def audit_request_middleware(request: Request, call_next):
+        from uuid import uuid4
+
+        request_id = str(uuid4())
+        request.state.request_id = request_id
         hub._request_count += 1
         start = time.monotonic()
+
         response = await call_next(request)
-        elapsed = time.monotonic() - start
-        if elapsed > 1.0:
-            logger.warning(f"{request.method} {request.url.path} took {elapsed:.2f}s")
+
+        duration_ms = (time.monotonic() - start) * 1000
+        if duration_ms > 1000:
+            logger.warning(f"{request.method} {request.url.path} took {duration_ms / 1000:.2f}s")
         else:
-            logger.debug(f"{request.method} {request.url.path} took {elapsed:.3f}s")
+            logger.debug(f"{request.method} {request.url.path} took {duration_ms:.1f}ms")
+
+        response.headers["X-Request-ID"] = request_id
+
+        if hasattr(hub, "_audit_logger") and hub._audit_logger:
+            error_msg = None if response.status_code < 400 else f"HTTP {response.status_code}"
+            await hub._audit_logger.log_request(
+                request_id=request_id,
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                client_ip=request.client.host if request.client else "unknown",
+                error=error_msg,
+            )
+
         return response
 
     # Subscribe to hub events for WebSocket broadcasting
@@ -1359,6 +1498,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
     _register_curation_routes(router, hub)
     _register_validation_routes(router)
     _register_frigate_routes(router, hub)
+    _register_audit_routes(router, hub)
 
     # WebSocket endpoint (auth handled inline — FastAPI dependency injection
     # doesn't apply to websocket routes on the main app)
