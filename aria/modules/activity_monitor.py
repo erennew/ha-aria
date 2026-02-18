@@ -176,6 +176,14 @@ class ActivityMonitor(Module):
             run_immediately=False,
         )
 
+        # Start daily snapshot log pruning (prevent unbounded growth)
+        await self.hub.schedule_task(
+            task_id="activity_prune_snapshot_log",
+            coro=lambda: self._prune_snapshot_log(days=30),
+            interval=timedelta(hours=24),
+            run_immediately=False,
+        )
+
         # Load entity curation rules (non-fatal — falls back to domain filter)
         try:
             await self._load_curation_rules()
@@ -564,6 +572,31 @@ class ActivityMonitor(Module):
                 f.write(json.dumps(entry) + "\n")
         except Exception as e:
             self.logger.warning(f"Failed to write snapshot log: {e}")
+
+    async def _prune_snapshot_log(self, days: int = 30):
+        """Remove entries older than N days from snapshot log to prevent unbounded growth."""
+        if not self._snapshot_log_path.exists():
+            return
+        try:
+            cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+            temp_path = self._snapshot_log_path.with_suffix(".tmp")
+            kept = 0
+            with open(self._snapshot_log_path) as inf, open(temp_path, "w") as outf:
+                for line in inf:
+                    try:
+                        entry = json.loads(line)
+                        # Keep entries with timestamp >= cutoff
+                        if entry.get("timestamp", "") >= cutoff:
+                            outf.write(line)
+                            kept += 1
+                    except json.JSONDecodeError:
+                        pass  # skip malformed lines
+            import os
+
+            os.replace(temp_path, self._snapshot_log_path)
+            self.logger.info(f"Snapshot log pruned: kept {kept} recent entries")
+        except Exception as e:
+            self.logger.warning(f"Failed to prune snapshot log: {e}")
 
     def _read_snapshot_log_today(self) -> list[dict[str, Any]]:
         """Return today's snapshot entries from in-memory cache (O(1), no file scan)."""
