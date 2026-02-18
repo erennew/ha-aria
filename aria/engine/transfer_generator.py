@@ -55,7 +55,7 @@ def _extract_area(entity_ids: list[str], entities_cache: dict) -> str | None:
             area_counts[area] = area_counts.get(area, 0) + 1
     if not area_counts:
         return None
-    return max(area_counts, key=area_counts.get)
+    return max(area_counts, key=lambda k: area_counts[k])
 
 
 def _compute_structural_similarity(

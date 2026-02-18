@@ -29,6 +29,8 @@ def mock_hub():
     hub.publish = AsyncMock()
     hub.get_config_value = MagicMock(return_value=None)
     hub.get_module = MagicMock(return_value=None)
+    hub.cache = MagicMock()
+    hub.cache.get_config_value = AsyncMock(side_effect=lambda key, fallback=None: fallback)
     hub.modules = {}
     return hub
 

@@ -76,8 +76,9 @@ class TransferEngineModule(Module):
         capabilities = caps_entry["data"]
         entities_cache = entities_entry["data"]
 
-        # Generate new candidates
-        new_candidates = generate_transfer_candidates(capabilities, entities_cache, min_similarity=0.6)
+        # Generate new candidates (read threshold from config)
+        min_sim = await self.hub.cache.get_config_value("transfer.min_similarity", 0.6)
+        new_candidates = generate_transfer_candidates(capabilities, entities_cache, min_similarity=float(min_sim))
 
         # Merge with existing — preserve active/testing candidates
         existing_keys = {
@@ -115,6 +116,7 @@ class TransferEngineModule(Module):
         if not entity_id:
             return
 
+        matched = False
         for candidate in self.candidates:
             if candidate.state not in ("hypothesis", "testing"):
                 continue
@@ -122,15 +124,31 @@ class TransferEngineModule(Module):
             if entity_id in candidate.target_entities:
                 hit = outcome == "correct"
                 candidate.record_shadow_result(hit=hit)
+                matched = True
 
-        # Periodic promotion check (every shadow event)
-        self._check_promotions()
+        # Check promotions and persist if any state changed
+        if matched:
+            state_changed = await self._check_promotions()
+            if state_changed:
+                await self._persist_candidates()
 
-    def _check_promotions(self):
-        """Check all testing candidates for promotion/rejection."""
+    async def _check_promotions(self) -> bool:
+        """Check all testing candidates for promotion/rejection.
+
+        Returns True if any candidate changed state.
+        """
+        min_days = int(await self.hub.cache.get_config_value("transfer.promotion_days", 7))
+        min_hit = float(await self.hub.cache.get_config_value("transfer.promotion_hit_rate", 0.6))
+        reject = float(await self.hub.cache.get_config_value("transfer.reject_hit_rate", 0.3))
+
+        changed = False
         for candidate in self.candidates:
             if candidate.state == "testing":
-                candidate.check_promotion(min_days=7, min_hit_rate=0.6, reject_below=0.3)
+                old_state = candidate.state
+                candidate.check_promotion(min_days=min_days, min_hit_rate=min_hit, reject_below=reject)
+                if candidate.state != old_state:
+                    changed = True
+        return changed
 
     def _load_candidates(self, data: list[dict]) -> None:
         """Load candidates from cached dicts (best-effort)."""

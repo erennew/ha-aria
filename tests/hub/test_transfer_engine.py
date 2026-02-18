@@ -17,6 +17,9 @@ def mock_hub():
     hub.publish = AsyncMock()
     hub.get_config_value = MagicMock(return_value=None)
     hub.get_module = MagicMock(return_value=None)
+    hub.cache = MagicMock()
+    # Return the fallback (second arg) when config key not found
+    hub.cache.get_config_value = AsyncMock(side_effect=lambda key, fallback=None: fallback)
     hub.modules = {}
     return hub
 
@@ -118,7 +121,9 @@ class TestCandidateGeneration:
         await module.initialize()
         await module._on_discovery_complete({})
 
-        assert len(module.candidates) >= 0  # May or may not meet threshold
+        # Kitchen and bedroom have identical domain composition (light + binary_sensor)
+        # so similarity = 1.0, which exceeds the 0.6 threshold → should generate candidate
+        assert len(module.candidates) >= 1
 
 
 class TestShadowTesting:
@@ -155,7 +160,10 @@ class TestShadowTesting:
             }
         )
 
-        assert tc.shadow_tests >= 0  # May or may not match entity
+        # Entity light.bedroom_1 matches target_entities, outcome is "correct"
+        assert tc.shadow_tests == 1
+        assert tc.shadow_hits == 1
+        assert tc.state == "testing"
 
 
 class TestTransferEngineState:
