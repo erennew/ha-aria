@@ -45,9 +45,6 @@ class PatternRecognitionModule(Module):
         self._last_anomaly_explanations: list[dict] = []
         self._shadow_event_count = 0
 
-        # Subscribe to events
-        hub.subscribe("shadow_resolved", self._on_shadow_resolved)
-
     async def initialize(self):
         """Initialize — check hardware tier and activate if sufficient."""
         profile = scan_hardware()
@@ -62,7 +59,13 @@ class PatternRecognitionModule(Module):
             return
 
         self.active = True
+        self.hub.subscribe("shadow_resolved", self._on_shadow_resolved)
         logger.info(f"Pattern recognition active at tier {tier}")
+
+    async def shutdown(self):
+        """Unsubscribe from events on shutdown."""
+        if self.active:
+            self.hub.unsubscribe("shadow_resolved", self._on_shadow_resolved)
 
     async def _on_shadow_resolved(self, event: dict[str, Any]):
         """Handle shadow_resolved events — update feature windows."""

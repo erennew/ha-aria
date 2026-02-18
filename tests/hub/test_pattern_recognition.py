@@ -27,11 +27,10 @@ class TestPatternRecognitionInit:
         module = PatternRecognitionModule(mock_hub)
         assert module.module_id == "pattern_recognition"
 
-    def test_subscribes_to_events(self, mock_hub):
-        PatternRecognitionModule(mock_hub)  # Constructor subscribes to events
-        # Should subscribe to shadow_resolved for pattern tracking
-        subscribe_calls = [call[0][0] for call in mock_hub.subscribe.call_args_list]
-        assert "shadow_resolved" in subscribe_calls
+    def test_no_subscribe_in_constructor(self, mock_hub):
+        PatternRecognitionModule(mock_hub)
+        # Subscribe should NOT happen in __init__ — moved to initialize()
+        mock_hub.subscribe.assert_not_called()
 
     @patch("aria.modules.pattern_recognition.recommend_tier", return_value=2)
     @patch("aria.modules.pattern_recognition.scan_hardware")
@@ -92,6 +91,71 @@ class TestTrajectoryClassification:
         assert "active" in stats
         assert "sequence_classifier" in stats
         assert "window_count" in stats
+
+
+class TestPatternRecognitionLifecycle:
+    """Test subscribe/unsubscribe lifecycle — subscribe in initialize(), not __init__."""
+
+    @pytest.fixture
+    def mock_hub(self):
+        hub = MagicMock()
+        hub.subscribe = MagicMock()
+        hub.unsubscribe = MagicMock()
+        hub.set_cache = AsyncMock()
+        hub.get_cache = AsyncMock(return_value=None)
+        hub.get_config_value = AsyncMock(return_value=None)
+        return hub
+
+    def test_no_subscribe_in_init(self, mock_hub):
+        """Subscribe should NOT happen in __init__ — only after initialize()."""
+        with (
+            patch("aria.modules.pattern_recognition.scan_hardware") as mock_hw,
+            patch("aria.modules.pattern_recognition.recommend_tier", return_value=3),
+        ):
+            mock_hw.return_value = MagicMock(ram_gb=32, cpu_cores=8, gpu_available=False)
+            PatternRecognitionModule(mock_hub)
+
+        mock_hub.subscribe.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_subscribe_after_initialize_when_active(self, mock_hub):
+        """Subscribe should happen in initialize() when tier >= 3."""
+        with (
+            patch("aria.modules.pattern_recognition.scan_hardware") as mock_hw,
+            patch("aria.modules.pattern_recognition.recommend_tier", return_value=3),
+        ):
+            mock_hw.return_value = MagicMock(ram_gb=32, cpu_cores=8, gpu_available=False)
+            module = PatternRecognitionModule(mock_hub)
+            await module.initialize()
+
+        mock_hub.subscribe.assert_called_once_with("shadow_resolved", module._on_shadow_resolved)
+
+    @pytest.mark.asyncio
+    async def test_no_subscribe_when_tier_too_low(self, mock_hub):
+        """Should NOT subscribe when tier < MIN_TIER."""
+        with (
+            patch("aria.modules.pattern_recognition.scan_hardware") as mock_hw,
+            patch("aria.modules.pattern_recognition.recommend_tier", return_value=2),
+        ):
+            mock_hw.return_value = MagicMock(ram_gb=4, cpu_cores=2, gpu_available=False)
+            module = PatternRecognitionModule(mock_hub)
+            await module.initialize()
+
+        mock_hub.subscribe.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_shutdown_unsubscribes(self, mock_hub):
+        """shutdown() must unsubscribe from shadow_resolved."""
+        with (
+            patch("aria.modules.pattern_recognition.scan_hardware") as mock_hw,
+            patch("aria.modules.pattern_recognition.recommend_tier", return_value=3),
+        ):
+            mock_hw.return_value = MagicMock(ram_gb=32, cpu_cores=8, gpu_available=False)
+            module = PatternRecognitionModule(mock_hub)
+            await module.initialize()
+            await module.shutdown()
+
+        mock_hub.unsubscribe.assert_called_once_with("shadow_resolved", module._on_shadow_resolved)
 
 
 class TestModuleRegistration:
