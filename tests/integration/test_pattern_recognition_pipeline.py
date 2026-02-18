@@ -50,7 +50,7 @@ class TestPatternRecognitionPipeline:
                 {
                     "target": "power_watts",
                     "features": {
-                        "power": float(10 + i * 20),
+                        "activity": float(10 + i * 20),
                         "lights": 2.0,
                         "motion": 1.0,
                     },
@@ -60,7 +60,7 @@ class TestPatternRecognitionPipeline:
             )
 
         # Should have classified trajectory
-        assert module.current_trajectory is not None
+        assert module.current_trajectory == "ramping_up"
         # Cache should have been updated
         mock_hub.set_cache.assert_called()
 

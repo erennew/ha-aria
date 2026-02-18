@@ -67,14 +67,35 @@ class TestTrajectoryClassification:
             await module._on_shadow_resolved(
                 {
                     "target": "power_watts",
-                    "features": {"power": float(i * 10), "lights": 1.0},
+                    "features": {"activity": float(i * 10), "lights": 1.0},
                     "actual_value": float(i * 10),
                     "timestamp": datetime.now().isoformat(),
                 }
             )
 
         # Should have trajectory classification result
-        assert module.current_trajectory is not None
+        assert module.current_trajectory == "ramping_up"
+
+        # Verify cache payload structure
+        cache_args = mock_hub.set_cache.call_args[0]
+        assert cache_args[0] == "pattern_trajectory"
+        assert cache_args[1]["trajectory"] == "ramping_up"
+        assert cache_args[1]["method"] == "heuristic"
+        assert "timestamp" in cache_args[1]
+
+    async def test_store_and_retrieve_anomaly_explanations(self, mock_hub):
+        """store_anomaly_explanations -> get_current_state round-trip."""
+        with (
+            patch("aria.modules.pattern_recognition.scan_hardware") as mock_hw,
+            patch("aria.modules.pattern_recognition.recommend_tier", return_value=3),
+        ):
+            mock_hw.return_value = MagicMock(ram_gb=32, cpu_cores=8, gpu_available=False)
+            module = PatternRecognitionModule(mock_hub)
+
+        explanations = [{"feature": "power_watts", "contribution": 0.45}]
+        module.store_anomaly_explanations(explanations)
+        state = module.get_current_state()
+        assert state["anomaly_explanations"] == explanations
 
     async def test_get_current_state(self, mock_hub):
         """get_current_state returns trajectory and scale info."""
