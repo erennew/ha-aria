@@ -379,7 +379,12 @@ async def _register_analysis_modules(hub, intelligence_dir, _init, logger):
     except Exception as e:
         logger.warning(f"Intelligence module failed (non-fatal): {e}")
 
-    # online_learner (Tier 3+ — module self-gates on hardware tier)
+    await _register_ml_modules(hub, _init, logger)
+
+
+async def _register_ml_modules(hub, _init, logger):
+    """Register ML modules (Tier 3+ — each self-gates on hardware tier)."""
+    # online_learner
     try:
         from aria.modules.online_learner import OnlineLearnerModule
 
@@ -389,7 +394,7 @@ async def _register_analysis_modules(hub, intelligence_dir, _init, logger):
     except Exception as e:
         logger.warning(f"Online learner module failed (non-fatal): {e}")
 
-    # pattern_recognition (Tier 3+ — module self-gates on hardware tier)
+    # pattern_recognition
     try:
         from aria.modules.pattern_recognition import PatternRecognitionModule
 
@@ -398,6 +403,16 @@ async def _register_analysis_modules(hub, intelligence_dir, _init, logger):
         await _init(pattern_recognition, "pattern_recognition")()
     except Exception as e:
         logger.warning(f"Pattern recognition module failed (non-fatal): {e}")
+
+    # transfer_engine
+    try:
+        from aria.modules.transfer_engine import TransferEngineModule
+
+        transfer_engine = TransferEngineModule(hub)
+        hub.register_module(transfer_engine)
+        await _init(transfer_engine, "transfer_engine")()
+    except Exception as e:
+        logger.warning(f"Transfer engine module failed (non-fatal): {e}")
 
 
 async def _register_monitor_modules(hub, ha_url, ha_token, _init, logger):
