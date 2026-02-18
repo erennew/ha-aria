@@ -471,6 +471,54 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             logger.exception("Error fetching pattern data")
             raise HTTPException(status_code=500, detail="Internal server error") from None
 
+    @router.get("/api/transfer")
+    async def get_transfer():
+        """Transfer engine state — candidates, hit rates, promotions."""
+        try:
+            transfer_mod = hub.get_module("transfer_engine")
+            if transfer_mod is None:
+                return {"active": False, "candidates": [], "summary": {}, "stats": {}}
+
+            state = transfer_mod.get_current_state()
+            stats = transfer_mod.get_stats()
+            return {
+                "active": stats.get("active", False),
+                "candidates": state.get("candidates", []),
+                "summary": state.get("summary", {}),
+                "stats": stats,
+            }
+        except Exception:
+            logger.exception("Error fetching transfer data")
+            raise HTTPException(status_code=500, detail="Internal server error") from None
+
+    @router.get("/api/anomalies/explain")
+    async def get_anomaly_explanations():
+        """Combined anomaly explanations — path tracing + attention."""
+        try:
+            pattern_mod = hub.get_module("pattern_recognition")
+            if pattern_mod is None:
+                return {"path_tracing": [], "attention": None}
+
+            state = pattern_mod.get_current_state()
+            path_explanations = state.get("anomaly_explanations", [])
+
+            # Attention explainer results (Tier 4 only)
+            attention_result = None
+            if (
+                hasattr(pattern_mod, "attention_explainer")
+                and pattern_mod.attention_explainer is not None
+                and pattern_mod.attention_explainer.is_trained
+            ):
+                attention_result = pattern_mod.attention_explainer.get_stats()
+
+            return {
+                "path_tracing": path_explanations,
+                "attention": attention_result,
+            }
+        except Exception:
+            logger.exception("Error fetching anomaly explanations")
+            raise HTTPException(status_code=500, detail="Internal server error") from None
+
 
 def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
     """Register organic discovery and capability registry endpoints."""
