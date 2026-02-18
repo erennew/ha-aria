@@ -179,6 +179,35 @@ class TestPatternRecognitionLifecycle:
         mock_hub.unsubscribe.assert_called_once_with("shadow_resolved", module._on_shadow_resolved)
 
 
+class TestAttentionExplainerIntegration:
+    """Test attention explainer wiring in pattern recognition."""
+
+    @patch("aria.modules.pattern_recognition.recommend_tier", return_value=4)
+    @patch("aria.modules.pattern_recognition.scan_hardware")
+    async def test_tier_4_initializes_attention_explainer(self, mock_scan, mock_tier, mock_hub):
+        """At Tier 4, attention explainer should be created."""
+        mock_scan.return_value = MagicMock(ram_gb=16, cpu_cores=8, gpu_available=True, gpu_name="Test GPU")
+        module = PatternRecognitionModule(mock_hub)
+        await module.initialize()
+        assert module.active is True
+        assert module.attention_explainer is not None
+
+    @patch("aria.modules.pattern_recognition.recommend_tier", return_value=3)
+    @patch("aria.modules.pattern_recognition.scan_hardware")
+    async def test_tier_3_no_attention_explainer(self, mock_scan, mock_tier, mock_hub):
+        """At Tier 3, attention explainer should be None."""
+        mock_scan.return_value = MagicMock(ram_gb=16, cpu_cores=4, gpu_available=False)
+        module = PatternRecognitionModule(mock_hub)
+        await module.initialize()
+        assert module.active is True
+        assert module.attention_explainer is None
+
+    def test_get_stats_includes_attention(self, mock_hub):
+        module = PatternRecognitionModule(mock_hub)
+        stats = module.get_stats()
+        assert "attention_explainer" in stats
+
+
 class TestModuleRegistration:
     """Test that pattern_recognition registers correctly in hub."""
 

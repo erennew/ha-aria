@@ -35,6 +35,7 @@ class PatternRecognitionModule(Module):
         self.active = False
         self.sequence_classifier = SequenceClassifier(window_size=DEFAULT_WINDOW_SIZE)
         self.anomaly_explainer = AnomalyExplainer()
+        self.attention_explainer = None  # Tier 4 only
 
         # Sliding window of recent feature snapshots per target
         self._feature_windows: dict[str, deque] = {}
@@ -60,6 +61,20 @@ class PatternRecognitionModule(Module):
 
         self.active = True
         self.hub.subscribe("shadow_resolved", self._on_shadow_resolved)
+
+        # Tier 4: attention-based anomaly explainer
+        if tier >= 4:
+            try:
+                from aria.engine.attention_explainer import AttentionExplainer
+
+                self.attention_explainer = AttentionExplainer(
+                    n_features=DEFAULT_WINDOW_SIZE,
+                    sequence_length=DEFAULT_WINDOW_SIZE,
+                )
+                logger.info("Attention explainer initialized (Tier 4)")
+            except Exception as e:
+                logger.warning(f"Attention explainer failed (non-fatal): {e}")
+
         logger.info(f"Pattern recognition active at tier {tier}")
 
     async def shutdown(self):
@@ -146,6 +161,9 @@ class PatternRecognitionModule(Module):
         return {
             "active": self.active,
             "sequence_classifier": self.sequence_classifier.get_stats(),
+            "attention_explainer": (
+                self.attention_explainer.get_stats() if self.attention_explainer is not None else None
+            ),
             "window_count": {target: len(window) for target, window in self._feature_windows.items()},
             "current_trajectory": self.current_trajectory,
             "shadow_events_processed": self._shadow_event_count,
