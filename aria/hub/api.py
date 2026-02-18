@@ -659,10 +659,7 @@ def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         """List all declared capabilities from the code registry."""
         from dataclasses import asdict
 
-        from aria.capabilities import CapabilityRegistry
-
-        registry = CapabilityRegistry()
-        registry.collect_from_modules()
+        registry = hub.get_capability_registry()
         caps = registry.list_all()
         if layer:
             caps = [c for c in caps if c.layer == layer]
@@ -678,10 +675,7 @@ def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
     @router.get("/api/capabilities/registry/graph")
     async def capabilities_registry_graph():
         """Dependency graph of all registered capabilities."""
-        from aria.capabilities import CapabilityRegistry
-
-        registry = CapabilityRegistry()
-        registry.collect_from_modules()
+        registry = hub.get_capability_registry()
         graph = registry.dependency_graph()
         nodes = [
             {"id": cap.id, "name": cap.name, "layer": cap.layer, "status": cap.status} for cap in registry.list_all()
@@ -695,10 +689,7 @@ def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
     @router.get("/api/capabilities/registry/health")
     async def capabilities_registry_health():
         """Runtime health per capability — checks module status from hub."""
-        from aria.capabilities import CapabilityRegistry
-
-        registry = CapabilityRegistry()
-        registry.collect_from_modules()
+        registry = hub.get_capability_registry()
         module_status = {}
         if hasattr(hub, "module_status"):
             module_status = dict(hub.module_status)
@@ -709,10 +700,7 @@ def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         """Get a single capability by ID from the code registry."""
         from dataclasses import asdict
 
-        from aria.capabilities import CapabilityRegistry
-
-        registry = CapabilityRegistry()
-        registry.collect_from_modules()
+        registry = hub.get_capability_registry()
         cap = registry.get(capability_id)
         if not cap:
             raise HTTPException(status_code=404, detail=f"Capability '{capability_id}' not found")

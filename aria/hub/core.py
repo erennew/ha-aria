@@ -57,6 +57,7 @@ class IntelligenceHub:
         self._start_time: datetime | None = None
         self._request_count: int = 0
         self._audit_logger = None
+        self._capability_registry = None  # Cached capability registry (created on first access)
         self.logger = logging.getLogger("hub")
 
     async def initialize(self):
@@ -361,6 +362,15 @@ class IntelligenceHub:
             Module instance or None if not found
         """
         return self.modules.get(module_id)
+
+    def get_capability_registry(self):
+        """Get cached capability registry (created once, reused across requests)."""
+        if self._capability_registry is None:
+            from aria.capabilities import CapabilityRegistry
+
+            self._capability_registry = CapabilityRegistry()
+            self._capability_registry.collect_from_modules()
+        return self._capability_registry
 
     def is_running(self) -> bool:
         """Check if hub is running.
