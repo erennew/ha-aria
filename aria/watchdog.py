@@ -351,6 +351,58 @@ def _check_timer_last_run(unit: str, results: list):
         pass  # Non-fatal per-timer check
 
 
+def check_audit_alerts(
+    audit_db_path: str,
+    threshold: int = 10,
+    window_minutes: int = 5,
+) -> WatchdogResult:
+    """Check audit.db for recent error-severity events."""
+    import sqlite3
+    from datetime import timedelta
+
+    if not os.path.exists(audit_db_path):
+        return WatchdogResult(
+            check_name="audit_alerts",
+            level="OK",
+            message="Audit DB not found — skipping",
+        )
+
+    cutoff = (datetime.now(UTC) - timedelta(minutes=window_minutes)).isoformat()
+    try:
+        conn = sqlite3.connect(audit_db_path)
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM audit_events WHERE severity = 'error' AND timestamp >= ?",
+            (cutoff,),
+        )
+        count = cursor.fetchone()[0]
+        conn.close()
+    except Exception as e:
+        return WatchdogResult(
+            check_name="audit_alerts",
+            level="WARNING",
+            message=f"Failed to read audit.db: {e}",
+        )
+
+    if count >= threshold:
+        return WatchdogResult(
+            check_name="audit_alerts",
+            level="CRITICAL",
+            message=f"{count} audit errors in last {window_minutes}min (threshold: {threshold})",
+            details={"error_count": count, "window_minutes": window_minutes},
+        )
+    elif count > 0:
+        return WatchdogResult(
+            check_name="audit_alerts",
+            level="OK",
+            message=f"{count} audit errors in last {window_minutes}min (below threshold {threshold})",
+        )
+    return WatchdogResult(
+        check_name="audit_alerts",
+        level="OK",
+        message="No recent audit errors",
+    )
+
+
 def check_service_status() -> list:
     """Check if aria-hub.service is active."""
     results = []
@@ -528,6 +580,11 @@ def _collect_results() -> list:
         all_results.extend(check_cache_freshness())
 
     all_results.extend(check_timer_health())
+    all_results.append(
+        check_audit_alerts(
+            audit_db_path=os.path.expanduser("~/ha-logs/intelligence/cache/audit.db"),
+        )
+    )
     return all_results
 
 

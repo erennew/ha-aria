@@ -11,6 +11,7 @@ from aria.watchdog import (
     _should_alert,
     attempt_restart,
     check_api_endpoints,
+    check_audit_alerts,
     check_cache_freshness,
     check_hub_health,
     check_service_status,
@@ -400,6 +401,120 @@ class TestSendAlert:
         with patch("aria.watchdog.COOLDOWN_DIR", tmp_path / "cooldowns"), patch.dict("os.environ", {}, clear=True):
             result = send_alert("test", "WARNING", "test-key", logger)
             assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Audit alert checks
+# ---------------------------------------------------------------------------
+
+
+class TestAuditAlerts:
+    def test_check_audit_alerts_no_db(self):
+        """Missing audit DB → OK result (skipping is not an error)."""
+        result = check_audit_alerts(audit_db_path="/nonexistent/audit.db")
+        assert result.level == "OK"
+        assert result.check_name == "audit_alerts"
+
+    def test_check_audit_alerts_no_errors(self, tmp_path):
+        """Audit DB present but no errors → OK result."""
+        import asyncio
+
+        from aria.hub.audit import AuditLogger
+
+        async def setup():
+            al = AuditLogger()
+            await al.initialize(str(tmp_path / "audit.db"))
+            await al.log(event_type="test.info", source="hub", action="test", severity="info")
+            await al.flush()
+            await al.shutdown()
+
+        asyncio.run(setup())
+        result = check_audit_alerts(
+            audit_db_path=str(tmp_path / "audit.db"),
+            threshold=10,
+            window_minutes=60,
+        )
+        assert result.level == "OK"
+        assert result.check_name == "audit_alerts"
+
+    def test_check_audit_alerts_below_threshold(self, tmp_path):
+        """Errors present but below threshold → OK result."""
+        import asyncio
+
+        from aria.hub.audit import AuditLogger
+
+        async def setup():
+            al = AuditLogger()
+            await al.initialize(str(tmp_path / "audit.db"))
+            for _i in range(3):
+                await al.log(event_type="test.error", source="hub", action="test", severity="error")
+            await al.flush()
+            await al.shutdown()
+
+        asyncio.run(setup())
+        result = check_audit_alerts(
+            audit_db_path=str(tmp_path / "audit.db"),
+            threshold=10,
+            window_minutes=60,
+        )
+        assert result.level == "OK"
+        assert result.check_name == "audit_alerts"
+
+    def test_check_audit_alerts_at_threshold(self, tmp_path):
+        """Errors at or above threshold → CRITICAL result."""
+        import asyncio
+
+        from aria.hub.audit import AuditLogger
+
+        async def setup():
+            al = AuditLogger()
+            await al.initialize(str(tmp_path / "audit.db"))
+            for _i in range(15):
+                await al.log(event_type="test.error", source="hub", action="test", severity="error")
+            await al.flush()
+            await al.shutdown()
+
+        asyncio.run(setup())
+        result = check_audit_alerts(
+            audit_db_path=str(tmp_path / "audit.db"),
+            threshold=10,
+            window_minutes=60,
+        )
+        assert result.level in ("WARNING", "CRITICAL")
+        assert result.check_name == "audit_alerts"
+
+    def test_check_audit_alerts_details_populated(self, tmp_path):
+        """CRITICAL result includes details dict with error_count."""
+        import asyncio
+
+        from aria.hub.audit import AuditLogger
+
+        async def setup():
+            al = AuditLogger()
+            await al.initialize(str(tmp_path / "audit.db"))
+            for _i in range(10):
+                await al.log(event_type="test.error", source="hub", action="test", severity="error")
+            await al.flush()
+            await al.shutdown()
+
+        asyncio.run(setup())
+        result = check_audit_alerts(
+            audit_db_path=str(tmp_path / "audit.db"),
+            threshold=10,
+            window_minutes=60,
+        )
+        assert result.level == "CRITICAL"
+        assert result.details.get("error_count") == 10
+        assert result.details.get("window_minutes") == 60
+
+    def test_check_audit_alerts_corrupt_db(self, tmp_path):
+        """Unreadable DB → WARNING (graceful degradation)."""
+        bad_db = tmp_path / "audit.db"
+        bad_db.write_text("not a sqlite database")
+        result = check_audit_alerts(audit_db_path=str(bad_db))
+        assert result.level == "WARNING"
+        assert result.check_name == "audit_alerts"
+        assert "Failed to read audit.db" in result.message
 
 
 # ---------------------------------------------------------------------------
