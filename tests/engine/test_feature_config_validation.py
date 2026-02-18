@@ -36,3 +36,29 @@ class TestValidateFeatureConfig:
         config["pattern_features"]["trajectory_class"] = False
         errors = validate_feature_config(config)
         assert errors == []
+
+
+class TestFeatureNameConsistency:
+    """Verify engine and hub produce identical feature name lists."""
+
+    def test_get_feature_names_includes_pattern_features(self):
+        """Engine get_feature_names must include pattern_features when enabled."""
+        from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG
+        from aria.engine.features.vector_builder import get_feature_names
+
+        config = {**DEFAULT_FEATURE_CONFIG}
+        config["pattern_features"] = {"trajectory_class": True}
+
+        names = get_feature_names(config)
+        assert "trajectory_class" in names
+
+    def test_get_feature_names_excludes_disabled_pattern_features(self):
+        """Pattern features should not appear when disabled."""
+        from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG
+        from aria.engine.features.vector_builder import get_feature_names
+
+        config = {**DEFAULT_FEATURE_CONFIG}
+        config["pattern_features"] = {"trajectory_class": False}
+
+        names = get_feature_names(config)
+        assert "trajectory_class" not in names

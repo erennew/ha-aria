@@ -46,6 +46,7 @@ def get_feature_names(config=None):
     names.extend(_get_enabled_keys(config, "lag_features"))
     names.extend(_get_enabled_keys(config, "interaction_features"))
     names.extend(_get_enabled_keys(config, "presence_features"))
+    names.extend(_get_enabled_keys(config, "pattern_features"))
     return names
 
 
