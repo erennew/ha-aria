@@ -122,6 +122,7 @@ class AuditLogger:
         self._running = False
         self._dropped_events = 0
         self._total_written = 0
+        self._subscribers: list[asyncio.Queue] = []
 
     async def initialize(self, db_path: str) -> None:
         """Open database, create schema, start flush loop."""
@@ -237,6 +238,19 @@ class AuditLogger:
             (timestamp, entity_id, old_status, new_status, old_tier, new_tier, reason, changed_by),
         )
         await self._db.commit()
+
+    # ------------------------------------------------------------------
+    # Subscriber management
+    # ------------------------------------------------------------------
+
+    def add_subscriber(self, queue: asyncio.Queue):
+        """Register a WebSocket subscriber queue."""
+        self._subscribers.append(queue)
+
+    def remove_subscriber(self, queue: asyncio.Queue):
+        """Unregister a WebSocket subscriber queue."""
+        with contextlib.suppress(ValueError):
+            self._subscribers.remove(queue)
 
     # ------------------------------------------------------------------
     # Query methods
@@ -539,6 +553,20 @@ class AuditLogger:
         )
         await self._db.commit()
         self._total_written += len(items)
+
+        # Notify WebSocket subscribers
+        for row in items:
+            event_dict = {
+                "timestamp": row[0],
+                "event_type": row[1],
+                "source": row[2],
+                "action": row[3],
+                "subject": row[4],
+                "severity": row[7],
+            }
+            for sub in self._subscribers:
+                with contextlib.suppress(asyncio.QueueFull):
+                    sub.put_nowait(event_dict)
 
     @staticmethod
     def _row_to_dict(row: aiosqlite.Row, json_fields: list[str] | None = None) -> dict:

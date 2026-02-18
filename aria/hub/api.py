@@ -1542,6 +1542,31 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         finally:
             ws_manager.disconnect(websocket)
 
+    @app.websocket("/ws/audit")
+    async def audit_websocket(websocket: WebSocket):
+        import asyncio
+
+        await websocket.accept()
+        await websocket.send_json({"type": "connected", "message": "Connected to ARIA Audit stream"})
+
+        queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
+
+        if hasattr(hub, "_audit_logger") and hub._audit_logger:
+            hub._audit_logger.add_subscriber(queue)
+
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30)
+                    await websocket.send_json({"type": "audit_event", "data": event})
+                except TimeoutError:
+                    await websocket.send_json({"type": "ping"})
+        except WebSocketDisconnect:
+            pass
+        finally:
+            if hasattr(hub, "_audit_logger") and hub._audit_logger:
+                hub._audit_logger.remove_subscriber(queue)
+
     # Include authenticated router
     app.include_router(router)
 

@@ -106,3 +106,10 @@ class TestAuditWithoutLogger:
         resp = client.get("/api/audit/events")
         assert resp.status_code == 200
         assert resp.json()["events"] == []
+
+
+class TestAuditWebSocket:
+    def test_ws_audit_connects(self, client):
+        with client.websocket_connect("/ws/audit") as ws:
+            msg = ws.receive_json()
+            assert msg["type"] == "connected"
