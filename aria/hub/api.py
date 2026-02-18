@@ -1083,6 +1083,26 @@ def _register_pipeline_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             logger.exception("Error retreating pipeline")
             raise HTTPException(status_code=500, detail="Internal server error") from None
 
+    @router.get("/api/pipeline/topology")
+    async def get_pipeline_topology():
+        """Get current module topology for frontend Sankey diagram.
+
+        Returns list of modules and their statuses to keep frontend graph in sync
+        with hub's actual module registry.
+        """
+        modules = []
+        for module_id, module in hub.modules.items():
+            status = hub.module_status.get(module_id, "unknown")
+            modules.append(
+                {
+                    "id": module_id,
+                    "name": getattr(module, "module_name", module_id),
+                    "status": status,
+                    "layer": getattr(module, "LAYER", "unknown"),
+                }
+            )
+        return {"modules": sorted(modules, key=lambda m: m["id"]), "timestamp": datetime.now().isoformat()}
+
 
 def _compute_stage_health(stats: dict) -> dict:
     """Compute multi-metric stage health from accuracy stats."""
