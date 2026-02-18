@@ -11,6 +11,8 @@ import contextlib
 import hashlib
 import json
 import logging
+import os
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -85,6 +87,17 @@ CREATE INDEX IF NOT EXISTS idx_curation_timestamp ON audit_curation_history(time
 """
 
 
+def _get_system_memory_mb() -> int | None:
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    return int(line.split()[1]) // 1024
+    except OSError:
+        return None
+    return None
+
+
 def _compute_checksum(
     timestamp: str,
     event_type: str,
@@ -115,6 +128,7 @@ class AuditLogger:
         self._db = await aiosqlite.connect(db_path)
         self._db.row_factory = aiosqlite.Row
         await self._db.execute("PRAGMA journal_mode=WAL")
+        await self._db.execute("PRAGMA busy_timeout=5000")
         await self._db.executescript(_SCHEMA)
         await self._db.commit()
 
@@ -171,15 +185,15 @@ class AuditLogger:
 
     async def log_startup(
         self,
-        python_version: str,
-        modules_loaded: dict | None = None,
+        modules: dict | None = None,
         config_snapshot: dict | None = None,
-        system_memory_mb: int | None = None,
-        pid: int | None = None,
         duration_ms: float | None = None,
     ) -> None:
-        """Write startup snapshot directly."""
+        """Write startup snapshot directly. Auto-collects python_version, system_memory_mb, pid."""
         timestamp = datetime.now(UTC).isoformat()
+        python_version = sys.version
+        system_memory_mb = _get_system_memory_mb()
+        pid = os.getpid()
         await self._db.execute(
             "INSERT INTO audit_startups "
             "(timestamp, python_version, modules_loaded, config_snapshot, "
@@ -188,7 +202,7 @@ class AuditLogger:
             (
                 timestamp,
                 python_version,
-                json.dumps(modules_loaded) if modules_loaded is not None else None,
+                json.dumps(modules) if modules is not None else None,
                 json.dumps(config_snapshot) if config_snapshot is not None else None,
                 system_memory_mb,
                 pid,
@@ -205,7 +219,7 @@ class AuditLogger:
         old_tier: str | None = None,
         new_tier: str | None = None,
         reason: str | None = None,
-        changed_by: str | None = None,
+        changed_by: str = "auto",
     ) -> None:
         """Write entity curation change directly."""
         timestamp = datetime.now(UTC).isoformat()

@@ -1,6 +1,8 @@
 """Tests for AuditLogger — schema, write path, queries, integrity."""
 
 import json
+import os
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -140,21 +142,21 @@ class TestLogStartup:
 
     async def test_log_startup(self, audit_logger):
         await audit_logger.log_startup(
-            python_version="3.14.3",
-            modules_loaded={"intelligence": True, "activity": True},
+            modules={"intelligence": True, "activity": True},
             config_snapshot={"port": 8001},
-            system_memory_mb=32000,
-            pid=12345,
             duration_ms=1500.0,
         )
 
         startups = await audit_logger.query_startups()
         assert len(startups) == 1
-        assert startups[0]["python_version"] == "3.14.3"
+        # python_version auto-collected from sys.version
+        assert startups[0]["python_version"] == sys.version
         assert startups[0]["modules_loaded"] == {"intelligence": True, "activity": True}
         assert startups[0]["config_snapshot"] == {"port": 8001}
-        assert startups[0]["system_memory_mb"] == 32000
-        assert startups[0]["pid"] == 12345
+        # system_memory_mb auto-collected from /proc/meminfo (int or None on non-Linux)
+        assert startups[0]["system_memory_mb"] is None or isinstance(startups[0]["system_memory_mb"], int)
+        # pid auto-collected from os.getpid()
+        assert startups[0]["pid"] == os.getpid()
 
 
 class TestLogCuration:
