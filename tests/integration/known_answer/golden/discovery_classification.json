@@ -1,0 +1,38 @@
+{
+  "automation.morning_lights": {
+    "tier": 1,
+    "status": "auto_excluded",
+    "reason": "Domain 'automation' is infrastructure",
+    "auto_classification": "tier1_auto_excluded"
+  },
+  "binary_sensor.motion": {
+    "tier": 3,
+    "status": "included",
+    "reason": "General entity",
+    "auto_classification": "tier3_included"
+  },
+  "light.living_room": {
+    "tier": 3,
+    "status": "included",
+    "reason": "General entity",
+    "auto_classification": "tier3_included"
+  },
+  "sensor.temperature": {
+    "tier": 3,
+    "status": "included",
+    "reason": "General entity",
+    "auto_classification": "tier3_included"
+  },
+  "switch.smart_plug": {
+    "tier": 3,
+    "status": "included",
+    "reason": "General entity",
+    "auto_classification": "tier3_included"
+  },
+  "update.hacs": {
+    "tier": 1,
+    "status": "auto_excluded",
+    "reason": "Domain 'update' is infrastructure",
+    "auto_classification": "tier1_auto_excluded"
+  }
+}
