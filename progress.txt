@@ -2,3 +2,33 @@
 
 Started: 2026-02-19
 
+## Triage Pass (Complete)
+
+### Closed: Already-Fixed (7)
+- #8 (module ID collision), #14 (WS disconnect), #15 (audit prune), #16 (audit guard), #17 (query_timeline limit), #18 (export_archive async), #39 (CapabilityRegistry cache)
+
+### Closed: Archived Module (1)
+- #10 (Pipeline Sankey for transfer_engine/attention_explainer)
+
+### Annotated: Partial-Archived (10)
+- #25, #27, #33, #48, #52, #53, #55, #57, #61, #62 — each has Phase 1 note comment
+
+### Re-labeled (32)
+- Issues #42-73 — all now have priority + category labels
+
+### GitHub Infrastructure
+- Labels created: archived, phase:4, phase:5
+- Milestones created: Phase 4 (Fix & Optimize), Phase 5 (UI Decision Tool)
+- 42 issues assigned to Phase 4 milestone, 1 to Phase 5
+- Project board: BLOCKED (token needs project scope — create manually)
+
+### Issue Count After Triage
+- Open: 55 (was 63)
+- Closed: 11 (was 3)
+- Reduction: 8 issues closed via triage (12.7%)
+
+## Fix Pass (Pending)
+
+Remaining 47 issues to fix in priority order (security > reliability > performance > architecture).
+KA test issues (#66-73) deferred to Phase 2. UI issue (#28) deferred to Phase 5.
+Effective fix scope: ~37 issues.
