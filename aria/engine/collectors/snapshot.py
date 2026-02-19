@@ -156,10 +156,8 @@ def build_intraday_snapshot(hour: int | None, date_str: str | None, config: AppC
         existing_path = lock_dir / f"{hour:02d}.json"
         if existing_path.exists():
             logger.info("Intraday snapshot already exists for %s hour %02d — skipping build", date_str, hour)
-            import json as _json
-
             with open(existing_path) as f:
-                return _json.load(f)
+                return json.load(f)
 
         # Start with the standard snapshot structure
         snapshot = build_empty_snapshot(date_str, config.holidays)

@@ -130,7 +130,8 @@ class DiscoveryModule(Module):
                 except Exception as e:
                     self.logger.warning(f"Deferred entity classification failed: {e}")
 
-        self.hub.subscribe("cache_updated", _on_cache_updated)
+        self._on_cache_updated_handler = _on_cache_updated
+        self.hub.subscribe("cache_updated", self._on_cache_updated_handler)
 
         # Also check if entities are already in cache (discovery may have populated them above)
         entities_entry = await self.hub.get_cache(CACHE_ENTITIES)
@@ -147,6 +148,11 @@ class DiscoveryModule(Module):
             interval=RECLASSIFY_INTERVAL,
             run_immediately=False,
         )
+
+    async def shutdown(self):
+        """Clean up event subscriptions."""
+        if hasattr(self, "_on_cache_updated_handler"):
+            self.hub.unsubscribe("cache_updated", self._on_cache_updated_handler)
 
     async def run_discovery(self) -> dict[str, Any]:
         """Run discovery script and store results in hub cache.
