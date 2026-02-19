@@ -16,26 +16,15 @@
 | Audit logging | `aria/hub/audit.py` | `tests/hub/test_audit.py`, `tests/hub/test_audit_middleware.py`, `tests/integration/test_audit_pipeline.py` |
 | Config defaults | `aria/hub/config_defaults.py` | `tests/hub/test_config_defaults.py` |
 | Validation runner | `aria/hub/validation_runner.py` | `tests/hub/test_validation_runner.py` |
-| Discovery (HA scan) | `aria/modules/discovery.py`, `bin/discover.py` | `tests/hub/test_discovery.py` |
+| Discovery (HA scan + entity classification) | `aria/modules/discovery.py`, `bin/discover.py` | `tests/hub/test_discovery.py` |
 | ML training (hub) | `aria/modules/ml_engine.py` | `tests/hub/test_ml_engine.py` |
 | Pattern detection | `aria/modules/patterns.py` | `tests/hub/test_patterns.py` |
-| Pattern recognition (Tier 3+) | `aria/modules/pattern_recognition.py` | `tests/hub/test_pattern_recognition.py` |
+| Trajectory classifier (Tier 3+) | `aria/modules/trajectory_classifier.py` | `tests/hub/test_trajectory_classifier.py` |
 | Orchestrator (automation suggestions) | `aria/modules/orchestrator.py` | `tests/hub/test_orchestrator.py` |
 | Shadow engine | `aria/modules/shadow_engine.py` | `tests/hub/test_shadow_engine.py` |
-| Data quality / entity curation | `aria/modules/data_quality.py` | `tests/hub/test_data_quality.py` |
-| Organic discovery (HDBSCAN) | `aria/modules/organic_discovery/module.py` | `tests/hub/test_organic_discovery.py` |
-| Organic — feature vectors | `aria/modules/organic_discovery/feature_vectors.py` | (tested via module tests) |
-| Organic — clustering | `aria/modules/organic_discovery/clustering.py` | (tested via module tests) |
-| Organic — behavioral | `aria/modules/organic_discovery/behavioral.py` | (tested via module tests) |
-| Organic — scoring | `aria/modules/organic_discovery/scoring.py` | (tested via module tests) |
-| Organic — naming (heuristic/Ollama) | `aria/modules/organic_discovery/naming.py` | (tested via module tests) |
-| Organic — seed validation | `aria/modules/organic_discovery/seed_validation.py` | (tested via module tests) |
 | Intelligence (cache assembly) | `aria/modules/intelligence.py` | `tests/hub/test_intelligence.py` |
 | Activity monitor | `aria/modules/activity_monitor.py` | `tests/hub/test_activity_monitor.py` |
-| Activity labeler (LLM) | `aria/modules/activity_labeler.py` | `tests/hub/test_activity_labeler.py` |
 | Presence (MQTT + HA sensors) | `aria/modules/presence.py` | `tests/hub/test_presence.py` |
-| Online learner (Tier 3+) | `aria/modules/online_learner.py` | `tests/hub/test_online_learner.py` |
-| Transfer engine (Tier 3+) | `aria/modules/transfer_engine.py` | `tests/hub/test_transfer_engine.py` |
 | Watchdog | `aria/watchdog.py` | `tests/hub/test_watchdog.py` |
 | Capabilities registry | `aria/capabilities.py` | `tests/hub/test_capabilities.py` |
 | Engine — snapshot collection | `aria/engine/collectors/snapshot.py` | `tests/engine/test_snapshot.py` |
@@ -186,8 +175,7 @@ Test coverage: `tests/hub/test_core.py` (slow-subscriber warning, fast-callback 
 | `config_updated` | `PUT /api/config/{key}` (api.py) | `IntelligenceHub.on_config_updated()` → all modules' `on_config_updated(config)` (core.py) | All modules receive via on_config_updated (no-op default in base class) |
 | `cache_updated` | `hub.set_cache()` (core.py:348) | `broadcast_cache_update` → WebSocket `/ws` (api.py:1464) | `orchestrator.on_event()` — watches for `category == "patterns"` |
 | `state_changed` | `activity_monitor` (activity_monitor.py:389) | `shadow_engine._on_state_changed` (shadow_engine.py:273) | All modules receive — most ignore |
-| `shadow_resolved` | `shadow_engine` (shadow_engine.py:968, 1018) | `online_learner._on_shadow_resolved` (online_learner.py:40), `pattern_recognition._on_shadow_resolved` (pattern_recognition.py:63), `transfer_engine._on_shadow_resolved` (transfer_engine.py:47) | All modules receive via on_event |
-| `organic_discovery_complete` | `organic_discovery` (module.py:484) | `transfer_engine._on_discovery_complete` (transfer_engine.py:46) | All modules receive — most ignore |
+| `shadow_resolved` | `shadow_engine` (shadow_engine.py:968, 1018) | `trajectory_classifier._on_shadow_resolved` (trajectory_classifier.py:119) | All modules receive via on_event |
 | `discovery_complete` | `discovery` (discovery.py:287) | (none) | All modules receive |
 | `pipeline_updated` | `api.py` route handlers (api.py:1029, 1060) | (none) | All modules receive |
 | `curation_updated` | `api.py` route handlers (api.py:1212, 1227) | (none) | All modules receive |
@@ -219,7 +207,6 @@ Test coverage: `tests/hub/test_core.py` (slow-subscriber warning, fast-callback 
 | `aria-meta-learn.timer` | Monday 01:30 | `aria meta-learn` (via ollama-queue) | meta-learning JSON | intelligence module |
 | `aria-correlations.timer` | Sunday 03:15 | `aria correlations` | entity correlations JSON | intelligence module |
 | `aria-sequences.timer` | Sunday 03:45 | `aria sequences detect` | sequence anomalies JSON | intelligence module |
-| `aria-organic-discovery.timer` | Sunday 04:00 | `aria discover-organic` | capabilities cache | ml_engine, transfer_engine |
 | `aria-suggest-automations.timer` | Sunday 04:30 | `aria suggest-automations` (via ollama-queue) | automation suggestions JSON | intelligence module |
 | `aria-prophet.timer` | Monday 03:00 | `aria prophet` | prophet forecasts JSON | intelligence module |
 
@@ -229,15 +216,14 @@ Test coverage: `tests/hub/test_core.py` (slow-subscriber warning, fast-callback 
 
 | Category | Primary Writer(s) | Reader(s) |
 |----------|-------------------|-----------|
-| `entities` | discovery | data_quality, presence, organic_discovery, transfer_engine, ml_engine |
+| `entities` | discovery | presence, ml_engine |
 | `devices` | discovery | presence |
 | `areas` | discovery | (dashboard) |
-| `capabilities` | discovery, organic_discovery, ml_engine, shadow_engine | ml_engine, shadow_engine, transfer_engine |
+| `capabilities` | discovery, ml_engine, shadow_engine | ml_engine, shadow_engine |
 | `discovery_metadata` | discovery | (API/dashboard) |
-| `intelligence` | intelligence | activity_labeler, shadow_engine |
-| `activity_log` | activity_monitor | data_quality, intelligence, ml_engine, shadow_engine |
-| `activity_summary` | activity_monitor | activity_labeler, intelligence, shadow_engine |
-| `activity_labels` | activity_labeler | (API/dashboard) |
+| `intelligence` | intelligence | shadow_engine |
+| `activity_log` | activity_monitor | intelligence, ml_engine, shadow_engine |
+| `activity_summary` | activity_monitor | intelligence, shadow_engine |
 | `presence` | presence | engine snapshot collector (read-back) |
 | `patterns` | patterns | orchestrator (via on_event), shadow_engine |
 | `automation_suggestions` | orchestrator | (API/dashboard) |
@@ -250,12 +236,9 @@ Test coverage: `tests/hub/test_core.py` (slow-subscriber warning, fast-callback 
 | `ml_training_metadata` | ml_engine | ml_engine |
 | `latest_snapshot` | (engine via cache API) | ml_engine |
 | `discovery` | (engine via cache API) | ml_engine |
-| `pattern_trajectory` | pattern_recognition | ml_engine |
-| `transfer_candidates` | transfer_engine | (API/dashboard) |
-| `discovery_settings` | organic_discovery | organic_discovery |
-| `discovery_history` | organic_discovery | (API/dashboard) |
+| `pattern_trajectory` | trajectory_classifier | ml_engine |
 | `config` | config_defaults, API | (all modules via hub) |
-| `entity_curation` | data_quality, API | (filtering layer) |
+| `entity_curation` | discovery, API | (filtering layer) |
 
 ### Subprocess Calls
 
@@ -361,19 +344,13 @@ Test coverage: `tests/hub/test_core.py` (slow-subscriber warning, fast-callback 
     │  → hub.publish("shadow_resolved")│
     └────────┬────────────────────────┘
              │ (event bus)
-    ┌────────▼──────────────┐
-    │ Tier 3+ Subscribers:  │
-    │                       │
-    │ OnlineLearner         │
-    │  → update River models│
-    │                       │
-    │ PatternRecognition    │
-    │  → DTW classification │
-    │  → scale tagging      │
-    │                       │
-    │ TransferEngine        │
-    │  → cross-domain tests │
-    └───────────────────────┘
+    ┌────────────────────────────┐
+    │ Tier 3+ Subscribers:       │
+    │                            │
+    │ TrajectoryClassifier       │
+    │  → DTW classification      │
+    │  → scale tagging           │
+    └────────────────────────────┘
 ```
 
 ### 3. Presence Signal Flow
@@ -406,79 +383,23 @@ Test coverage: `tests/hub/test_core.py` (slow-subscriber warning, fast-callback 
     └───────────────────────────────────┘
 ```
 
-### 4. Organic Discovery Pipeline (Weekly)
+### 4. Organic Discovery Pipeline
 
-```
-    ┌────────────────────────────┐
-    │ entities cache (hub.db)    │
-    │ (from discovery module)    │
-    └────────┬───────────────────┘
-             │
-    ┌────────▼───────────────────┐
-    │ feature_vectors.py          │
-    │  entity attrs → numeric     │
-    └────────┬───────────────────┘
-             │
-    ┌────────▼───────────────────┐
-    │ clustering.py               │
-    │  HDBSCAN Layer 1            │
-    │  (domain/attribute clusters)│
-    └────────┬───────────────────┘
-             │
-    ┌────────▼───────────────────┐
-    │ behavioral.py               │
-    │  Layer 2: co-occurrence     │
-    │  + temporal patterns        │
-    └────────┬───────────────────┘
-             │
-    ┌────────▼───────────────────┐
-    │ scoring.py                  │
-    │  5-component usefulness     │
-    │  score (0-100)              │
-    └────────┬───────────────────┘
-             │
-    ┌────────▼───────────────────┐
-    │ seed_validation.py          │
-    │  Jaccard similarity vs      │
-    │  seed capabilities          │
-    └────────┬───────────────────┘
-             │
-    ┌────────▼───────────────────┐
-    │ naming.py                   │
-    │  heuristic or Ollama LLM    │
-    │  (via ollama-queue:7683)    │
-    └────────┬───────────────────┘
-             │
-    ┌────────▼───────────────────┐
-    │ capabilities cache          │
-    │  (extended, not replaced)   │
-    │  publish("organic_discovery │
-    │  _complete")                │
-    └────────┬───────────────────┘
-             │
-    ┌────────▼───────────────────┐
-    │ TransferEngine picks up     │
-    │ ml_engine picks up new      │
-    │ prediction targets          │
-    └─────────────────────────────┘
-```
+> **Archived** — lean audit 2026-02-19. The weekly HDBSCAN pipeline (feature_vectors, clustering, behavioral, scoring, seed_validation, naming) has been removed. See `_archived/modules/organic_discovery/`.
 
 ### 5. Closed-Loop Feedback
 
 ```
-    ┌─────────────────┐  ┌───────────────────┐  ┌──────────────────┐
-    │ Shadow Engine    │  │ Activity Labeler   │  │ Organic Discovery│
-    │ predictions →    │  │ LLM predictions →  │  │ capability       │
-    │ accuracy scores  │  │ user corrections   │  │ proposals →      │
-    └────────┬────────┘  └────────┬───────────┘  │ user approves    │
-             │                    │               └────────┬─────────┘
-             │                    │                        │
-    ┌────────▼────────────────────▼────────────────────────▼─────────┐
+    ┌─────────────────┐
+    │ Shadow Engine    │
+    │ predictions →    │
+    │ accuracy scores  │
+    └────────┬────────┘
+             │
+    ┌────────▼────────────────────────────────────────────────────────┐
     │                    Feedback Channels                            │
     │                                                                │
     │  shadow accuracy → DemandSignal propagation                    │
-    │  label corrections → classifier retrain (50+ threshold)        │
-    │  capability approval → capabilities cache → new targets        │
     │  automation feedback → orchestrator adjustment                  │
     │  drift detection → retrain trigger                             │
     └────────────────────────────────────────────────────────────────┘
@@ -547,29 +468,22 @@ Modules initialize **sequentially** in this exact order. Each module's `initiali
 
 | # | Module | Critical? | Init Starts | On Failure |
 |---|--------|-----------|------------|------------|
-| 1 | `discovery` | **Yes** | WebSocket listener, initial HA scan | Hub starts but entities cache empty — downstream modules degraded |
+| 1 | `discovery` | **Yes** | WebSocket listener, initial HA scan + entity classification | Hub starts but entities cache empty — downstream modules degraded |
 | 2 | `ml_engine` | **Yes** | Loads models, schedules periodic training | No predictions available |
 | 3 | `patterns` | **Yes** | Reads logbook data | No pattern detection |
 | 4 | `orchestrator` | **Yes** | Reads patterns cache | No automation suggestions |
-| 5 | `shadow_engine` | No | Subscribes to state_changed | No shadow predictions, online learner starved |
-| 6 | `data_quality` | No | Reads entities, classifies, writes curation | Activity monitor falls back to domain filtering |
-| 7 | `organic_discovery` | No | Loads settings, schedules periodic run | No new capability proposals |
-| 8 | `intelligence` | **Yes** | Reads engine JSON files, schedules 15min check | Intelligence cache stale, no Telegram digest |
-| 9 | `online_learner` | No | Subscribes to shadow_resolved (Tier 3+) | No online model updates |
-| 10 | `pattern_recognition` | No | Subscribes to shadow_resolved (Tier 3+) | No trajectory classification |
-| 11 | `transfer_engine` | No | Subscribes to organic_discovery_complete (Tier 3+) | No cross-domain transfer |
-| 12 | `activity_monitor` | No | WebSocket listener, 15min summary | No activity data, shadow engine starved |
-| 13 | `activity_labeler` | No | Loads classifier, schedules prediction | No activity labels |
-| 14 | `presence` | No | MQTT + WebSocket listeners | No presence data, snapshots get zero features |
+| 5 | `shadow_engine` | No | Subscribes to state_changed | No shadow predictions |
+| 6 | `intelligence` | **Yes** | Reads engine JSON files, schedules 15min check | Intelligence cache stale, no Telegram digest |
+| 7 | `trajectory_classifier` | No | Subscribes to shadow_resolved (Tier 3+) | No trajectory classification |
+| 8 | `activity_monitor` | No | WebSocket listener, 15min summary | No activity data, shadow engine starved |
+| 9 | `presence` | No | MQTT + WebSocket listeners | No presence data, snapshots get zero features |
 
-**Registration structure:** `cli.py` uses 4 functions: `_register_modules()` (1–4), `_register_analysis_modules()` (5–8), `_register_ml_modules()` (9–11), `_register_monitor_modules()` (12–14). Analysis → ML → Monitors is the group order.
-
-**Label collision:** Module #3 (`patterns` from `patterns.py`) and module #10 (`pattern_recognition` from `pattern_recognition.py`) are registered under different IDs (`"pattern_recognition"` for init label vs module_id). These are distinct modules — `patterns` detects recurring sequences from logbook data, `pattern_recognition` does DTW trajectory classification on shadow results.
+**Registration structure:** `cli.py` uses 4 functions: `_register_modules()` (1–4), `_register_analysis_modules()` (5–6), `_register_ml_modules()` (7), `_register_monitor_modules()` (8–9). Analysis → ML → Monitors is the group order.
 
 **Cold-start ordering risks:**
-- `data_quality` (#6) reads `entities` cache written by `discovery` (#1) — if discovery's initial scan hasn't finished by the time data_quality runs, it gets empty data. Self-corrects on next 24h cycle.
-- `activity_monitor` (#12) fires `state_changed` events that `shadow_engine` (#5) subscribes to — ordering is correct here (shadow subscribes first).
-- `intelligence` (#8) reads engine JSON files — if batch timers haven't run yet (fresh install), intelligence cache is empty for 24h.
+- `activity_monitor` (#8) fires `state_changed` events that `shadow_engine` (#5) subscribes to — ordering is correct here (shadow subscribes first).
+- `intelligence` (#6) reads engine JSON files — if batch timers haven't run yet (fresh install), intelligence cache is empty for 24h.
+- `discovery` (#1) entity classification runs `_reclassify_all` on startup — if the initial HA scan is still in progress, curation may process a stale cache. Self-corrects on next 24h cycle (risk partially mitigated by merging data_quality into discovery).
 
 ### Error Propagation Paths
 
@@ -584,7 +498,7 @@ When something fails, how does the failure surface?
 | Engine batch timer failure | Watchdog checks `systemctl --user` timer status | Telegram alert | Up to 5min |
 | Cache write failure | SQLite error propagates → module logs error | No user visibility (module continues) | Silent |
 | Telegram send failure | `intelligence.py` / `watchdog.py` log error | **No visibility** — the alerting channel itself fails silently | Silent |
-| Ollama queue timeout | Module logs warning, produces no output | Feature degrades (no labels, no LLM naming) | Silent |
+| Ollama queue timeout | Module logs warning, produces no output | Feature degrades (no LLM-enhanced batch output) | Silent |
 
 **Key gap:** There is no "alert about alert failure" mechanism. If Telegram sending fails, the only evidence is in journalctl logs.
 
@@ -641,13 +555,11 @@ Three modules maintain persistent WebSocket/MQTT connections with identical retr
 | Module | Primary Source | Fallback | Fallback of Fallback |
 |--------|---------------|----------|---------------------|
 | Engine snapshot collector | Hub API `/api/cache/presence` | Direct SQLite read of `hub.db` | Zero-valued presence features (silent) |
-| Activity monitor filtering | `entity_curation` table (data_quality) | Domain-based filtering (`TRACKED_DOMAINS`) | Accept all state_changed (noisy) |
+| Activity monitor filtering | `entity_curation` table (discovery) | Domain-based filtering (`TRACKED_DOMAINS`) | Accept all state_changed (noisy) |
 | Patterns module | Intraday snapshot JSON files | Logbook files from `~/ha-logs/logbook/` | No patterns detected (empty cache) |
 | ML engine feature config | Hub cache `feature_config` | `DEFAULT_FEATURE_CONFIG` constant | (no further fallback) |
 | Shadow engine confidence | Config store `min_confidence` key | Hardcoded constant | (no further fallback) |
 | Shadow engine window | Config store `scoring_window_minutes` | Hardcoded constant | (no further fallback) |
-| Organic discovery naming | Ollama LLM (via queue:7683) | Heuristic naming (domain + device_class + area) | `"cluster"` string literal |
-| Activity labeler | Trained classifier (`_classifier_ready`) | Ollama LLM (via queue:7683) | No label produced (silent skip) |
 | Activity monitor snapshot | `aria` CLI path from shutil | `python -m aria.cli` fallback | Log error, skip snapshot |
 
 **Key pattern:** Most fallbacks are **silent** — they produce degraded output without errors. Only the WebSocket reconnects log warnings.
@@ -676,13 +588,11 @@ Each module registers periodic tasks during `initialize()`. These run as `asynci
 | discovery | `_initial_discovery` | One-shot | Yes | HA connectivity |
 | discovery | `_ws_registry_loop` | One-shot (internal loop) | Yes | HA WebSocket |
 | discovery | `_periodic_discovery` | 6h (configurable) | — | HA REST API |
-| data_quality | `_reclassify_all` | 24h | Yes | entities cache (from discovery) |
+| discovery | `data_quality_reclassify` | 24h | Yes | entities cache (from discovery) |
 | intelligence | `_periodic_check` | 15min | — | Engine JSON files |
 | activity_monitor | `_ws_listen_loop` | One-shot (internal loop) | Yes | HA WebSocket |
 | activity_monitor | `_periodic_summary` | 15min | — | activity_log cache |
-| activity_labeler | `_periodic_predict` | Configurable | — | activity_summary cache, Ollama queue |
 | ml_engine | `_periodic_retraining_check` | 7d (configurable) | — | Latest snapshot, discovery cache |
-| organic_discovery | `_periodic_run` | 6h | — | entities cache |
 | presence (MQTT) | `_mqtt_listen` | One-shot (internal loop) | Yes | MQTT broker |
 | presence (WS) | `_ws_listen` | One-shot (internal loop) | Yes | HA WebSocket |
 | presence (flush) | `_flush_presence` | 30s | — | BayesianOccupancy state |
@@ -694,40 +604,26 @@ Each module registers periodic tasks during `initialize()`. These run as `asynci
 ```
 discovery (initial_discovery)
     → writes: entities, devices, areas, capabilities cache
-    → triggers: data_quality reads entities (on startup)
+    → triggers: discovery._reclassify_all (on startup, merged from data_quality)
         → writes: entity_curation table
         → triggers: activity_monitor loads curation rules (on startup)
     → triggers: ml_engine reads capabilities (when cache_updated fires)
         → trains models per capability
 ```
-**Sync gap:** No explicit wait. `data_quality` and `ml_engine` both read `entities` cache on startup — if discovery hasn't finished yet, they read stale/empty data. Self-corrects on next periodic run but **first-boot is degraded**.
+**Sync gap:** No explicit wait. `discovery._reclassify_all` and `ml_engine` both run on startup — if discovery's initial HA scan hasn't finished, they read stale/empty data. Self-corrects on next periodic run but **first-boot is degraded**.
 
-**Pipeline 2: Activity → Shadow → Online Learning**
+**Pipeline 2: Activity → Shadow → Trajectory Classification**
 ```
 activity_monitor (state_changed events)
     → publish("state_changed")
     → shadow_engine._on_state_changed() [subscribe]
         → predict → store → score
         → publish("shadow_resolved")
-        → online_learner._on_shadow_resolved() [subscribe]
-        → pattern_recognition._on_shadow_resolved() [subscribe]
-        → transfer_engine._on_shadow_resolved() [subscribe]
+        → trajectory_classifier._on_shadow_resolved() [subscribe]
 ```
-**Sync:** Fully event-driven, sequential within `publish()`. Shadow engine must finish before online_learner receives the event (because `publish()` awaits each callback in order). **Risk:** If shadow engine's callback is slow, it blocks delivery to all other subscribers.
+**Sync:** Fully event-driven, sequential within `publish()`. Shadow engine must finish before trajectory_classifier receives the event (because `publish()` awaits each callback in order). **Risk:** If shadow engine's callback is slow, it blocks delivery to all other subscribers.
 
-**Pipeline 3: Organic Discovery → Transfer → ML**
-```
-organic_discovery (_periodic_run, weekly)
-    → writes: capabilities cache (extended)
-    → publish("organic_discovery_complete")
-    → transfer_engine._on_discovery_complete() [subscribe]
-        → generates cross-domain candidates
-    → ml_engine.on_event("cache_updated", category="capabilities")
-        → picks up new prediction targets
-```
-**Sync:** Event-driven. Transfer engine and ml_engine both react to the same discovery completion — no ordering guarantee between `subscribe` callback (transfer_engine) and `on_event` broadcast (ml_engine).
-
-**Pipeline 4: Snapshot → Intelligence → Dashboard**
+**Pipeline 3: Snapshot → Intelligence → Dashboard**
 ```
 aria-snapshot.timer (daily 23:00) OR activity_monitor (adaptive)
     → aria snapshot-intraday [subprocess]
@@ -740,6 +636,7 @@ aria-snapshot.timer (daily 23:00) OR activity_monitor (adaptive)
 ```
 **Sync gap:** File-based coupling. Intelligence module polls every 15min — up to 15min delay between snapshot write and dashboard update. No file-watch mechanism.
 
+
 ### Concurrency Hazards
 
 | Hazard | Modules Involved | Mechanism | Mitigation |
@@ -748,14 +645,14 @@ aria-snapshot.timer (daily 23:00) OR activity_monitor (adaptive)
 | Validation runner concurrency | API `POST /api/validation/run` | `threading.Lock` (`_run_lock`) | Only lock in the codebase — prevents concurrent pytest runs |
 | Timer + adaptive snapshot overlap | `aria-intraday.timer` + `activity_monitor` subprocess | None | Both can fire simultaneously (see RISK-03) |
 | Event handler blocking | Any slow `subscribe()` callback | `hub.publish()` is sequential | Slow callback blocks delivery to remaining subscribers |
-| Module init race | discovery vs data_quality vs ml_engine | Init order in `cli.py` | Modules init in registration order, but async tasks start immediately |
+| Module init race | discovery vs ml_engine (discovery._reclassify_all vs discovery._initial_discovery) | Init order in `cli.py` | Modules init in registration order, but async tasks start immediately |
 
 ### What's NOT Synchronized (by design)
 
 - **No distributed locks** — modules trust SQLite WAL for cache safety
 - **No message queue** — event bus is in-process `asyncio` only (no persistence, no replay)
 - **No transaction boundaries** — a module can read cache, compute, and write back without atomic guarantee that the source didn't change
-- **No backpressure queue** — if shadow_engine produces events faster than online_learner can consume, events queue in memory (asyncio task queue); slow handlers block inline. Backpressure *monitoring* (100 ms warning threshold) was added in Issue #31 — see Event Bus Contract above.
+- **No backpressure queue** — if shadow_engine produces events faster than trajectory_classifier can consume, events queue in memory (asyncio task queue); slow handlers block inline. Backpressure *monitoring* (100 ms warning threshold) was added in Issue #31 — see Event Bus Contract above.
 
 ## Part C — Seam Risk Catalog
 
@@ -828,16 +725,16 @@ Integration boundaries where bugs hide. Ordered by estimated risk (silent corrup
 
 ### RISK-07: Ollama Queue Availability
 
-- **Boundary:** `activity_labeler`, `aria-full`, `aria-meta-learn`, `aria-suggest-automations` all route through `ollama-queue` at port 7683
+- **Boundary:** `aria-full`, `aria-meta-learn`, `aria-suggest-automations` all route through `ollama-queue` at port 7683
 - **What crosses:** HTTP requests to enqueue Ollama inference tasks
 - **What can go wrong:** Queue service down, queue full, Ollama itself down → requests timeout or fail silently
 - **Test coverage:** **None** — all Ollama interactions mocked in tests
-- **Failure mode:** **Silent timeout** — activity labeler silently produces no labels; batch tasks produce no LLM-enhanced output; no retry logic
+- **Failure mode:** **Silent timeout** — batch tasks produce no LLM-enhanced output; no retry logic
 - **Suggested mitigation:** Health check endpoint on ollama-queue; watchdog should verify queue is responding
 
 ### RISK-08: Module Init Order — Event Subscription Timing
 
-- **Boundary:** Modules register and subscribe during `initialize()`, which runs in registration order
+- **Boundary:** Modules register and subscribe during `initialize()`, which runs in registration order (9 modules as of lean audit 2026-02-19)
 - **What crosses:** Events emitted during initialization of early modules may not be received by later modules
 - **What can go wrong:** If `activity_monitor` emits `state_changed` during init (unlikely but possible on rapid reconnect), `shadow_engine` hasn't subscribed yet
 - **Test coverage:** **None** — module init order not tested as a sequence
@@ -862,6 +759,7 @@ Integration boundaries where bugs hide. Ordered by estimated risk (silent corrup
 - **Test coverage:** **None** — no automated check that Sankey matches module registry
 - **Failure mode:** **Visual** — dashboard shows outdated pipeline visualization
 - **Suggested mitigation:** Automated test that compares Sankey node list against registered module IDs
+- **Note (2026-02-19):** Lean audit removed 4 modules (online_learner, transfer_engine, organic_discovery, activity_labeler) and renamed pattern_recognition → trajectory_classifier. Sankey needs corresponding update.
 
 ### RISK-11: Telegram Alert Failure is Silent
 
@@ -881,14 +779,15 @@ Integration boundaries where bugs hide. Ordered by estimated risk (silent corrup
 - **Test coverage:** `tests/hub/test_config_propagation.py` (13 tests: base class contract, hub dispatch, event bus integration, API layer)
 - **Remaining consideration:** Modules must explicitly override `on_config_updated()` to pick up the new value. The base no-op is intentional — not all config keys have runtime effect.
 
-### RISK-13: Cold-Start Module Ordering — data_quality Reads Empty Discovery
+### RISK-13: Cold-Start Module Ordering — Entity Classification Reads Empty Discovery
 
-- **Boundary:** `data_quality` (#6) runs `_reclassify_all()` on startup, reading `entities` cache written by `discovery` (#1)
-- **What crosses:** Entity list from cache
-- **What can go wrong:** Discovery's initial scan is async (WebSocket + REST) — if it hasn't completed by the time data_quality's startup task runs, entities cache is empty or stale from last session
+- **Boundary:** `discovery` (#1) runs `_reclassify_all()` on startup via a scheduled task, reading `entities` cache populated by its own initial HA scan — which is also async
+- **What crosses:** Entity list from cache (written by the same module's async WebSocket + REST scan)
+- **What can go wrong:** Discovery's `_reclassify_all` task may fire before the initial HA scan completes, operating on an empty or stale cache
 - **Test coverage:** **None** — tests provide pre-populated cache, never test empty-cache startup
-- **Failure mode:** **Silent** — data_quality classifies nothing, activity_monitor falls back to domain filtering. Self-corrects on next 24h cycle, but first-boot quality is degraded
-- **Suggested mitigation:** `data_quality.initialize()` could check if entities cache is empty and defer first run, or discovery could emit a `discovery_initial_complete` event that data_quality waits for
+- **Failure mode:** **Silent** — entity classification produces nothing on cold boot, activity_monitor falls back to domain filtering. Self-corrects on next 24h cycle.
+- **Partially mitigated (2026-02-19):** Merging data_quality into discovery eliminates the inter-module race (one module now owns both the data and the classification). The intra-module race (task ordering within discovery) remains.
+- **Suggested mitigation:** discovery could defer `_reclassify_all` until `_initial_discovery` task completes, e.g. by awaiting a `discovery_initial_complete` internal signal
 
 ---
 

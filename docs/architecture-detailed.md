@@ -17,23 +17,16 @@ aria/
 │   ├── validation_runner.py # Subprocess pytest runner for on-demand validation
 │   └── config_defaults.py  # Default config parameter seeding
 ├── modules/                # Hub modules (registered in order)
-│   ├── discovery.py        # HA entity/device/area scanning via REST + WebSocket
+│   ├── discovery.py        # HA entity/device/area scanning via REST + WebSocket, entity classification (auto-exclude, edge, include)
 │   ├── ml_engine.py        # Feature engineering, model training, periodic retraining
 │   ├── patterns.py         # Recurring event sequence detection from logbook
 │   ├── orchestrator.py     # Automation suggestions from detected patterns
 │   ├── shadow_engine.py    # Predict-compare-score loop for shadow mode
-│   ├── data_quality.py     # Entity classification pipeline (auto-exclude, edge, include)
-│   ├── organic_discovery/  # HDBSCAN-based capability discovery (domain + behavioral clustering)
-│   │   ├── module.py       # OrganicDiscoveryModule — full pipeline orchestration
-│   │   ├── feature_vectors.py  # Entity attribute → numeric feature matrix
-│   │   ├── clustering.py   # HDBSCAN clustering with silhouette scoring
-│   │   ├── behavioral.py   # Layer 2: co-occurrence matrix + temporal patterns
-│   │   ├── scoring.py      # 5-component weighted usefulness score (0-100)
-│   │   ├── naming.py       # Heuristic + Ollama LLM naming backends
-│   │   └── seed_validation.py  # Jaccard similarity validation against seed capabilities
 │   ├── intelligence.py     # Unified cache assembly (snapshots, baselines, predictions, ML)
 │   ├── activity_monitor.py # WebSocket state_changed listener, 15-min windows, analytics
-│   └── presence.py         # Frigate MQTT + HA sensor presence tracking, BayesianOccupancy
+│   ├── presence.py         # Frigate MQTT + HA sensor presence tracking, BayesianOccupancy
+│   └── trajectory_classifier.py  # Trajectory classification (DTW + heuristic), pattern scale tagging, anomaly explanation
+├── _archived/              # Modules removed during lean audit (organic_discovery, data_quality, online_learner, activity_labeler, transfer_engine)
 ├── engine/                 # Batch ML engine (formerly ha-intelligence)
 │   ├── cli.py              # Engine CLI (called by aria CLI dispatcher)
 │   ├── config.py           # Engine configuration
@@ -56,18 +49,16 @@ aria/
 | `bin/discover.py` | Standalone discovery CLI (also used as subprocess) |
 | `bin/ha-log-sync` | Log sync script (called by `aria sync-logs`) |
 
-## Hub Modules (12, registered in order)
+## Hub Modules (10, registered in order)
 
 | Module | File | Purpose |
 |--------|------|---------|
-| `discovery` | `aria/modules/discovery.py` | Scans HA (REST + WebSocket), detects capabilities, caches entities/devices/areas |
+| `discovery` | `aria/modules/discovery.py` | Scans HA (REST + WebSocket), detects capabilities, caches entities/devices/areas. Entity classification (auto-exclude, edge, include) merged from data_quality. |
 | `ml_engine` | `aria/modules/ml_engine.py` | Model training (GradientBoosting, RandomForest, LightGBM), periodic retraining. Feature extraction delegates to engine's `vector_builder` (single source of truth). Snapshot validation applied before training. Stale training check on startup triggers retraining if >7 days since last train. |
-| `pattern_recognition` | `aria/modules/pattern_recognition.py` | Trajectory classification (DTW + heuristic), pattern scale tagging (micro/meso/macro), anomaly explanation. Subscribes to shadow_resolved events. Tier 3+ only. |
+| `trajectory_classifier` | `aria/modules/trajectory_classifier.py` | Trajectory classification (DTW + heuristic), pattern scale tagging (micro/meso/macro), anomaly explanation. Subscribes to shadow_resolved events. Tier 3+ only. |
 | `patterns` | `aria/modules/patterns.py` | Detects recurring event sequences from logbook data |
 | `orchestrator` | `aria/modules/orchestrator.py` | Generates automation suggestions from detected patterns |
 | `shadow_engine` | `aria/modules/shadow_engine.py` | Predict-compare-score loop: captures context on state_changed, generates predictions (next_domain, room_activation, routine_trigger), scores against reality |
-| `data_quality` | `aria/modules/data_quality.py` | Entity classification pipeline — auto-exclude (domain, stale, noise, vehicle, unavailable grace period), edge cases, default include. Reads discovery cache, writes to `entity_curation` table. Runs on startup and daily. |
-| `organic_discovery` | `aria/modules/organic_discovery/module.py` | Two-layer HDBSCAN capability discovery: Layer 1 clusters entities by attributes, Layer 2 clusters by temporal co-occurrence. Usefulness scoring, seed validation, autonomy modes, heuristic/Ollama naming. Weekly via systemd timer. |
 | `intelligence` | `aria/modules/intelligence.py` | Assembles daily/intraday snapshots, baselines, predictions, ML scores into unified cache. Reads engine outputs (entity correlations, sequence anomalies, power profiles, automation suggestions). Sends Telegram digest on new insights. |
 | `activity_monitor` | `aria/modules/activity_monitor.py` | WebSocket listener for state_changed events, 15-min windowed activity log, adaptive snapshot triggering, prediction analytics. Emits filtered events to hub event bus for shadow engine. |
 | `presence` | `aria/modules/presence.py` | Subscribes to Frigate MQTT (person/face detection) and HA WebSocket (motion sensors, lights, dimmers, device trackers, door sensors). Feeds signals into BayesianOccupancy for per-room presence estimation. |
@@ -100,6 +91,5 @@ Each module declares its capabilities via a `CAPABILITIES` class attribute (see 
 
 **Category-based:** `activity_log`, `activity_summary`, `areas`, `capabilities`, `devices`, `discovery_metadata`, `entities`, `intelligence`, `presence`
 **Shadow tables:** `predictions` (predict-compare-score records), `pipeline_state` (backtest→shadow→suggest→autonomous progression)
-**Phase 2 tables:** `config` (editable engine parameters), `entity_curation` (tiered entity classification), `config_history` (change audit log)
-**Organic discovery keys:** `discovery_history` (run history), `discovery_settings` (autonomy mode, naming backend, thresholds)
+**Phase 2 tables:** `config` (editable engine parameters), `entity_curation` (tiered entity classification, written by discovery), `config_history` (change audit log)
 **ML data keys in intelligence cache:** `drift_status`, `feature_selection`, `reference_model`, `incremental_training`, `forecaster_backend`, `anomaly_alerts`, `autoencoder_status`, `isolation_forest_status`, `shap_attributions`
