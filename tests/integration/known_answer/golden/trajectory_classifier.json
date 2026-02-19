@@ -1,0 +1,26 @@
+{
+  "trajectory": "ramping_up",
+  "shadow_events_processed": 8,
+  "pattern_scale_count": 3,
+  "pattern_scales": {
+    "micro": "Seconds to minutes \u2014 immediate reactions (motion triggers light)",
+    "meso": "Minutes to hours \u2014 routines and sessions (morning routine)",
+    "macro": "Days to weeks \u2014 seasonal and schedule patterns"
+  },
+  "stats": {
+    "active": true,
+    "current_trajectory": "ramping_up",
+    "shadow_events_processed": 8,
+    "window_count": {
+      "light.kitchen": 8
+    },
+    "sequence_classifier": {
+      "is_trained": false,
+      "window_size": 6,
+      "n_neighbors": 3,
+      "tslearn_available": true,
+      "trained_at": null,
+      "n_training_samples": 0
+    }
+  }
+}

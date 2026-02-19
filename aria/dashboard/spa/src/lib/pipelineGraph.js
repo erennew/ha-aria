@@ -28,7 +28,7 @@ export const PROCESSING = [
   { id: 'intelligence', column: 2, label: 'Intelligence', metricKey: 'day_count' },
   { id: 'ml_engine', column: 2, label: 'ML Engine', metricKey: 'mean_r2' },
   { id: 'shadow_engine', column: 2, label: 'Shadow Engine', metricKey: 'accuracy' },
-  { id: 'trajectory_classifier', column: 2, label: 'Trajectory Classifier', metricKey: 'sequence_count' },
+  { id: 'trajectory_classifier', column: 2, label: 'Trajectory Classifier', metricKey: 'sequence_count', tierGated: 3 },
 ];
 
 // --- Column 3: Enrichment Modules ---
@@ -179,6 +179,7 @@ export const NODE_DETAIL = {
     protocol: 'Subscribes to shadow_resolved events',
     reads: 'Shadow resolution outcomes, feature snapshots',
     writes: 'trajectory classification, anomaly explanations',
+    tierGated: 3,
   },
   orchestrator: {
     protocol: 'Can call HA /api/automation/trigger',
@@ -235,6 +236,13 @@ export function getNodeMetric(cacheData, nodeId) {
     // Outputs (show page name)
     default: return '\u2014';
   }
+}
+
+// --- Tier-gating helper ---
+// Returns the minimum tier required for a node, or 0 if not tier-gated.
+export function getNodeTierGate(nodeId) {
+  const node = ALL_NODES.find((n) => n.id === nodeId);
+  return node?.tierGated || NODE_DETAIL[nodeId]?.tierGated || 0;
 }
 
 // --- Action strip conditions (priority order) ---
