@@ -69,6 +69,8 @@ async def shadow(hub):
     """
     # Pre-populate entity curation so events aren't filtered out
     for entity_id in CURATED_ENTITIES:
+        # Direct cache access: upsert_curation() is a CacheManager-specific method
+        # with no hub-level wrapper — this is the intended access pattern.
         await hub.cache.upsert_curation(
             entity_id=entity_id,
             status="included",

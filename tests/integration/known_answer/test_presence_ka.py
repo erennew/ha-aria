@@ -6,7 +6,7 @@ fixture events.
 """
 
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -26,6 +26,16 @@ CAMERA_ROOMS = {
 
 # Freeze time for deterministic Bayesian output
 FROZEN_NOW = datetime(2026, 2, 19, 10, 0, 0)
+
+
+def _freeze_datetime(monkeypatch, target_dt):
+    """Patch datetime in presence module to return fixed time."""
+    mock_dt = MagicMock(wraps=datetime)
+    mock_dt.now.return_value = target_dt
+    mock_dt.utcnow.return_value = target_dt
+    mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    monkeypatch.setattr("aria.modules.presence.datetime", mock_dt)
+    return mock_dt
 
 
 def _make_frigate_event(camera: str, score: float, event_id: str, **kwargs) -> dict:
@@ -98,15 +108,12 @@ async def presence(hub):
 
 
 @pytest.mark.asyncio
-async def test_processes_person_event(presence, hub):
+async def test_processes_person_event(presence, hub, monkeypatch):
     """Feed Frigate person detection events, flush, verify presence cache updates."""
     # Feed events through the internal handler (bypassing MQTT transport)
-    with patch("aria.modules.presence.datetime") as mock_dt:
-        mock_dt.now.return_value = FROZEN_NOW
-        mock_dt.fromisoformat = datetime.fromisoformat
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-        for event in FIXTURE_EVENTS:
-            await presence._handle_frigate_event(event)
+    _freeze_datetime(monkeypatch, FROZEN_NOW)
+    for event in FIXTURE_EVENTS:
+        await presence._handle_frigate_event(event)
 
     # Verify room signals were recorded
     assert len(presence._room_signals) > 0, "Room signals should be populated"
@@ -127,12 +134,8 @@ async def test_processes_person_event(presence, hub):
     assert presence._identified_persons["alice"]["room"] == "Living Room"
     assert presence._identified_persons["alice"]["confidence"] == 0.95
 
-    # Flush presence state to cache
-    with patch("aria.modules.presence.datetime") as mock_dt:
-        mock_dt.now.return_value = FROZEN_NOW
-        mock_dt.fromisoformat = datetime.fromisoformat
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-        await presence._flush_presence_state()
+    # Flush presence state to cache (same frozen time already active via monkeypatch)
+    await presence._flush_presence_state()
 
     # Verify cache written
     cached = await hub.get_cache(CACHE_PRESENCE)
@@ -157,22 +160,15 @@ async def test_processes_person_event(presence, hub):
 
 
 @pytest.mark.asyncio
-async def test_golden_snapshot(presence, hub, update_golden):
+async def test_golden_snapshot(presence, hub, update_golden, monkeypatch):
     """Golden comparison of presence state after feeding multiple person events."""
     # Feed all fixture events with frozen time
-    with patch("aria.modules.presence.datetime") as mock_dt:
-        mock_dt.now.return_value = FROZEN_NOW
-        mock_dt.fromisoformat = datetime.fromisoformat
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-        for event in FIXTURE_EVENTS:
-            await presence._handle_frigate_event(event)
+    _freeze_datetime(monkeypatch, FROZEN_NOW)
+    for event in FIXTURE_EVENTS:
+        await presence._handle_frigate_event(event)
 
-    # Flush to cache with same frozen time
-    with patch("aria.modules.presence.datetime") as mock_dt:
-        mock_dt.now.return_value = FROZEN_NOW
-        mock_dt.fromisoformat = datetime.fromisoformat
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-        await presence._flush_presence_state()
+    # Flush to cache with same frozen time (monkeypatch still active)
+    await presence._flush_presence_state()
 
     cached = await hub.get_cache(CACHE_PRESENCE)
     assert cached is not None

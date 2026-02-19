@@ -10,8 +10,6 @@ Uses scope="module" on the engine fixture since it's expensive (generates
 """
 
 import json
-from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -27,10 +25,6 @@ from tests.synthetic.simulator import HouseholdSimulator
 # Module-scoped engine fixture — expensive, run once per test module
 # ---------------------------------------------------------------------------
 
-_engine_result: dict[str, Any] | None = None
-_engine_snapshots: list[dict] | None = None
-_engine_data_dir: Path | None = None
-
 
 @pytest.fixture(scope="module")
 def engine_output(tmp_path_factory):
@@ -39,8 +33,6 @@ def engine_output(tmp_path_factory):
     Generates 21 days of household data using the 'couple' scenario,
     runs baselines + training + predictions + scoring.
     """
-    global _engine_result, _engine_snapshots, _engine_data_dir
-
     data_dir = tmp_path_factory.mktemp("engine_data")
 
     sim = HouseholdSimulator(scenario="stable_couple", days=21, seed=42, start_date="2026-02-01")
@@ -48,10 +40,6 @@ def engine_output(tmp_path_factory):
 
     runner = PipelineRunner(snapshots=snapshots, data_dir=data_dir)
     result = runner.run_full()
-
-    _engine_result = result
-    _engine_snapshots = snapshots
-    _engine_data_dir = data_dir
 
     return {
         "result": result,
@@ -292,6 +280,11 @@ async def test_golden_snapshot(engine_output, tmp_path, update_golden):
     results, hub intelligence loading, and orchestrator suggestion generation.
 
     Note: engine_output is module-scoped (shared), tmp_path is function-scoped.
+
+    # This test must run AFTER test_engine_produces_predictions and
+    # test_hub_reads_engine_output because they share the module-scoped
+    # engine_output fixture. pytest runs tests in file order by default,
+    # so placement in this file defines the execution sequence.
     """
     result = engine_output["result"]
 
