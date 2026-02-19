@@ -58,8 +58,8 @@ def _fetch_presence_cache():
             data = json.loads(resp.read())
             # API returns {"category": "presence", "data": {...}, ...}
             return data.get("data", data) if isinstance(data, dict) else None
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Presence hub API request failed: %s", e)
 
     # Fallback: direct SQLite read
     db_path = str(Path.home() / "ha-logs" / "intelligence" / "cache" / "hub.db")
@@ -71,8 +71,8 @@ def _fetch_presence_cache():
         if row:
             data = json.loads(row[0])
             return data.get("data", data) if isinstance(data, dict) else None
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Presence SQLite fallback failed: %s", e)
 
     logger.debug("Presence cache unavailable — snapshot will have zero presence data")
     return None

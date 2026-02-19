@@ -400,6 +400,18 @@ class ActivityMonitor(Module):
         self._activity_buffer.append(event)
         self._recent_events.append(event)
 
+        # Early flush if buffer grows too large (prevents unbounded memory use)
+        if len(self._activity_buffer) >= 5000:
+            self.logger.info("Activity buffer reached 5000 events — triggering early flush")
+            try:
+                loop = asyncio.get_running_loop()
+                flush_task = loop.create_task(self._flush_activity_buffer())
+                flush_task.add_done_callback(
+                    lambda t: self.logger.error(f"Early flush failed: {t.exception()}") if t.exception() else None
+                )
+            except RuntimeError:
+                pass  # No running loop — buffer will flush on next scheduled interval
+
         # Emit to event bus for shadow engine (non-blocking — fire and forget)
         try:
             loop = asyncio.get_running_loop()

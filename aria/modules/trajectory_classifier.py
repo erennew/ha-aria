@@ -157,10 +157,11 @@ class TrajectoryClassifier(Module):
         recent = list(window)[-ws:]
         window_array = np.array([entry["vector"] for entry in recent])
 
-        if self.sequence_classifier.is_trained:
-            trajectory = self.sequence_classifier.predict(window_array)
-        else:
-            # Fall back to heuristic when classifier not yet trained
+        trajectory = self.sequence_classifier.predict(window_array) if self.sequence_classifier.is_trained else None
+
+        # If model prediction returned None (untrained/unavailable/failed),
+        # fall back to heuristic labeling
+        if trajectory is None:
             trajectory = SequenceClassifier.label_window_heuristic(window_array, target_col_idx=0)
 
         self.current_trajectory = trajectory
