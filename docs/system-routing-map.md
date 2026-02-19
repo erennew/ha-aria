@@ -742,14 +742,18 @@ aria-snapshot.timer (daily 23:00) OR activity_monitor (adaptive)
 
 Integration boundaries where bugs hide. Ordered by estimated risk (silent corruption > loud crash).
 
-### RISK-01: Engine JSON → Hub `_read_intelligence_data()` — Schema Coupling
+### RISK-01: Engine JSON → Hub `_read_intelligence_data()` — Schema Coupling ✓ MITIGATED
 
 - **Boundary:** Engine writes JSON files to `~/ha-logs/intelligence/`; hub's `intelligence.py:_read_intelligence_data()` parses them
 - **What crosses:** JSON with fields like `entity_correlations`, `sequence_anomalies`, `power_profiles`, `automation_suggestions`, `drift_status`
 - **What can go wrong:** Engine adds/renames/removes a field; hub reads stale or missing keys
-- **Test coverage:** **None (no contract test)**. Engine and hub test independently. Integration tests don't validate JSON schema compatibility
+- **Test coverage:** **Covered** — `tests/integration/test_engine_hub_integration.py` contains four contract tests:
+  - `test_snapshot_schema_round_trip` — verifies a minimal valid snapshot passes `validate_snapshot_schema()` with no errors
+  - `test_required_keys_match_hub_reader` — asserts every `(section, key)` accessed by `METRIC_PATHS` is present in `REQUIRED_NESTED_KEYS`, closing the schema-reader gap
+  - `test_schema_rejects_missing_required_keys` — incomplete snapshot must produce validation errors
+  - `test_engine_output_consumable_by_hub` — writes a snapshot to disk and calls `_extract_trend_data()` via a real `IntelligenceModule` instance, verifying all metrics extract correctly
 - **Failure mode:** **Silent** — hub shows empty/stale data in dashboard, no error logged
-- **Suggested mitigation:** Shared JSON schema definition (dataclass or TypedDict) imported by both sides; contract test that round-trips engine output through hub reader
+- **Mitigation applied (2026-02-18):** Shared `aria.engine.schema` module (`REQUIRED_NESTED_KEYS`, `validate_snapshot_schema`) imported by both engine and hub. Contract tests added in `tests/integration/test_engine_hub_integration.py` (closes GitHub issue #19). Any future schema change that breaks hub consumption will be caught at test time.
 
 ### RISK-02: Dual Event Propagation — subscribe() vs on_event()
 
