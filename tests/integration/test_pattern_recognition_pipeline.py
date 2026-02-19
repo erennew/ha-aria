@@ -27,6 +27,8 @@ def mock_hub():
     hub.set_cache = AsyncMock()
     hub.publish = AsyncMock()
     hub.get_config_value = MagicMock(return_value=None)
+    hub.cache = MagicMock()
+    hub.cache.get_config_value = AsyncMock(return_value=None)
     hub.modules = {}
     return hub
 
