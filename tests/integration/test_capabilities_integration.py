@@ -37,7 +37,6 @@ class TestCapabilityRegistryIntegration:
         from aria.modules.intelligence import IntelligenceModule
         from aria.modules.ml_engine import MLEngine
         from aria.modules.orchestrator import OrchestratorModule
-        from aria.modules.organic_discovery.module import OrganicDiscoveryModule
         from aria.modules.patterns import PatternRecognition
         from aria.modules.shadow_engine import ShadowEngine
 
@@ -48,7 +47,6 @@ class TestCapabilityRegistryIntegration:
             OrchestratorModule,
             ShadowEngine,
             DataQualityModule,
-            OrganicDiscoveryModule,
             IntelligenceModule,
             ActivityMonitor,
         ]:

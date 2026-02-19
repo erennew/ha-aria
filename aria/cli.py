@@ -40,7 +40,6 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_status_parser(subparsers)
 
     # Simple commands
-    subparsers.add_parser("discover-organic", help="Run organic capability discovery pipeline")
     subparsers.add_parser("sync-logs", help="Sync HA logbook to local JSON")
 
     _add_watchdog_parser(subparsers)
@@ -193,8 +192,6 @@ def _dispatch(args):
         _demo(args)
     elif args.command == "status":
         _status(json_output=args.json_output)
-    elif args.command == "discover-organic":
-        _discover_organic()
     elif args.command == "sync-logs":
         _sync_logs()
     elif args.command == "capabilities":
@@ -490,16 +487,6 @@ async def _register_analysis_modules(hub, intelligence_dir, _init, logger):
     except Exception as e:
         logger.warning(f"Data quality module failed (non-fatal): {e}")
 
-    # organic_discovery
-    try:
-        from aria.modules.organic_discovery.module import OrganicDiscoveryModule
-
-        organic_discovery = OrganicDiscoveryModule(hub)
-        hub.register_module(organic_discovery)
-        await _init(organic_discovery, "organic_discovery")()
-    except Exception as e:
-        logger.warning(f"Organic discovery module failed (non-fatal): {e}")
-
     # intelligence
     intel_mod = IntelligenceModule(hub, intelligence_dir)
     hub.register_module(intel_mod)
@@ -725,45 +712,6 @@ def _print_status(result: dict):
     print(f"  Cache categories: {result['cache_categories']}")
     print(f"  Last snapshot:    {result['last_snapshot'] or 'none'}")
     print(f"  Last training:    {result['last_training'] or 'none'}")
-
-
-def _discover_organic():
-    """Run the organic capability discovery pipeline (batch mode)."""
-    import asyncio
-    import logging
-    import os
-    from pathlib import Path
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    logger = logging.getLogger("aria.discover-organic")
-
-    async def run():
-        cache_dir = Path(os.path.expanduser("~/ha-logs/intelligence/cache"))
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_path = str(cache_dir / "hub.db")
-
-        from aria.hub.core import IntelligenceHub
-        from aria.modules.organic_discovery.module import OrganicDiscoveryModule
-
-        hub = IntelligenceHub(cache_path)
-        await hub.initialize()
-
-        try:
-            module = OrganicDiscoveryModule(hub)
-            hub.register_module(module)
-            await module.initialize()
-
-            result = await module.run_discovery()
-            logger.info(f"Organic discovery complete: {result}")
-        finally:
-            if hub.is_running():
-                await hub.shutdown()
-
-    asyncio.run(run())
 
 
 def _sync_logs():

@@ -337,7 +337,6 @@ class TestCollectFromModules:
             "orchestrator",
             "shadow_engine",
             "data_quality",
-            "organic_discovery",
             "intelligence",
             "activity_monitor",
         }
