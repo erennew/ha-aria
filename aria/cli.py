@@ -477,11 +477,15 @@ async def _register_optional_modules(hub, ha_url, ha_token, intelligence_dir, _i
     """Register optional modules that are non-fatal on failure (parallel)."""
     import asyncio
 
-    await asyncio.gather(
+    tier2_results = await asyncio.gather(
         _register_analysis_modules(hub, intelligence_dir, _init, logger),
         _register_monitor_modules(hub, ha_url, ha_token, _init, logger),
         return_exceptions=True,
     )
+    for i, result in enumerate(tier2_results):
+        if isinstance(result, Exception):
+            names = ["analysis_modules", "monitor_modules"]
+            logger.error(f"Tier 2 module group {names[i]} failed: {result}")
 
 
 async def _register_analysis_modules(hub, intelligence_dir, _init, logger):

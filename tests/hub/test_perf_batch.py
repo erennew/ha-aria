@@ -326,13 +326,11 @@ async def test_log_event_buffers(cache):
     """#54: log_event buffers events instead of writing immediately."""
     await cache.log_event("test_event", category="test", data={"key": "value"})
 
-    # Event should be in buffer, not yet in DB
-    assert len(cache._event_buffer) == 0 or len(cache._event_buffer) >= 0
-    # Actually, if buffer hasn't flushed yet, check the buffer
-    # After a single event, the buffer may still hold it (< 50)
-    # Let's check: log one event, don't wait for flush, check buffer
+    # Event should be in buffer, not yet flushed to DB (< 50 threshold)
+    assert len(cache._event_buffer) >= 1
+    # Add another event
     await cache.log_event("buffered_event", category="test")
-    # Buffer should have at least one event (unless auto-flushed)
+    assert len(cache._event_buffer) >= 2
     # The important thing is that events eventually appear in DB
     await cache._flush_event_buffer()
 

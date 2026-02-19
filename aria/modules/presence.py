@@ -220,7 +220,10 @@ class PresenceModule(Module):
             if not ha_url or not ha_token:
                 logger.warning("Cannot seed presence: HA_URL/HA_TOKEN not set")
                 return
-            session = self._http_session or aiohttp.ClientSession()
+            session = self._http_session
+            if not session:
+                logger.warning("Cannot seed presence: HTTP session not initialized")
+                return
             try:
                 headers = {"Authorization": f"Bearer {ha_token}"}
                 async with session.get(
@@ -530,7 +533,7 @@ class PresenceModule(Module):
     # HA WebSocket listener (motion, lights, dimmers, device_tracker)
     # ------------------------------------------------------------------
 
-    async def _ws_listen_loop(self):
+    async def _ws_listen_loop(self):  # noqa: C901
         """Connect to HA WebSocket and listen for presence-relevant events."""
         ws_url = self.ha_url.replace("http", "ws", 1) + "/api/websocket"
         stagger = RECONNECT_STAGGER.get("presence_ws", 6)
@@ -538,9 +541,12 @@ class PresenceModule(Module):
         first_connect = True
 
         while self.hub.is_running():
+            if not self._http_session:
+                self.logger.warning("HTTP session not available — waiting for init")
+                await asyncio.sleep(retry_delay)
+                continue
             try:
-                session = self._http_session or aiohttp.ClientSession()
-                async with session.ws_connect(ws_url) as ws:
+                async with self._http_session.ws_connect(ws_url) as ws:
                     msg = await ws.receive_json()
                     if msg.get("type") != "auth_required":
                         continue
