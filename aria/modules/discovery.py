@@ -11,16 +11,35 @@ import os
 import random
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import aiohttp
 
 from aria.capabilities import Capability
+from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ENTITIES
 from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
+
+# --- Entity classification config (merged from data_quality) ---
+CONFIG_AUTO_EXCLUDE_DOMAINS = "curation.auto_exclude_domains"
+DEFAULT_AUTO_EXCLUDE_DOMAINS = (
+    "update,tts,stt,scene,button,number,select,"
+    "input_boolean,input_number,input_select,input_text,input_datetime,"
+    "counter,script,zone,sun,weather,conversation,event,automation,camera,image,remote"
+)
+CONFIG_NOISE_EVENT_THRESHOLD = "curation.noise_event_threshold"
+DEFAULT_NOISE_EVENT_THRESHOLD = 1000
+CONFIG_STALE_DAYS_THRESHOLD = "curation.stale_days_threshold"
+DEFAULT_STALE_DAYS_THRESHOLD = 30
+CONFIG_UNAVAILABLE_GRACE_HOURS = "curation.unavailable_grace_hours"
+DEFAULT_UNAVAILABLE_GRACE_HOURS = 0
+CONFIG_VEHICLE_PATTERNS = "curation.vehicle_patterns"
+DEFAULT_VEHICLE_PATTERNS = "tesla,luda,tessy,vehicle,car_"
+PRESENCE_DOMAINS = {"person", "device_tracker"}
+RECLASSIFY_INTERVAL = timedelta(hours=24)
 
 
 class DiscoveryModule(Module):
@@ -39,6 +58,19 @@ class DiscoveryModule(Module):
             status="stable",
             added_version="1.0.0",
             depends_on=[],
+        ),
+        Capability(
+            id="data_quality",
+            name="Data Quality",
+            description="Entity classification pipeline — auto-exclude, edge cases, default include.",
+            module="discovery",
+            layer="hub",
+            config_keys=[],
+            test_paths=["tests/hub/test_data_quality.py"],
+            systemd_units=["aria-hub.service"],
+            status="stable",
+            added_version="1.0.0",
+            depends_on=["discovery"],
         ),
     ]
 
@@ -81,6 +113,19 @@ class DiscoveryModule(Module):
             task_id="discovery_archive_check",
             coro=_check_archives,
             interval=timedelta(hours=6),
+            run_immediately=False,
+        )
+
+        # Run entity classification (merged from data_quality module)
+        try:
+            await self.run_classification()
+        except Exception as e:
+            self.logger.warning(f"Initial entity classification failed: {e}")
+
+        await self.hub.schedule_task(
+            task_id="data_quality_reclassify",
+            coro=self.run_classification,
+            interval=RECLASSIFY_INTERVAL,
             run_immediately=False,
         )
 
@@ -421,3 +466,230 @@ class DiscoveryModule(Module):
         )
 
         self.logger.info(f"Scheduled periodic discovery every {interval_hours} hours")
+
+    # ------------------------------------------------------------------
+    # Entity classification (merged from data_quality module)
+    # ------------------------------------------------------------------
+
+    async def _read_config_thresholds(self) -> dict[str, Any]:
+        """Read classification thresholds from config store."""
+        auto_exclude_str = await self.hub.cache.get_config_value(
+            CONFIG_AUTO_EXCLUDE_DOMAINS, DEFAULT_AUTO_EXCLUDE_DOMAINS
+        )
+        auto_exclude_domains = {d.strip() for d in auto_exclude_str.split(",")}
+
+        noise_threshold = await self.hub.cache.get_config_value(
+            CONFIG_NOISE_EVENT_THRESHOLD, DEFAULT_NOISE_EVENT_THRESHOLD
+        )
+        stale_days = await self.hub.cache.get_config_value(CONFIG_STALE_DAYS_THRESHOLD, DEFAULT_STALE_DAYS_THRESHOLD)
+        vehicle_patterns_str = await self.hub.cache.get_config_value(CONFIG_VEHICLE_PATTERNS, DEFAULT_VEHICLE_PATTERNS)
+        vehicle_patterns = [p.strip().lower() for p in vehicle_patterns_str.split(",")]
+        unavailable_grace_hours = await self.hub.cache.get_config_value(
+            CONFIG_UNAVAILABLE_GRACE_HOURS, DEFAULT_UNAVAILABLE_GRACE_HOURS
+        )
+
+        return {
+            "auto_exclude_domains": auto_exclude_domains,
+            "noise_event_threshold": noise_threshold,
+            "stale_days_threshold": stale_days,
+            "vehicle_patterns": vehicle_patterns,
+            "unavailable_grace_hours": unavailable_grace_hours,
+        }
+
+    @staticmethod
+    def _build_vehicle_sets(
+        entities_data: dict[str, Any],
+        vehicle_patterns: list[str],
+    ) -> tuple[set[str], set[str]]:
+        """Build vehicle entity IDs and device IDs from entity data."""
+        vehicle_entity_ids = set()
+        for eid, edata in entities_data.items():
+            name = (edata.get("friendly_name") or eid).lower()
+            if any(pat in name for pat in vehicle_patterns):
+                vehicle_entity_ids.add(eid)
+
+        vehicle_device_ids = set()
+        for eid in vehicle_entity_ids:
+            did = entities_data[eid].get("device_id")
+            if did:
+                vehicle_device_ids.add(did)
+
+        return vehicle_entity_ids, vehicle_device_ids
+
+    async def run_classification(self):
+        """Main classification pipeline: read cache, compute metrics, classify, upsert."""
+        self.logger.info("Starting entity classification...")
+
+        entities_entry = await self.hub.get_cache(CACHE_ENTITIES)
+        entities_data = {}
+        if entities_entry and entities_entry.get("data"):
+            entities_data = entities_entry["data"]
+
+        if not entities_data:
+            self.logger.warning("No entity data in cache — skipping classification")
+            return
+
+        activity_entry = await self.hub.get_cache(CACHE_ACTIVITY_LOG)
+        activity_windows = []
+        if activity_entry and activity_entry.get("data"):
+            activity_windows = activity_entry["data"].get("windows", [])
+
+        config_thresholds = await self._read_config_thresholds()
+        vehicle_entity_ids, vehicle_device_ids = self._build_vehicle_sets(
+            entities_data, config_thresholds["vehicle_patterns"]
+        )
+
+        classified = 0
+        skipped = 0
+
+        for entity_id, entity_data in entities_data.items():
+            existing = await self.hub.cache.get_curation(entity_id)
+            if existing and existing.get("human_override"):
+                skipped += 1
+                continue
+
+            metrics = self._compute_metrics(entity_id, entity_data, activity_windows)
+            tier, status, reason, group_id = self._classify(
+                entity_id,
+                metrics,
+                config_thresholds,
+                entities_data,
+                vehicle_entity_ids,
+                vehicle_device_ids,
+            )
+
+            await self.hub.cache.upsert_curation(
+                entity_id=entity_id,
+                status=status,
+                tier=tier,
+                reason=reason,
+                auto_classification=f"tier{tier}_{status}",
+                metrics=metrics,
+                group_id=group_id,
+                decided_by="discovery",
+            )
+            classified += 1
+
+        self.logger.info(f"Classification complete: {classified} classified, {skipped} human-override skipped")
+
+    def _compute_metrics(
+        self,
+        entity_id: str,
+        entity_data: dict[str, Any],
+        activity_windows: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Compute per-entity metrics from entity data and activity windows."""
+        domain = entity_data.get("domain", entity_id.split(".")[0] if "." in entity_id else "")
+        area_id = entity_data.get("area_id", "")
+        device_class = entity_data.get("device_class", "")
+
+        total_events = 0
+        total_window_seconds = 0
+        unique_states = set()
+
+        for window in activity_windows:
+            by_entity = window.get("by_entity", {})
+            if entity_id in by_entity:
+                total_events += by_entity[entity_id]
+            total_window_seconds += 900  # 15-min windows
+            for event in window.get("events", []):
+                if event.get("entity_id") == entity_id:
+                    to_state = event.get("to")
+                    if to_state is not None:
+                        unique_states.add(to_state)
+
+        event_rate_day = (total_events / total_window_seconds) * 86400 if total_window_seconds > 0 else 0.0
+
+        last_changed_days_ago = None
+        last_changed = entity_data.get("last_changed")
+        if last_changed:
+            try:
+                changed_dt = datetime.fromisoformat(last_changed.replace("Z", "+00:00"))
+                now = datetime.now(UTC).replace(tzinfo=None)
+                changed_naive = changed_dt.replace(tzinfo=None)
+                last_changed_days_ago = (now - changed_naive).total_seconds() / 86400
+            except (ValueError, TypeError):
+                pass
+
+        unavailable_since_hours = None
+        if entity_data.get("state") == "unavailable" and last_changed_days_ago is not None:
+            unavailable_since_hours = round(last_changed_days_ago * 24, 1)
+
+        return {
+            "event_rate_day": round(event_rate_day, 1),
+            "unique_states": len(unique_states),
+            "last_changed_days_ago": round(last_changed_days_ago, 1) if last_changed_days_ago is not None else None,
+            "unavailable_since_hours": unavailable_since_hours,
+            "domain": domain,
+            "area_id": area_id,
+            "device_class": device_class,
+        }
+
+    def _classify(  # noqa: PLR0913, PLR0911
+        self,
+        entity_id: str,
+        metrics: dict[str, Any],
+        config_thresholds: dict[str, Any],
+        entities_data: dict[str, Any],
+        vehicle_entity_ids: set,
+        vehicle_device_ids: set,
+    ) -> tuple[int, str, str, str]:
+        """Classify entity into tier, status, reason, group_id."""
+        domain = metrics.get("domain", "")
+        event_rate = metrics.get("event_rate_day", 0)
+        unique_states = metrics.get("unique_states", 0)
+        stale_days = metrics.get("last_changed_days_ago")
+
+        auto_exclude_domains = config_thresholds["auto_exclude_domains"]
+        noise_threshold = config_thresholds["noise_event_threshold"]
+        stale_threshold = config_thresholds["stale_days_threshold"]
+        vehicle_patterns = config_thresholds["vehicle_patterns"]
+        unavailable_grace_hours = config_thresholds.get("unavailable_grace_hours", 0)
+
+        # --- Tier 1: auto-excluded ---
+        if domain in auto_exclude_domains:
+            return (1, "auto_excluded", f"Domain '{domain}' is infrastructure", "")
+
+        if stale_days is not None and stale_days > stale_threshold:
+            return (1, "auto_excluded", f"No state changes in {int(stale_days)} days", "")
+
+        unavailable_hours = metrics.get("unavailable_since_hours")
+        if unavailable_grace_hours and unavailable_hours is not None and unavailable_hours > unavailable_grace_hours:
+            return (
+                1,
+                "auto_excluded",
+                f"Unavailable for {int(unavailable_hours)}h (grace: {unavailable_grace_hours}h)",
+                "",
+            )
+
+        if event_rate > noise_threshold and unique_states < 3:
+            return (
+                1,
+                "auto_excluded",
+                f"Polling noise ({int(event_rate)}/day, {unique_states} states)",
+                "",
+            )
+
+        name = (entities_data.get(entity_id, {}).get("friendly_name") or entity_id).lower()
+        for pat in vehicle_patterns:
+            if pat and pat in name:
+                return (1, "auto_excluded", f"Matches vehicle pattern '{pat}'", "")
+
+        # --- Tier 2: edge cases ---
+        device_id = entities_data.get(entity_id, {}).get("device_id", "")
+        if device_id and device_id in vehicle_device_ids and entity_id not in vehicle_entity_ids:
+            return (2, "excluded", "Part of vehicle device group", device_id)
+
+        if event_rate > 500 and unique_states < 5:
+            return (
+                2,
+                "excluded",
+                f"High event rate with low variety ({int(event_rate)}/day, {unique_states} states)",
+                "",
+            )
+
+        if domain in PRESENCE_DOMAINS:
+            return (2, "included", "Presence tracking", "")
+
+        # --- Tier 3: default include ---
+        return (3, "included", "General entity", "")

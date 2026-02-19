@@ -9,13 +9,13 @@ class TestCapabilityRegistryIntegration:
         registry = CapabilityRegistry()
         registry.collect_from_modules()
 
-        # Should find at least 22 stable capabilities
+        # Should find at least 18 stable capabilities (reduced after lean audit)
         stable = registry.list_by_status("stable")
-        assert len(stable) >= 22, f"Only {len(stable)} stable capabilities"
+        assert len(stable) >= 18, f"Only {len(stable)} stable capabilities"
 
-        # Should have all 9 hub modules represented
+        # Should have all 8 hub modules represented (reduced after lean audit)
         hub_modules = {c.module for c in registry.list_by_layer("hub")}
-        assert len(hub_modules) >= 9, f"Only {len(hub_modules)} hub modules"
+        assert len(hub_modules) >= 8, f"Only {len(hub_modules)} hub modules"
 
         # Should have at least 10 engine capabilities
         engine_caps = registry.list_by_layer("engine")
@@ -32,7 +32,6 @@ class TestCapabilityRegistryIntegration:
     def test_every_hub_module_has_capability(self):
         """No hub module should be missing a capability declaration."""
         from aria.modules.activity_monitor import ActivityMonitor
-        from aria.modules.data_quality import DataQualityModule
         from aria.modules.discovery import DiscoveryModule
         from aria.modules.intelligence import IntelligenceModule
         from aria.modules.ml_engine import MLEngine
@@ -46,7 +45,6 @@ class TestCapabilityRegistryIntegration:
             PatternRecognition,
             OrchestratorModule,
             ShadowEngine,
-            DataQualityModule,
             IntelligenceModule,
             ActivityMonitor,
         ]:

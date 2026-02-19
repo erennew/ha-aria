@@ -1,4 +1,4 @@
-"""Unit tests for DataQualityModule.
+"""Unit tests for entity classification (merged into DiscoveryModule).
 
 Tests entity classification pipeline: metric computation, tier assignment,
 config threshold usage, human override preservation, and graceful empty-data handling.
@@ -8,16 +8,16 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aria.modules.data_quality import (
+from aria.modules.discovery import (
     CONFIG_NOISE_EVENT_THRESHOLD,
-    DataQualityModule,
+    DiscoveryModule,
 )
 
 # ============================================================================
@@ -120,7 +120,8 @@ async def hub():
 
 @pytest_asyncio.fixture
 async def module(hub):
-    mod = DataQualityModule(hub)
+    with patch.object(Path, "exists", return_value=True):
+        mod = DiscoveryModule(hub, ha_url="http://test-host:8123", ha_token="test-token")
     return mod
 
 
@@ -428,17 +429,20 @@ async def test_run_classification_calls_upsert(hub, module):
 
 @pytest.mark.asyncio
 async def test_initialize_schedules_daily(hub, module):
-    """initialize() calls schedule_task for daily re-classification."""
+    """initialize() schedules daily re-classification task."""
     hub.schedule_task = AsyncMock()
     hub.set_entities({})
     hub.set_activity([])
 
-    await module.initialize()
+    with patch.object(module, "run_discovery", new_callable=AsyncMock):
+        await module.initialize()
 
-    hub.schedule_task.assert_called_once()
-    call_kwargs = hub.schedule_task.call_args.kwargs
-    assert call_kwargs["task_id"] == "data_quality_reclassify"
-    assert call_kwargs["run_immediately"] is False
+    # Find the reclassify scheduling call among all schedule_task calls
+    reclassify_calls = [
+        c for c in hub.schedule_task.call_args_list if c.kwargs.get("task_id") == "data_quality_reclassify"
+    ]
+    assert len(reclassify_calls) == 1
+    assert reclassify_calls[0].kwargs["run_immediately"] is False
 
 
 # ============================================================================

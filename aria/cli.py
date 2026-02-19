@@ -477,16 +477,6 @@ async def _register_analysis_modules(hub, intelligence_dir, _init, logger):
     except Exception as e:
         logger.error(f"Shadow engine failed (hub continues without it): {e}")
 
-    # data_quality
-    try:
-        from aria.modules.data_quality import DataQualityModule
-
-        data_quality = DataQualityModule(hub)
-        hub.register_module(data_quality)
-        await _init(data_quality, "data_quality")()
-    except Exception as e:
-        logger.warning(f"Data quality module failed (non-fatal): {e}")
-
     # intelligence
     intel_mod = IntelligenceModule(hub, intelligence_dir)
     hub.register_module(intel_mod)

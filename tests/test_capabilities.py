@@ -336,7 +336,6 @@ class TestCollectFromModules:
             "pattern_recognition",
             "orchestrator",
             "shadow_engine",
-            "data_quality",
             "intelligence",
             "activity_monitor",
         }

@@ -227,7 +227,6 @@ class CapabilityRegistry:
         """Discover and register all capabilities from hub modules and engine."""
         # Hub modules
         from aria.modules.activity_monitor import ActivityMonitor
-        from aria.modules.data_quality import DataQualityModule
         from aria.modules.discovery import DiscoveryModule
         from aria.modules.intelligence import IntelligenceModule
         from aria.modules.ml_engine import MLEngine
@@ -244,7 +243,6 @@ class CapabilityRegistry:
             PatternRecognitionModule,
             OrchestratorModule,
             ShadowEngine,
-            DataQualityModule,
             IntelligenceModule,
             ActivityMonitor,
             PresenceModule,
