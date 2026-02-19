@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -332,8 +333,10 @@ class DiscoveryModule(Module):
             except Exception as e:
                 self.logger.error(f"HA WebSocket unexpected error: {e}")
 
-            # Backoff: 5s → 10s → 20s → 60s max
-            await asyncio.sleep(retry_delay)
+            # Backoff: 5s → 10s → 20s → 60s max, ±25% jitter to prevent thundering herd
+            jitter = retry_delay * random.uniform(-0.25, 0.25)
+            actual_delay = retry_delay + jitter
+            await asyncio.sleep(actual_delay)
             retry_delay = min(retry_delay * 2, 60)
 
     async def _ws_registry_session(self, ws_url: str, retry_delay: int) -> int:

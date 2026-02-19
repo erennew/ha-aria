@@ -615,7 +615,7 @@ Three modules maintain persistent WebSocket/MQTT connections with identical retr
 | `presence` (MQTT) | Frigate MQTT broker | 5s × 2^n | 60s | Successful connect |
 | `presence` (WS) | HA WebSocket (sensors) | 5s × 2^n | 60s | Successful auth |
 
-**Risk:** All four reconnect independently. If HA goes down and comes back, all four hammer it simultaneously. No jitter or staggered reconnect.
+**Mitigated (closes #20):** All three WS/MQTT modules (`discovery`, `activity_monitor`, `presence`) now apply ±25% jitter to each reconnect delay, preventing thundering-herd on simultaneous HA restarts. Coordinated stagger deferred as YAGNI — independent jitter is sufficient for the observed failure mode.
 
 ### Data Fallback Chains
 
