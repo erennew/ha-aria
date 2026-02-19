@@ -15,6 +15,7 @@ from typing import Any
 
 import numpy as np
 
+from aria.capabilities import Capability
 from aria.engine.anomaly_explainer import AnomalyExplainer
 from aria.engine.hardware import recommend_tier, scan_hardware
 from aria.engine.pattern_scale import PatternScale
@@ -29,6 +30,24 @@ DEFAULT_WINDOW_SIZE = 6
 
 class PatternRecognitionModule(Module):
     """Hub module for trajectory classification and pattern analysis."""
+
+    CAPABILITIES = [
+        Capability(
+            id="pattern_recognition",
+            name="Pattern Recognition",
+            description=(
+                "Trajectory classification, pattern scale tagging, and anomaly explanation from shadow engine events."
+            ),
+            module="pattern_recognition",
+            layer="hub",
+            config_keys=[],
+            test_paths=["tests/hub/test_pattern_recognition.py"],
+            runtime_deps=["numpy"],
+            pipeline_stage="shadow",
+            status="stable",
+            depends_on=["shadow_predictions"],
+        )
+    ]
 
     def __init__(self, hub):
         super().__init__("pattern_recognition", hub)

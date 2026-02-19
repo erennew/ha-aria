@@ -233,6 +233,7 @@ class CapabilityRegistry:
         from aria.modules.ml_engine import MLEngine
         from aria.modules.orchestrator import OrchestratorModule
         from aria.modules.organic_discovery.module import OrganicDiscoveryModule
+        from aria.modules.pattern_recognition import PatternRecognitionModule
         from aria.modules.patterns import PatternRecognition
         from aria.modules.presence import PresenceModule
         from aria.modules.shadow_engine import ShadowEngine
@@ -241,6 +242,7 @@ class CapabilityRegistry:
             DiscoveryModule,
             MLEngine,
             PatternRecognition,
+            PatternRecognitionModule,
             OrchestratorModule,
             ShadowEngine,
             DataQualityModule,

@@ -138,7 +138,7 @@ class TestPromoteCapability:
                 }
             }
         )
-        api_hub.cache.set = AsyncMock()
+        api_hub.set_cache = AsyncMock()
 
         response = api_client.put("/api/capabilities/climate_sensors/promote")
         assert response.status_code == 200
@@ -148,8 +148,8 @@ class TestPromoteCapability:
         assert data["status"] == "promoted"
 
         # Verify cache was updated
-        api_hub.cache.set.assert_called_once()
-        call_args = api_hub.cache.set.call_args
+        api_hub.set_cache.assert_called_once()
+        call_args = api_hub.set_cache.call_args
         assert call_args[0][0] == "capabilities"
         caps = call_args[0][1]
         assert caps["climate_sensors"]["status"] == "promoted"
@@ -193,7 +193,7 @@ class TestArchiveCapability:
                 }
             }
         )
-        api_hub.cache.set = AsyncMock()
+        api_hub.set_cache = AsyncMock()
 
         response = api_client.put("/api/capabilities/climate_sensors/archive")
         assert response.status_code == 200
@@ -203,8 +203,8 @@ class TestArchiveCapability:
         assert data["status"] == "archived"
 
         # Verify cache was updated
-        api_hub.cache.set.assert_called_once()
-        call_args = api_hub.cache.set.call_args
+        api_hub.set_cache.assert_called_once()
+        call_args = api_hub.set_cache.call_args
         caps = call_args[0][1]
         assert caps["climate_sensors"]["status"] == "archived"
 
