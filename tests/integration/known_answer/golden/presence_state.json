@@ -1,0 +1,58 @@
+{
+  "rooms": {
+    "Hallway": {
+      "probability": 0.881,
+      "confidence": "medium",
+      "signal_count": 2,
+      "signal_types": [
+        "camera_person"
+      ],
+      "person_count": 0
+    },
+    "Kitchen": {
+      "probability": 0.74,
+      "confidence": "low",
+      "signal_count": 1,
+      "signal_types": [
+        "camera_person"
+      ],
+      "person_count": 0
+    },
+    "Living Room": {
+      "probability": 0.999,
+      "confidence": "high",
+      "signal_count": 3,
+      "signal_types": [
+        "camera_face",
+        "camera_person"
+      ],
+      "person_count": 1
+    }
+  },
+  "occupied_rooms": [
+    "Hallway",
+    "Kitchen",
+    "Living Room"
+  ],
+  "identified_persons": {
+    "alice": {
+      "room": "Living Room",
+      "confidence": 0.95
+    }
+  },
+  "mqtt_connected": false,
+  "camera_rooms": {
+    "front_door": "Hallway",
+    "kitchen": "Kitchen",
+    "living_room": "Living Room"
+  },
+  "face_recognition_enabled": false,
+  "recent_detection_count": 5,
+  "recent_detection_cameras": [
+    "kitchen",
+    "front_door",
+    "living_room",
+    "living_room",
+    "front_door"
+  ]
+}
