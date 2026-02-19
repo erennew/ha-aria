@@ -1,0 +1,12 @@
+{
+  "event_type": "entity_change",
+  "source": "discovery",
+  "action": "status_update",
+  "subject": "sensor.living_room_temp",
+  "detail": {
+    "old_status": "active",
+    "new_status": "stale"
+  },
+  "request_id": "req-ka-001",
+  "severity": "info"
+}
