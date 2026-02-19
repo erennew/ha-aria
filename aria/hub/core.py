@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
@@ -69,6 +70,7 @@ class IntelligenceHub:
         self._running = False
         self._start_time: datetime | None = None
         self._request_count: int = 0
+        self._event_count: int = 0
         self._audit_logger = None
         self._capability_registry = None  # Cached capability registry (created on first access)
         self.logger = logging.getLogger("hub")
@@ -261,31 +263,80 @@ class IntelligenceHub:
             self.logger.debug(f"Unsubscribed from event: {event_type}")
 
     async def publish(self, event_type: str, data: dict[str, Any]):
-        """Publish event to all subscribers.
+        """Publish event through both dispatch paths.
+
+        Dispatch path 1 — explicit subscribers: calls every callback registered
+        via ``hub.subscribe(event_type, callback)``.  Only callbacks registered
+        for the specific ``event_type`` are invoked.
+
+        Dispatch path 2 — module broadcast: calls ``module.on_event(event_type,
+        data)`` on *every* registered module regardless of event type.  Modules
+        that do not care about an event use the no-op base-class implementation.
+
+        Both paths fire on every ``publish()`` call.  Modules that also register
+        an explicit ``subscribe()`` callback will therefore receive the event
+        twice — once via the callback and once via ``on_event()``.  Design
+        intentionally: subscribe() callbacks are for targeted routing (e.g.
+        wiring shadow_engine to state_changed); on_event() broadcasts allow
+        any module to observe all events without upfront subscription.
+
+        Backpressure monitoring: logs a WARNING if the total dispatch wall-clock
+        time exceeds 100 ms.  This is observability only — there is no queue
+        drop or blocking; slow subscribers will delay subsequent publishes.
 
         Args:
             event_type: Type of event
             data: Event data
         """
         self.logger.debug(f"Publishing event: {event_type}")
+        self._event_count += 1
 
         # Log event
         await self.cache.log_event(event_type=event_type, data=data)
 
-        # Notify subscribers
+        dispatch_start = time.monotonic()
+
+        # Dispatch path 1: explicit subscribers
         if event_type in self.subscribers:
             for callback in self.subscribers[event_type]:
+                cb_start = time.monotonic()
                 try:
                     await callback(data)
                 except Exception as e:
                     self.logger.error(f"Error in event callback: {e}")
+                cb_elapsed_ms = (time.monotonic() - cb_start) * 1000
+                if cb_elapsed_ms > 100:
+                    self.logger.warning(
+                        "Slow subscriber callback for event '%s': %.1f ms (threshold 100 ms)",
+                        event_type,
+                        cb_elapsed_ms,
+                    )
 
-        # Notify modules
+        # Dispatch path 2: broadcast to all modules via on_event()
         for module in self.modules.values():
+            mod_start = time.monotonic()
             try:
                 await module.on_event(event_type, data)
             except Exception as e:
                 self.logger.error(f"Error in module {module.module_id} event handler: {e}")
+            mod_elapsed_ms = (time.monotonic() - mod_start) * 1000
+            if mod_elapsed_ms > 100:
+                self.logger.warning(
+                    "Slow on_event() in module '%s' for event '%s': %.1f ms (threshold 100 ms)",
+                    module.module_id,
+                    event_type,
+                    mod_elapsed_ms,
+                )
+
+        total_elapsed_ms = (time.monotonic() - dispatch_start) * 1000
+        if total_elapsed_ms > 100:
+            self.logger.warning(
+                "Event '%s' total dispatch took %.1f ms (threshold 100 ms) — %d subscriber(s), %d module(s)",
+                event_type,
+                total_elapsed_ms,
+                len(self.subscribers.get(event_type, [])),
+                len(self.modules),
+            )
 
     async def schedule_task(
         self, task_id: str, coro: Callable, interval: timedelta | None = None, run_immediately: bool = True
