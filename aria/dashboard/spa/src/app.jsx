@@ -5,18 +5,15 @@ import { connectWebSocket, disconnectWebSocket } from './store.js';
 import Sidebar from './components/Sidebar.jsx';
 import ErrorState from './components/ErrorState.jsx';
 import Home from './pages/Home.jsx';
+import Observe from './pages/Observe.jsx';
+import Understand from './pages/Understand.jsx';
+import Decide from './pages/Decide.jsx';
 import Discovery from './pages/Discovery.jsx';
 import Capabilities from './pages/Capabilities.jsx';
-import Predictions from './pages/Predictions.jsx';
-import Patterns from './pages/Patterns.jsx';
-import Automations from './pages/Automations.jsx';
-import Intelligence from './pages/Intelligence.jsx';
 import MLEngine from './pages/MLEngine.jsx';
-import Shadow from './pages/Shadow.jsx';
 import Settings from './pages/Settings.jsx';
 import DataCuration from './pages/DataCuration.jsx';
 import Guide from './pages/Guide.jsx';
-import Presence from './pages/Presence.jsx';
 import Validation from './pages/Validation.jsx';
 
 /**
@@ -72,6 +69,13 @@ function createHashHistory() {
 
 const hashHistory = createHashHistory();
 
+function Redirect({ to }) {
+  useEffect(() => {
+    hashHistory.replace(to);
+  }, [to]);
+  return null;
+}
+
 /** Catches render errors so a single broken page doesn't blank the whole app. */
 class ErrorBoundary extends Component {
   state = { error: null };
@@ -105,19 +109,23 @@ export default function App() {
           <ErrorBoundary>
             <Router history={hashHistory}>
               <Home path="/" />
+              <Observe path="/observe" />
+              <Understand path="/understand" />
+              <Decide path="/decide" />
               <Discovery path="/discovery" />
               <Capabilities path="/capabilities" />
-              <Predictions path="/predictions" />
-              <Patterns path="/patterns" />
-              <Automations path="/automations" />
-              <Intelligence path="/intelligence" />
               <MLEngine path="/ml-engine" />
-              <Shadow path="/shadow" />
-              <Settings path="/settings" />
               <DataCuration path="/data-curation" />
-              <Presence path="/presence" />
               <Validation path="/validation" />
+              <Settings path="/settings" />
               <Guide path="/guide" />
+              {/* Redirects from old routes */}
+              <Redirect path="/intelligence" to="/understand" />
+              <Redirect path="/predictions" to="/understand" />
+              <Redirect path="/patterns" to="/understand" />
+              <Redirect path="/shadow" to="/understand" />
+              <Redirect path="/automations" to="/decide" />
+              <Redirect path="/presence" to="/observe" />
             </Router>
           </ErrorBoundary>
         </div>

@@ -1,24 +1,40 @@
+import { useEffect, useRef } from 'preact/hooks';
 import TimeChart from './TimeChart.jsx';
 
-/**
- * Hero metric card — the single most important number on the page.
- * Large monospace value with cursor state indicator.
- *
- * @param {Object} props
- * @param {*} props.value - Primary metric value
- * @param {string} props.label - Card label (shown via data-label)
- * @param {string} [props.unit] - Unit suffix
- * @param {string} [props.delta] - Delta/change text
- * @param {boolean} [props.warning] - Warning state (orange border + text)
- * @param {boolean} [props.loading] - Loading state (cursor-working)
- * @param {Array} [props.sparkData] - uPlot data array for sparkline [timestamps[], values[]]
- * @param {string} [props.sparkColor] - CSS color for sparkline (default: var(--accent))
- */
-export default function HeroCard({ value, label, unit, delta, warning, loading, sparkData, sparkColor }) {
+// Freshness thresholds (seconds): 5min cooling, 30min frozen, 60min stale
+const FRESHNESS_THRESHOLDS = { cooling: 300, frozen: 1800, stale: 3600 };
+
+function computeFreshness(timestamp) {
+  if (!timestamp) return null;
+  const age = (Date.now() - new Date(timestamp).getTime()) / 1000;
+  if (age > FRESHNESS_THRESHOLDS.stale) return 'stale';
+  if (age > FRESHNESS_THRESHOLDS.frozen) return 'frozen';
+  if (age > FRESHNESS_THRESHOLDS.cooling) return 'cooling';
+  return 'fresh';
+}
+
+export default function HeroCard({ value, label, unit, delta, warning, loading, sparkData, sparkColor, timestamp }) {
   const cursorClass = loading ? 'cursor-working' : 'cursor-active';
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    function update() {
+      const state = computeFreshness(timestamp);
+      if (state) {
+        ref.current.setAttribute('data-sh-state', state);
+      } else {
+        ref.current.removeAttribute('data-sh-state');
+      }
+    }
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, [timestamp]);
 
   return (
     <div
+      ref={ref}
       class={`t-frame ${cursorClass}`}
       data-label={label}
       style={warning ? 'border-left: 3px solid var(--status-warning);' : ''}

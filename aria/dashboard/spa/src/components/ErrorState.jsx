@@ -1,12 +1,11 @@
-/**
- * Error alert with retry button.
- * @param {{ error: string|Error, onRetry?: function }} props
- */
 export default function ErrorState({ error, onRetry }) {
   const message = error instanceof Error ? error.message : String(error || 'Unknown error');
 
   return (
-    <div style="background: var(--bg-surface); border: 1px solid var(--status-error); border-left-width: 3px; border-radius: var(--radius); padding: 16px;">
+    <div
+      data-sh-effect="glitch"
+      style="background: var(--bg-surface); border: 1px solid var(--status-error); border-left-width: 3px; border-radius: var(--radius); padding: 16px;"
+    >
       <div class="flex items-start gap-3">
         <svg class="w-5 h-5 mt-0.5 shrink-0" style="color: var(--status-error);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
