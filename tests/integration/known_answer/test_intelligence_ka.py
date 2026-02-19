@@ -130,7 +130,8 @@ async def test_cache_has_expected_keys(intelligence_module, hub):
 
     data = entry["data"]
 
-    # All keys that _read_intelligence_data assembles
+    # Keys assembled by IntelligenceModule._read_intelligence_data() in
+    # aria/modules/intelligence.py, plus "activity" added by initialize().
     expected_keys = {
         "data_maturity",
         "predictions",

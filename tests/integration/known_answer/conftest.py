@@ -6,8 +6,6 @@ from typing import Any
 
 import pytest
 
-from aria.hub.core import IntelligenceHub
-
 GOLDEN_DIR = Path(__file__).parent / "golden"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -65,16 +63,19 @@ def golden_compare(
     if actual != golden:
         import warnings
 
-        diff_keys = []
+        diff_lines = []
         if isinstance(actual, dict) and isinstance(golden, dict):
             all_keys = set(actual.keys()) | set(golden.keys())
             for key in sorted(all_keys):
-                if actual.get(key) != golden.get(key):
-                    diff_keys.append(key)
+                old_val = golden.get(key)
+                new_val = actual.get(key)
+                if old_val != new_val:
+                    old_repr = json.dumps(old_val, default=str) if isinstance(old_val, dict | list) else repr(old_val)
+                    new_repr = json.dumps(new_val, default=str) if isinstance(new_val, dict | list) else repr(new_val)
+                    diff_lines.append(f"  {key}: {old_repr} → {new_repr}")
+        diff_detail = "\n".join(diff_lines) if diff_lines else "  (structure mismatch)"
         warnings.warn(
-            f"Golden drift in {golden_name}.json: "
-            f"keys differ: {diff_keys or 'structure mismatch'}. "
-            f"Run with --update-golden to re-baseline.",
+            f"Golden drift in {golden_name}:\n{diff_detail}\nRun with --update-golden to re-baseline.",
             stacklevel=2,
         )
 
@@ -84,6 +85,8 @@ def golden_compare(
 @pytest.fixture
 async def hub(tmp_path):
     """Create a minimal IntelligenceHub for known-answer tests."""
+    from aria.hub.core import IntelligenceHub  # lazy: only load when this fixture is used
+
     h = IntelligenceHub(cache_path=str(tmp_path / "hub.db"))
     await h.initialize()
     yield h

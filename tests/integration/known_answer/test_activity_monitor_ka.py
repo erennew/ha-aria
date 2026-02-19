@@ -17,7 +17,7 @@ from tests.integration.known_answer.conftest import golden_compare
 # ---------------------------------------------------------------------------
 
 
-def _make_event(entity_id: str, old_state: str, new_state: str, timestamp: str) -> dict:
+def _make_event(entity_id: str, old_state: str, new_state: str) -> dict:
     """Build a state_changed event dict matching HA WebSocket format.
 
     ActivityMonitor._handle_state_changed expects:
@@ -32,14 +32,14 @@ def _make_event(entity_id: str, old_state: str, new_state: str, timestamp: str) 
 
 
 FIXTURE_EVENTS = [
-    _make_event("light.living_room", "off", "on", "2026-02-19T08:00:00"),
-    _make_event("sensor.temperature", "21.0", "22.5", "2026-02-19T08:01:00"),
-    _make_event("binary_sensor.motion", "off", "on", "2026-02-19T08:02:00"),
-    _make_event("light.kitchen", "off", "on", "2026-02-19T08:05:00"),
-    _make_event("light.living_room", "on", "off", "2026-02-19T08:30:00"),
-    _make_event("binary_sensor.motion", "on", "off", "2026-02-19T08:35:00"),
-    _make_event("sensor.temperature", "22.5", "23.0", "2026-02-19T09:00:00"),
-    _make_event("switch.smart_plug", "off", "on", "2026-02-19T09:15:00"),
+    _make_event("light.living_room", "off", "on"),
+    _make_event("sensor.temperature", "21.0", "22.5"),
+    _make_event("binary_sensor.motion", "off", "on"),
+    _make_event("light.kitchen", "off", "on"),
+    _make_event("light.living_room", "on", "off"),
+    _make_event("binary_sensor.motion", "on", "off"),
+    _make_event("sensor.temperature", "22.5", "23.0"),
+    _make_event("switch.smart_plug", "off", "on"),
 ]
 
 # sensor.temperature is in CONDITIONAL_DOMAINS and only tracked when
