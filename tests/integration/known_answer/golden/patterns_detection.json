@@ -1,0 +1,53 @@
+{
+  "patterns": [
+    {
+      "pattern_id": "bedroom_cluster_1",
+      "area": "bedroom",
+      "typical_time": "21:57",
+      "frequency": 2,
+      "confidence": 0.5,
+      "associated_signals": [
+        "bedroom_light_off_h22",
+        "bedroom_light_on_h22"
+      ],
+      "llm_description": "Morning routine"
+    },
+    {
+      "pattern_id": "bedroom_cluster_2",
+      "area": "bedroom",
+      "typical_time": "22:07",
+      "frequency": 2,
+      "confidence": 0.5,
+      "associated_signals": [
+        "bedroom_light_off_h22",
+        "bedroom_light_on_h22"
+      ],
+      "llm_description": "Morning routine"
+    },
+    {
+      "pattern_id": "kitchen_cluster_1",
+      "area": "kitchen",
+      "typical_time": "07:00",
+      "frequency": 3,
+      "confidence": 0.75,
+      "associated_signals": [
+        "kitchen_light_on_h7",
+        "kitchen_motion_on_h7"
+      ],
+      "llm_description": "Morning routine"
+    },
+    {
+      "pattern_id": "living_cluster_1",
+      "area": "living",
+      "typical_time": "18:28",
+      "frequency": 3,
+      "confidence": 0.75,
+      "associated_signals": [
+        "living_light_off_h23",
+        "living_light_on_h18"
+      ],
+      "llm_description": "Morning routine"
+    }
+  ],
+  "pattern_count": 4
+}
