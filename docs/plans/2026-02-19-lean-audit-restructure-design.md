@@ -1,7 +1,8 @@
 # ARIA Lean Audit & Restructure
 
 **Date:** 2026-02-19
-**Status:** Approved
+**Status:** Active (Phase 1 complete, Phase 2 planned)
+**Roadmap:** `2026-02-19-lean-audit-roadmap.md`
 **Author:** Justin McFarland + Claude
 
 ## Problem
@@ -129,7 +130,7 @@ Phase 2's known-answer test harness is the key enabler: it proves the intelligen
 
 ## Success Criteria
 
-- [ ] Module count reduced (target: fewer than 10 active modules)
+- [x] Module count reduced (target: fewer than 10 active modules) — **Done: 14 → 10**
 - [ ] Every surviving module has a known-answer integration test
 - [ ] Full pipeline known-answer test passes
 - [ ] Open issue count reduced by 50%+ (via archive + fix)
