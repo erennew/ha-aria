@@ -50,9 +50,10 @@ Fixed 37 issues across 7 batches in priority order. All fixes reviewed via two-s
 - **Fixed:** 37 issues closed
 - **New follow-ups filed:** #74 (cache naive timestamps), #75 (snapshot pruning string comparison), #76 (presence C901 complexity)
 - **Deferred to Phase 2:** KA test issues #66-73
-- **Deferred to Phase 5:** UI issue #28
-- **Pre-existing open:** #26, #31, #32, #33, #34, #35, #40, #61, #63 (reliability/architecture, not in fix scope)
-- **Total open:** 18 (was 55 after triage, now 18 — **67% reduction**)
+- **Resolved during audit:** #28 (WS already works), #33 (watchdog covers Ollama), #34 (audit has retry+dead-letter)
+- **Pre-existing open:** #26, #31, #32, #35, #40, #61, #63 (reliability/architecture, not in fix scope)
+- **Deferred to Phase 2 merge:** KA test issues #66-73 (tests in unmerged worktree)
+- **Total open:** 18 (was 63, now 18 — **71% reduction**)
 
 ### Key Patterns from Fix Pass
 1. **Subscriber lifecycle gaps** — Multiple modules registered event listeners without cleanup in shutdown()
