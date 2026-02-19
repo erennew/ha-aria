@@ -1,0 +1,120 @@
+{
+  "accuracy": {
+    "overall": 84,
+    "by_metric": {
+      "power_watts": 83,
+      "lights_on": 65
+    }
+  },
+  "activity": {
+    "activity_log": null,
+    "activity_summary": null
+  },
+  "autoencoder_status": null,
+  "automation_suggestions": null,
+  "baselines": {
+    "power_watts": {
+      "monday": 140.0,
+      "tuesday": 155.0
+    },
+    "lights_on": {
+      "monday": 18.0,
+      "tuesday": 22.0
+    }
+  },
+  "config": {
+    "anomaly_threshold": 2.0,
+    "ml_weight_schedule": {
+      "<60d": 0.3,
+      "<90d": 0.5,
+      ">=90d": 0.7
+    },
+    "feature_config": {
+      "time_features": true,
+      "weather_features": true,
+      "home_state_features": true,
+      "lag_features": true,
+      "interaction_features": false
+    }
+  },
+  "correlations": [],
+  "daily_insight": null,
+  "data_maturity": {
+    "first_date": "2026-02-19",
+    "days_of_data": 1,
+    "intraday_count": 0,
+    "ml_active": false,
+    "meta_learning_active": false,
+    "phase": "collecting",
+    "next_milestone": "6 more days needed for reliable baselines",
+    "description": "The system is still learning your home's patterns. It needs at least 7 days of data to build reliable baselines. Snapshots are collected automatically every 4 hours."
+  },
+  "drift_status": null,
+  "entity_correlations": null,
+  "feature_selection": null,
+  "intraday_trend": [],
+  "isolation_forest_status": null,
+  "meta_learning": {
+    "applied_count": 0,
+    "last_applied": null,
+    "suggestions": []
+  },
+  "ml_models": {
+    "count": 0,
+    "last_trained": null,
+    "scores": {}
+  },
+  "power_profiles": null,
+  "predictions": {
+    "date": "2026-02-19",
+    "overall_accuracy": 84,
+    "prediction_method": "blended",
+    "days_of_data": 14,
+    "metrics": {
+      "power_watts": {
+        "accuracy": 83,
+        "predicted": 150.0,
+        "actual": 145.0
+      },
+      "lights_on": {
+        "accuracy": 65,
+        "predicted": 20.0,
+        "actual": 46.0
+      },
+      "devices_home": {
+        "accuracy": 80,
+        "predicted": 62.0,
+        "actual": 64.0
+      },
+      "unavailable": {
+        "accuracy": 95,
+        "predicted": 910.0,
+        "actual": 909.0
+      },
+      "useful_events": {
+        "accuracy": 98,
+        "predicted": 3700.0,
+        "actual": 3381.0
+      }
+    }
+  },
+  "reference_model": null,
+  "sequence_anomalies": null,
+  "shap_attributions": null,
+  "trend_data": [
+    {
+      "date": "2026-02-19",
+      "power_watts": 145.0,
+      "lights_on": 46,
+      "devices_home": 64,
+      "unavailable": 909,
+      "useful_events": 3381
+    }
+  ],
+  "run_log": [
+    {
+      "type": "daily",
+      "status": "ok"
+    }
+  ]
+}
