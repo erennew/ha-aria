@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'preact/hooks';
 import { computeLayout, computeTraceback } from '../lib/sankeyLayout.js';
-import { ALL_NODES, LINKS, NODE_DETAIL, getNodeMetric, ACTION_CONDITIONS } from '../lib/pipelineGraph.js';
+import { ALL_NODES, LINKS, NODE_DETAIL, getNodeMetric, getNodeTierGate, ACTION_CONDITIONS } from '../lib/pipelineGraph.js';
 import PipelineStepper from './PipelineStepper.jsx';
 
 // --- Color mapping ---
@@ -15,6 +15,7 @@ const STATUS_COLORS = {
   warning: 'var(--status-warning)',
   blocked: 'var(--status-error)',
   waiting: 'var(--status-waiting)',
+  tier_locked: 'var(--text-tertiary)',
 };
 
 function getModuleStatus(moduleStatuses, nodeId) {
@@ -22,6 +23,8 @@ function getModuleStatus(moduleStatuses, nodeId) {
   if (s === 'running') return 'healthy';
   if (s === 'failed') return 'blocked';
   if (s === 'starting') return 'waiting';
+  // Tier-gated modules that aren't running show as locked
+  if (getNodeTierGate(nodeId) > 0 && s !== 'running') return 'tier_locked';
   return 'waiting';
 }
 
@@ -88,7 +91,8 @@ function getNodeFreshness(cacheData, nodeId) {
 
 function SankeyNode({ node, status, metric, onClick, highlighted, dimmed, onMouseEnter, onMouseLeave, sparklineData, freshness, pulsing }) {
   const color = STATUS_COLORS[status] || STATUS_COLORS.waiting;
-  const opacity = dimmed ? 0.12 : 1;
+  const isTierLocked = status === 'tier_locked';
+  const opacity = dimmed ? 0.12 : isTierLocked ? 0.4 : 1;
 
   return (
     <g
@@ -117,9 +121,15 @@ function SankeyNode({ node, status, metric, onClick, highlighted, dimmed, onMous
         )}
       </circle>
       {/* Label */}
-      <text x="26" y="18" fill="var(--text-primary)" font-size="11" font-weight="600" font-family="var(--font-mono)">
+      <text x="26" y="18" fill={isTierLocked ? 'var(--text-tertiary)' : 'var(--text-primary)'} font-size="11" font-weight="600" font-family="var(--font-mono)">
         {node.label}
       </text>
+      {/* Tier badge for locked modules */}
+      {isTierLocked && (
+        <text x={node.w - 8} y="18" fill="var(--text-tertiary)" font-size="8" font-family="var(--font-mono)" text-anchor="end">
+          T{getNodeTierGate(node.id)}
+        </text>
+      )}
       {/* Freshness timestamp (expanded nodes only) */}
       {freshness && (
         <text x={node.w - 28} y="14" fill={STATUS_COLORS[freshness.status]} font-size="8" font-family="var(--font-mono)" text-anchor="end">
