@@ -1,5 +1,5 @@
 /**
- * ARIA pipeline graph definition — 45 nodes, 5 columns, all links.
+ * ARIA pipeline graph definition — 49 nodes, 5 columns, all links.
  * This is the single source of truth for the Sankey topology.
  * When modules are added/removed, update HERE (not the JSX).
  */
@@ -38,6 +38,8 @@ export const ENRICHMENT = [
   { id: 'orchestrator', column: 3, label: 'Orchestrator', metricKey: 'suggestion_count' },
   { id: 'organic_discovery', column: 3, label: 'Organic Discovery', metricKey: 'organic_count' },
   { id: 'activity_labeler', column: 3, label: 'Activity Labeler', metricKey: 'current_activity' },
+  { id: 'transfer_engine', column: 3, label: 'Transfer Engine', metricKey: null },
+  { id: 'online_learner', column: 3, label: 'Online Learner', metricKey: null },
 ];
 
 // --- Column 4: API Outputs ---
@@ -57,6 +59,8 @@ export const OUTPUTS = [
   { id: 'out_curation', column: 4, label: 'Entity Curation', metricKey: null, page: '/data-curation' },
   { id: 'out_capabilities', column: 4, label: 'Capabilities', metricKey: null, page: '/capabilities' },
   { id: 'out_validation', column: 4, label: 'Validation', metricKey: null, page: '/validation' },
+  { id: 'out_transfer', column: 4, label: 'Transfer Candidates', metricKey: null, page: '/transfer' },
+  { id: 'out_online_stats', column: 4, label: 'Online Metrics', metricKey: null, page: '/online-learning' },
 ];
 
 export const ALL_NODES = [...SOURCES, ...INTAKE, ...PROCESSING, ...ENRICHMENT, ...OUTPUTS];
@@ -111,6 +115,13 @@ export const LINKS = [
   { source: 'data_quality', target: 'out_curation', value: 3, type: 'cache' },
   { source: 'discovery', target: 'out_capabilities', value: 3, type: 'cache' },
   { source: 'organic_discovery', target: 'out_capabilities', value: 2, type: 'cache' },
+
+  // Transfer Engine + Online Learner
+  { source: 'organic_discovery', target: 'transfer_engine', value: 2, type: 'cache' },
+  { source: 'shadow_engine', target: 'transfer_engine', value: 2, type: 'cache' },
+  { source: 'transfer_engine', target: 'out_transfer', value: 2, type: 'cache' },
+  { source: 'shadow_engine', target: 'online_learner', value: 3, type: 'cache' },
+  { source: 'online_learner', target: 'out_online_stats', value: 2, type: 'cache' },
 
   // Feedback loops (reverse direction, amber)
   { source: 'ml_engine', target: 'discovery', value: 2, type: 'feedback' },
@@ -219,6 +230,16 @@ export const NODE_DETAIL = {
     reads: 'Sensor context: power, lights, motion, occupancy, time',
     writes: 'activity_labels (predictions + corrections + classifier)',
   },
+  transfer_engine: {
+    protocol: 'Subscribes to organic_discovery_complete + shadow_resolved',
+    reads: 'Organic capabilities, shadow resolution outcomes',
+    writes: 'transfer_candidates (cross-domain pattern transfer)',
+  },
+  online_learner: {
+    protocol: 'Subscribes to shadow_resolved events',
+    reads: 'Shadow resolution outcomes, feature snapshots',
+    writes: 'Online model stats (per-target River models)',
+  },
 };
 
 // --- Metric extraction ---
@@ -272,6 +293,8 @@ export function getNodeMetric(cacheData, nodeId) {
       return organic ? `${organic} organic` : '\u2014';
     }
     case 'activity_labeler': return activity?.current_activity?.predicted || '\u2014';
+    case 'transfer_engine': return '\u2014';
+    case 'online_learner': return '\u2014';
 
     // Outputs (show page name)
     default: return '\u2014';
