@@ -196,6 +196,18 @@ Test coverage: `tests/hub/test_core.py` (slow-subscriber warning, fast-callback 
 
 **Broker:** Mosquitto on `<mqtt-broker-ip>:1883` (core_mosquitto addon on HA Pi). Credentials in `config_defaults.py` presence section.
 
+### Presence Domain Filtering (Domains in `_PRESENCE_DOMAINS`)
+
+| Domain | Presence Signal | States Processed |
+|--------|-----------------|------------------|
+| `person.*` | Home/away state | (special: person-level, not room-level) |
+| `light.*` | Motion, occupancy | All except unavailable/unknown |
+| `binary_sensor.*` | Motion, occupancy, occupancy_status | All except unavailable/unknown |
+| `media_player.*` | Media active indicator | playing/paused/idle/buffering→0.85; off/standby→0.15 |
+| `event.*` | Device button events (Hue dimmer, etc.) | Custom handlers per event.* subclass |
+
+**Cold-start:** Presence module seeds all four domains on startup from initial HA state fetch, not just person.* home/away. Prevents room probabilities from being zero at boot time.
+
 ### Systemd Timer Map
 
 | Timer | Schedule | Command | Writes | Read By |

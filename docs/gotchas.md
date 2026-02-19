@@ -39,6 +39,10 @@ Implementation details and less-frequently-encountered gotchas. The top-level CL
 - **PresenceCollector reads from hub API first, falls back to SQLite** — Unlike other collectors, PresenceCollector calls `/api/cache/presence` (or hits `hub.db` directly if hub offline). Invoked separately from normal collector loop.
 - **Frigate Docker required for camera presence** — Container at `~/frigate/` must be running for camera-based presence signals.
 - **Camera-to-room mapping is discovery-driven** — No hard-coded camera list. Cameras found via `camera.*` entities, room resolved via device→area chain. Manual overrides via `presence.camera_rooms` config key.
+- **Presence domain filter optimizes state_changed handling (2026-02-19)** — Module skips 95% of events upfront by checking entity_id domain prefix. Only processes `light.`, `binary_sensor.`, `media_player.`, `event.` domains (plus `person.*`). Eliminates slow subscriber warnings.
+- **Entity room cache prevents hub cache thrashing (2026-02-19)** — Three-layer lookup: local dict O(1), hub cache fallback for new entities, then REST API fallback. Cache rebuilt during startup seed.
+- **Presence module seeds on startup (2026-02-19)** — Previously only seeded `person.*` home/away states. Now also seeds room signals from lights, media players, motion sensors, and doors. Fixes cold-start where room presence was zero until first state_changed event.
+- **Media player states feed presence (2026-02-19)** — playing/paused/idle/buffering → 0.85 media_active; off/standby → 0.15 media_inactive. Enables room detection via TV or speaker state without requiring a camera.
 
 ## Pattern Recognition (Phase 3)
 
@@ -47,6 +51,7 @@ Implementation details and less-frequently-encountered gotchas. The top-level CL
 - **Anomaly explanations require feature_names** — `_run_anomaly_detection` returns empty explanations list if feature_names is None. The ML engine passes feature_names from `_get_feature_names()`.
 - **Config values not yet wired** — The 4 `pattern.*` config entries in `config_defaults.py` (window_size, dtw_neighbors, anomaly_top_n, trajectory_change_threshold) are scaffolding — the module uses `DEFAULT_WINDOW_SIZE = 6` and hardcoded values. Wire these when the config UI lands.
 - **tslearn optional dependency** — In `[project.optional-dependencies]` under `ml-extra`. Not installed by default `pip install -e .` — needs `pip install -e '.[ml-extra]'`.
+- **Pattern recognition log_dir path fixed (2026-02-19)** — Previously looked at `~/ha-logs/intelligence/intelligence/intraday` (double nesting). Now correctly uses `~/ha-logs` as root, matching where intraday snapshots and logbook files actually live.
 
 ## ML & Training
 
