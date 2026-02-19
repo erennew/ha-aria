@@ -781,6 +781,7 @@ Integration boundaries where bugs hide. Ordered by estimated risk (silent corrup
 - **Test coverage:** **Partial** — fallback tested in isolation, but not tested with actual stale data or cold hub
 - **Failure mode:** **Silent** — snapshot contains zero-valued presence features → ML models train on bad data
 - **Suggested mitigation:** Snapshot validation layer should check for all-zero presence features and warn
+- **Status: MITIGATED** — `PresenceModule._seed_presence_from_ha()` now queries `person.*` entity states from the HA REST API during `initialize()`, populating `_person_states` before listener loops start. Cold-start zeros eliminated. See `aria/modules/presence.py` and `tests/hub/test_presence.py` (3 seed tests). Remaining gap: hub-down fallback still reads potentially stale SQLite data.
 
 ### RISK-05: Feature Vector Source of Truth — Dual Import
 

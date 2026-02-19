@@ -8,7 +8,7 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -851,3 +851,73 @@ class TestFrigateAliasResolution:
         assert "fetch_face_config" in call_order
         assert "refresh_camera_rooms" in call_order
         assert call_order.index("fetch_face_config") < call_order.index("refresh_camera_rooms")
+
+
+# ============================================================================
+# Presence Seeding from HA REST API (cold-start fix for RISK-04)
+# ============================================================================
+
+
+class TestSeedPresenceFromHA:
+    """Test cold-start seeding of person states from HA REST API."""
+
+    async def test_seed_presence_populates_person_states(self, module):
+        """Successful HA response seeds _person_states with person.* entities."""
+        ha_states = [
+            {"entity_id": "person.alice", "state": "home"},
+            {"entity_id": "person.bob", "state": "not_home"},
+            {"entity_id": "light.kitchen", "state": "on"},  # non-person, should be skipped
+        ]
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value=ha_states)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=False)
+
+        mock_session = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_response)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("aria.modules.presence.aiohttp.ClientSession", return_value=mock_session),
+            patch.dict("os.environ", {"HA_URL": "http://localhost:8123", "HA_TOKEN": "test_token"}),
+        ):
+            await module._seed_presence_from_ha()
+
+        assert module._person_states["person.alice"] == "home"
+        assert module._person_states["person.bob"] == "not_home"
+        assert "light.kitchen" not in module._person_states
+        assert len(module._person_states) == 2
+
+    async def test_seed_presence_handles_ha_unavailable(self, module):
+        """Connection error during seeding does not crash the module."""
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(side_effect=Exception("Connection refused"))
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("aria.modules.presence.aiohttp.ClientSession", return_value=mock_session),
+            patch.dict("os.environ", {"HA_URL": "http://localhost:8123", "HA_TOKEN": "test_token"}),
+        ):
+            # Must not raise
+            await module._seed_presence_from_ha()
+
+        # _person_states remains empty — no crash
+        assert module._person_states == {}
+
+    async def test_seed_presence_skips_without_credentials(self, module, caplog):
+        """Missing HA_URL/HA_TOKEN causes a warning log and early return."""
+        import logging
+        import os
+
+        env_without_creds = {k: v for k, v in os.environ.items() if k not in ("HA_URL", "HA_TOKEN")}
+        with (
+            patch.dict("os.environ", env_without_creds, clear=True),
+            caplog.at_level(logging.WARNING, logger="aria.modules.presence"),
+        ):
+            await module._seed_presence_from_ha()
+
+        assert module._person_states == {}
+        assert any("HA_URL" in record.message or "HA_TOKEN" in record.message for record in caplog.records)

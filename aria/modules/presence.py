@@ -82,6 +82,9 @@ class PresenceModule(Module):
         self._config_camera_rooms = camera_rooms  # Explicit overrides (always win)
         self.camera_rooms: dict[str, str] = dict(camera_rooms) if camera_rooms else {}
 
+        # Person home/away states: {entity_id: state_string} — seeded from HA on startup
+        self._person_states: dict[str, str] = {}
+
         # Per-room signal state: {room: [(signal_type, value, detail, timestamp), ...]}
         self._room_signals: dict[str, list] = defaultdict(list)
 
@@ -206,9 +209,38 @@ class PresenceModule(Module):
         if aliases_added:
             self.logger.info(f"Added {aliases_added} Frigate camera aliases")
 
+    async def _seed_presence_from_ha(self):
+        """Fetch current person states from HA REST API to avoid cold-start zeros."""
+        try:
+            ha_url = os.environ.get("HA_URL", "")
+            ha_token = os.environ.get("HA_TOKEN", "")
+            if not ha_url or not ha_token:
+                logger.warning("Cannot seed presence: HA_URL/HA_TOKEN not set")
+                return
+            async with aiohttp.ClientSession() as session:
+                headers = {"Authorization": f"Bearer {ha_token}"}
+                async with session.get(
+                    f"{ha_url}/api/states", headers=headers, timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    if resp.status == 200:
+                        states = await resp.json()
+                        count = 0
+                        for state in states:
+                            eid = state.get("entity_id", "")
+                            if eid.startswith("person."):
+                                self._person_states[eid] = state.get("state", "unknown")
+                                count += 1
+                        logger.info("Seeded %d person states from HA", count)
+                    else:
+                        logger.warning("HA REST API returned %d during presence seeding", resp.status)
+        except Exception as e:
+            logger.warning("Failed to seed presence from HA: %s", e)
+
     async def initialize(self):
         """Start MQTT listener and HA WebSocket listener."""
         self.logger.info("Presence module initializing...")
+
+        await self._seed_presence_from_ha()
 
         # Start MQTT listener for Frigate events
         await self.hub.schedule_task(
