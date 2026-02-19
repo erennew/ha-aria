@@ -279,6 +279,7 @@ class ActivityMonitor(Module):
 
                     self.logger.info("Activity WebSocket connected — listening for state_changed")
                     retry_delay = 5  # reset backoff
+                    first_connect = True  # Reset so next reconnect storm also gets staggered
                     self._track_ws_reconnect()
 
                     # 2b. Seed occupancy from current person entity states

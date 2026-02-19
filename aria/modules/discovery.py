@@ -375,6 +375,7 @@ class DiscoveryModule(Module):
         while self.hub.is_running():
             try:
                 retry_delay = await self._ws_registry_session(ws_url, retry_delay)
+                first_connect = True  # Reset so next reconnect storm also gets staggered
             except (TimeoutError, aiohttp.ClientError) as e:
                 self.logger.warning(f"HA WebSocket error: {e} — retrying in {retry_delay}s")
             except Exception as e:
