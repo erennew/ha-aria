@@ -231,13 +231,24 @@ class PresenceModule(Module):
                 ) as resp:
                     if resp.status == 200:
                         states = await resp.json()
-                        count = 0
+                        person_count = 0
+                        room_count = 0
+                        now = datetime.now()
                         for state in states:
                             eid = state.get("entity_id", "")
+                            st = state.get("state", "")
+                            attrs = state.get("attributes", {})
                             if eid.startswith("person."):
-                                self._person_states[eid] = state.get("state", "unknown")
-                                count += 1
-                        logger.info("Seeded %d person states from HA", count)
+                                self._person_states[eid] = st
+                                person_count += 1
+                            elif st and st not in ("unavailable", "unknown"):
+                                # Seed room signals from active entities
+                                room = await self._resolve_room(eid, attrs)
+                                if room:
+                                    device_class = attrs.get("device_class", "")
+                                    self._handle_room_entity(eid, st, attrs, device_class, room, now)
+                                    room_count += 1
+                        logger.info("Seeded %d person states + %d room signals from HA", person_count, room_count)
                     else:
                         logger.warning("HA REST API returned %d during presence seeding", resp.status)
             finally:
