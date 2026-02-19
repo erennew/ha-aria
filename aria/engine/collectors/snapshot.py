@@ -187,6 +187,12 @@ def build_intraday_snapshot(hour: int | None, date_str: str | None, config: AppC
         # #23: Validate presence data (cold-start detection)
         _validate_presence(snapshot)
 
+        # Data quality flags
+        snapshot["data_quality"] = {
+            "ha_reachable": states is not None and len(states) > 0,
+            "entity_count": len(states) if states else 0,
+        }
+
         # Note: time_features will be added by the features module when it's migrated.
         # For now, snapshot["time_features"] is not set here.
 
@@ -314,6 +320,12 @@ def build_snapshot(date_str: str | None, config: AppConfig, store: DataStore) ->
 
     # #23: Validate presence data (cold-start detection)
     _validate_presence(snapshot)
+
+    # Data quality flags
+    snapshot["data_quality"] = {
+        "ha_reachable": states is not None and len(states) > 0,
+        "entity_count": len(states) if states else 0,
+    }
 
     # Weather
     weather_raw = fetch_weather(config.weather)
