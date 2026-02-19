@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "uplot/dist/uPlot.min.css";
+@import "../node_modules/superhot-ui/css/superhot.css";
 
 /* ── Theme tokens ── */
 :root {
