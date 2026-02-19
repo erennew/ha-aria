@@ -1,0 +1,34 @@
+{
+  "engine": {
+    "snapshots_saved": 126,
+    "baseline_metrics": [
+      "Friday",
+      "Monday",
+      "Saturday",
+      "Sunday",
+      "Thursday",
+      "Tuesday",
+      "Wednesday"
+    ],
+    "trained_metrics": [
+      "devices_home",
+      "lights_on",
+      "power_watts",
+      "unavailable",
+      "useful_events"
+    ],
+    "failed_metrics": [],
+    "score_summary": {}
+  },
+  "hub": {
+    "intelligence_loaded": true,
+    "predictions_present": true,
+    "baselines_present": true
+  },
+  "orchestrator": {
+    "suggestion_count": 1,
+    "pattern_ids": [
+      "golden_morning"
+    ]
+  }
+}
