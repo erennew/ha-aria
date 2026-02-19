@@ -8,7 +8,8 @@ Reference doc for CLAUDE.md.
 **Location:** `aria/dashboard/spa/`
 **Design language:** `docs/design-language.md` — MUST READ before creating or modifying UI components
 **Full component reference:** `docs/dashboard-components.md`
-**Pages (13):** Home, Discovery, Capabilities, Data Curation, Intelligence, Predictions, Patterns, Shadow Mode, ML Engine, Automations, Settings, Guide
+**Pages (5 primary OODA + 6 system):** Home, Observe, Understand, Decide — plus System group: Discovery, Capabilities, ML Engine, Data Curation, Validation, Settings
+**Bundle size:** ~260kb (down from ~299kb pre-Phase 5)
 
 ## Build & CSS
 

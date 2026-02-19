@@ -87,6 +87,34 @@ Each module declares its capabilities via a `CAPABILITIES` class attribute (see 
 | `llm` | `aria/engine/llm/` | Ollama/LLM integration: meta-learning, automation suggestions, reports |
 | `storage` | `aria/engine/storage/` | Data store and model I/O |
 
+## Dashboard SPA (Phase 5 — OODA Structure)
+
+`aria/dashboard/spa/` — Preact 10 + @preact/signals + Tailwind CSS v4 + uPlot, bundled with esbuild (~260kb)
+
+**Navigation structure:**
+
+| Route | Page | OODA role |
+|-------|------|-----------|
+| `#/` | Home | Overview — anomaly/accuracy/recommendation heroes, OODA summary cards, PipelineSankey |
+| `#/observe` | Observe | Live presence, current activity, intraday metrics |
+| `#/understand` | Understand | Anomalies, drift, patterns, baselines, correlations, forecasts |
+| `#/decide` | Decide | Automation recommendations (approve/reject/defer) |
+| `#/discovery` | Discovery | System — entity/device scan results |
+| `#/capabilities` | Capabilities | System — detected capability list |
+| `#/ml-engine` | ML Engine | System — model health, feature selection |
+| `#/data-curation` | Data Curation | System — entity tier management |
+| `#/validation` | Validation | System — on-demand test runner |
+| `#/settings` | Settings | System — global config |
+
+Old routes (`/intelligence`, `/predictions`, `/patterns`, `/shadow`, `/automations`, `/presence`) redirect to their OODA equivalents.
+
+**SUPERHOT effects** (Phase 5 visual layer):
+- `data-sh-freshness` on HeroCard — live/stale state coloring
+- `data-sh-effect="glitch"` on ErrorState and PipelineStatusBar (module failure)
+- `data-sh-mantra="OFFLINE"` on PipelineStatusBar (WS disconnected)
+- `data-sh-effect="threat-pulse"` on critical anomaly items
+- `.page-banner-sh` on PageBanner wrapper — scan-line + glow CSS loop on every page header
+
 ## Cache Categories (8) + Shadow Tables (2)
 
 **Category-based:** `activity_log`, `activity_summary`, `areas`, `capabilities`, `devices`, `discovery_metadata`, `entities`, `intelligence`, `presence`
