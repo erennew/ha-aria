@@ -524,16 +524,6 @@ async def _register_ml_modules(hub, _init, logger):
     except Exception as e:
         logger.warning(f"Pattern recognition module failed (non-fatal): {e}")
 
-    # transfer_engine
-    try:
-        from aria.modules.transfer_engine import TransferEngineModule
-
-        transfer_engine = TransferEngineModule(hub)
-        hub.register_module(transfer_engine)
-        await _init(transfer_engine, "transfer_engine")()
-    except Exception as e:
-        logger.warning(f"Transfer engine module failed (non-fatal): {e}")
-
 
 async def _register_monitor_modules(hub, ha_url, ha_token, _init, logger):
     """Register monitoring modules (activity monitor, labeler, presence)."""
