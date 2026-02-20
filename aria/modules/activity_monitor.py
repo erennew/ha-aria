@@ -459,7 +459,7 @@ class ActivityMonitor(Module):
                 device_info = self.hub.entity_graph.get_device(eid)
                 device_id = device_info.get("device_id") if device_info else None
             loop = asyncio.get_running_loop()
-            loop.create_task(
+            task = loop.create_task(
                 self.hub.event_store.insert_event(
                     timestamp=event["timestamp"],
                     entity_id=eid,
@@ -471,8 +471,13 @@ class ActivityMonitor(Module):
                     attributes_json=json.dumps(attrs) if attrs else None,
                 )
             )
+            task.add_done_callback(
+                lambda t: self.logger.debug("Event store persist task failed: %s", t.exception())
+                if t.exception()
+                else None
+            )
         except Exception as e:
-            self.logger.debug("Event store persist failed: %s", e)
+            self.logger.warning("Event store persist failed: %s", e)
 
     def _update_occupancy(self, entity_id: str, state: str, friendly_name: str):
         """Track occupancy from person/device_tracker entities."""
