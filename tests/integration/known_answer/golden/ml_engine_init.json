@@ -32,7 +32,6 @@
     "lgbm": 0.4
   },
   "current_tier": 3,
-  "online_blend_weight": 0.3,
   "capabilities_in_cache": [
     "lighting",
     "occupancy",

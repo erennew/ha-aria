@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import aiosqlite
@@ -281,7 +281,7 @@ class CacheManager:
         if not self._conn:
             raise RuntimeError("Cache not initialized. Call initialize() first.")
 
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
         data_json = json.dumps(data)
         meta_json = json.dumps(metadata) if metadata else None
 
@@ -362,7 +362,7 @@ class CacheManager:
 
         self._event_buffer.append(
             (
-                datetime.now().isoformat(),
+                datetime.now(tz=UTC).isoformat(),
                 event_type,
                 category,
                 json.dumps(data) if data else None,
@@ -433,7 +433,7 @@ class CacheManager:
         if not self._conn:
             raise RuntimeError("Cache not initialized. Call initialize() first.")
 
-        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
+        cutoff = (datetime.now(tz=UTC) - timedelta(days=retention_days)).isoformat()
         cursor = await self._conn.execute("DELETE FROM events WHERE timestamp < ?", (cutoff,))
         await self._conn.commit()
         return cursor.rowcount
@@ -443,7 +443,7 @@ class CacheManager:
         if not self._conn:
             raise RuntimeError("Cache not initialized. Call initialize() first.")
 
-        cutoff = (datetime.now() - timedelta(days=retention_days)).isoformat()
+        cutoff = (datetime.now(tz=UTC) - timedelta(days=retention_days)).isoformat()
         cursor = await self._conn.execute(
             "DELETE FROM predictions WHERE resolved_at IS NOT NULL AND resolved_at < ?", (cutoff,)
         )
@@ -524,7 +524,7 @@ class CacheManager:
                 outcome,
                 json.dumps(actual) if actual else None,
                 propagated_count,
-                datetime.now().isoformat(),
+                datetime.now(tz=UTC).isoformat(),
                 prediction_id,
             ),
         )
@@ -584,7 +584,7 @@ class CacheManager:
             raise RuntimeError("Cache not initialized. Call initialize() first.")
 
         if before_timestamp is None:
-            before_timestamp = datetime.now().isoformat()
+            before_timestamp = datetime.now(tz=UTC).isoformat()
 
         query = """
             SELECT * FROM predictions
@@ -613,7 +613,7 @@ class CacheManager:
         if not self._conn:
             raise RuntimeError("Cache not initialized. Call initialize() first.")
 
-        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(tz=UTC) - timedelta(days=days)).isoformat()
 
         # Overall counts by outcome
         cursor = await self._conn.execute(
@@ -687,7 +687,7 @@ class CacheManager:
         row = await cursor.fetchone()
 
         if not row:
-            now = datetime.now().isoformat()
+            now = datetime.now(tz=UTC).isoformat()
             await self._conn.execute(
                 """
                 INSERT INTO pipeline_state
@@ -748,7 +748,7 @@ class CacheManager:
         if not updates:
             return
 
-        updates["updated_at"] = datetime.now().isoformat()
+        updates["updated_at"] = datetime.now(tz=UTC).isoformat()
 
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         values = list(updates.values())
@@ -820,7 +820,7 @@ class CacheManager:
         self._validate_config_value(value, current)
 
         old_value = current["value"]
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
 
         # Update config
         await self._conn.execute(
@@ -873,7 +873,7 @@ class CacheManager:
         if not self._conn:
             raise RuntimeError("Cache not initialized. Call initialize() first.")
 
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
         cursor = await self._conn.execute(
             """INSERT OR IGNORE INTO config
                (key, value, default_value, value_type, label, description,
@@ -1014,7 +1014,7 @@ class CacheManager:
         if not records:
             return 0
 
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
         rows = []
         for r in records:
             rows.append(
@@ -1112,7 +1112,7 @@ class CacheManager:
         if not self._conn:
             raise RuntimeError("Cache not initialized. Call initialize() first.")
 
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
         await self._conn.execute(
             """INSERT INTO entity_curation
                (entity_id, status, tier, reason, auto_classification,
@@ -1166,7 +1166,7 @@ class CacheManager:
         if not entity_ids:
             return 0
 
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
         placeholders = ",".join("?" for _ in entity_ids)
         cursor = await self._conn.execute(
             f"""UPDATE entity_curation
@@ -1248,7 +1248,7 @@ class CacheManager:
         if not self._conn:
             raise RuntimeError("Cache not initialized. Call initialize() first.")
 
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
         await self._conn.execute(
             """INSERT INTO thompson_state (id, state, updated_at)
                VALUES (1, ?, ?)

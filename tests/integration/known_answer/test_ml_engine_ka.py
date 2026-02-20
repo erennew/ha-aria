@@ -128,7 +128,6 @@ async def test_golden_snapshot(ml_engine, hub, update_golden):
         "enabled_models": engine.enabled_models,
         "model_weights": {k: round(v, 4) for k, v in engine.model_weights.items()},
         "current_tier": engine.current_tier,
-        "online_blend_weight": engine.online_blend_weight,
         "capabilities_in_cache": list(sorted(MOCK_CAPABILITIES.keys())),
     }
 

@@ -130,8 +130,10 @@ async def test_cache_has_expected_keys(intelligence_module, hub):
 
     data = entry["data"]
 
-    # Keys assembled by IntelligenceModule._read_intelligence_data() in
-    # aria/modules/intelligence.py, plus "activity" added by initialize().
+    # Canonical schema: IntelligenceModule._read_intelligence_data() in
+    # aria/modules/intelligence.py assembles these keys from engine JSON files.
+    # "activity" is added by initialize() after _read_intelligence_data.
+    # Update here AND in the module when changing the schema.
     expected_keys = {
         "data_maturity",
         "predictions",
