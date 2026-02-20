@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from aria.hub.cache import CacheManager
+from aria.shared.entity_graph import EntityGraph
+from aria.shared.event_store import EventStore
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +94,16 @@ class IntelligenceHub:
         self._audit_logger = None
         self._capability_registry = None  # Cached capability registry (created on first access)
         self.logger = logging.getLogger("hub")
+        self.entity_graph = EntityGraph()
+        # EventStore lives alongside hub.db (same directory)
+        events_db_path = str(Path(cache_path).parent / "events.db")
+        self.event_store = EventStore(events_db_path)
 
     async def initialize(self):
         """Initialize hub and cache."""
         self.logger.info("Initializing ARIA Hub...")
         await self.cache.initialize()
+        await self.event_store.initialize()
         self._running = True
 
         # Compute hardware profile once at startup — modules read from hub.hardware_profile
@@ -126,6 +133,14 @@ class IntelligenceHub:
             await self.on_config_updated(data)
 
         self.subscribe("config_updated", _dispatch_config_updated)
+
+        # Refresh entity graph when entities/devices/areas cache is updated
+        async def _on_cache_updated_entity_graph(data: dict):
+            category = data.get("category", "")
+            if category in ("entities", "devices", "areas"):
+                await self._refresh_entity_graph()
+
+        self.subscribe("cache_updated", _on_cache_updated_entity_graph)
 
         self._start_time = datetime.now(tz=UTC)
         self.logger.info("Hub initialized successfully")
@@ -177,6 +192,12 @@ class IntelligenceHub:
         # Wait for tasks to complete
         if self.tasks:
             await asyncio.gather(*self.tasks, return_exceptions=True)
+
+        # Close event store
+        try:
+            await self.event_store.close()
+        except Exception as e:
+            self.logger.error(f"Error closing event store: {e}")
 
         # Close cache
         await self.cache.close()
@@ -459,6 +480,22 @@ class IntelligenceHub:
             return pruned_count
 
         return await asyncio.to_thread(_prune_file)
+
+    async def _refresh_entity_graph(self):
+        """Rebuild entity graph from current cache data."""
+        try:
+            entities_entry = await self.cache.get("entities")
+            devices_entry = await self.cache.get("devices")
+            areas_entry = await self.cache.get("areas")
+
+            entities_data = entities_entry.get("data", {}) if entities_entry else {}
+            devices_data = devices_entry.get("data", {}) if devices_entry else {}
+            areas_data = areas_entry.get("data", []) if areas_entry else []
+
+            self.entity_graph.update(entities_data, devices_data, areas_data)
+            self.logger.debug("Entity graph refreshed: %d entities", self.entity_graph.entity_count)
+        except Exception as e:
+            self.logger.warning("Failed to refresh entity graph: %s", e)
 
     async def get_cache(self, category: str) -> dict[str, Any] | None:
         """Get data from cache.
