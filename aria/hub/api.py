@@ -1573,6 +1573,9 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
     _register_feedback_routes(router, hub)
     _register_shadow_routes(router, hub)
     _register_pipeline_routes(router, hub)
+    from aria.hub.routes_module_config import _register_module_config_routes
+
+    _register_module_config_routes(router, hub)
     _register_config_routes(router, hub, ws_manager)
     _register_curation_routes(router, hub)
     _register_validation_routes(router)

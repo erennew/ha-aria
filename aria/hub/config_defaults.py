@@ -915,6 +915,51 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
         "description": "Export events to JSONL archive before deleting them during pruning.",
         "category": "Audit",
     },
+    # ── Module Data Sources ────────────────────────────────────────────
+    {
+        "key": "presence.enabled_signals",
+        "default_value": (
+            "camera_person,camera_face,motion,light_interaction,dimmer_press,door,media_active,device_tracker"
+        ),
+        "value_type": "string",
+        "label": "Enabled Signals",
+        "description": "Comma-separated list of signal types that feed presence detection.",
+        "category": "Presence",
+    },
+    {
+        "key": "activity.enabled_domains",
+        "default_value": "light,switch,binary_sensor,media_player,climate,cover",
+        "value_type": "string",
+        "label": "Enabled Domains",
+        "description": "Comma-separated list of entity domains tracked for activity monitoring.",
+        "category": "Activity Monitor",
+    },
+    {
+        "key": "anomaly.enabled_entities",
+        "default_value": "all",
+        "value_type": "string",
+        "label": "Enabled Entities",
+        "description": "Comma-separated entity IDs for anomaly detection, or 'all' for all discovered entities.",
+        "category": "ML Pipeline",
+    },
+    {
+        "key": "shadow.enabled_capabilities",
+        "default_value": "all",
+        "value_type": "string",
+        "label": "Enabled Capabilities",
+        "description": (
+            "Comma-separated capability names for shadow prediction, or 'all' for all with can_predict=true."
+        ),
+        "category": "Shadow Mode",
+    },
+    {
+        "key": "discovery.domain_filter",
+        "default_value": "light,switch,binary_sensor,sensor,climate,cover,media_player,fan,lock",
+        "value_type": "string",
+        "label": "Domain Filter",
+        "description": "Comma-separated entity domains to include in capability discovery.",
+        "category": "Discovery",
+    },
 ]
 
 
