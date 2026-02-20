@@ -24,11 +24,17 @@ const MODULE_SOURCES = {
     { key: 'cover', label: 'Covers', description: 'Window blinds and garage doors' },
   ],
   anomaly: [
-    { key: 'autoencoder', label: 'Autoencoder', description: 'Neural network reconstruction error detection' },
-    { key: 'isolation_forest', label: 'Isolation Forest', description: 'Tree-based outlier detection' },
+    { key: 'light', label: 'Lights', description: 'Light entity anomaly detection' },
+    { key: 'binary_sensor', label: 'Binary Sensors', description: 'Binary sensor anomaly detection' },
+    { key: 'climate', label: 'Climate', description: 'Climate entity anomaly detection' },
+    { key: 'media_player', label: 'Media Players', description: 'Media player anomaly detection' },
+    { key: 'switch', label: 'Switches', description: 'Switch entity anomaly detection' },
   ],
   shadow: [
-    { key: 'can_predict', label: 'Predictable Capabilities', description: 'Capabilities with can_predict=true' },
+    { key: 'light', label: 'Lights', description: 'Shadow-predict light capabilities' },
+    { key: 'binary_sensor', label: 'Binary Sensors', description: 'Shadow-predict binary sensor capabilities' },
+    { key: 'climate', label: 'Climate', description: 'Shadow-predict climate capabilities' },
+    { key: 'media_player', label: 'Media Players', description: 'Shadow-predict media player capabilities' },
   ],
   discovery: [
     { key: 'light', label: 'Lights', description: 'Discover light entities' },

@@ -19,6 +19,7 @@ export default function ModuleDetail({ id, type }) {
   const [moduleData, setModuleData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -31,10 +32,10 @@ export default function ModuleDetail({ id, type }) {
       })
       .catch((err) => setError(err))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, retryCount]);
 
   if (loading) return <LoadingState type="cards" />;
-  if (error) return <ErrorState error={error} onRetry={() => location.reload()} />;
+  if (error) return <ErrorState error={error} onRetry={() => setRetryCount((prev) => prev + 1)} />;
   if (!moduleData) {
     return (
       <div class="t-frame" data-label="not found">

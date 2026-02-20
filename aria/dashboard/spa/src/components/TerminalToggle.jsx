@@ -29,6 +29,7 @@ export default function TerminalToggle({ enabled, onChange, label }) {
       }}
       role="switch"
       aria-checked={enabled}
+      aria-label={label || (enabled ? 'Enabled' : 'Disabled')}
       tabIndex={0}
       onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleClick(); } }}
     >

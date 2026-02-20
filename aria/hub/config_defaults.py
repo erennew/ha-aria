@@ -936,17 +936,17 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
     },
     {
         "key": "anomaly.enabled_entities",
-        "default_value": "all",
+        "default_value": "light,binary_sensor,climate,media_player,switch",
         "value_type": "string",
-        "label": "Enabled Entities",
+        "label": "Enabled Entity Domains",
         "description": "Comma-separated entity IDs for anomaly detection, or 'all' for all discovered entities.",
         "category": "ML Pipeline",
     },
     {
         "key": "shadow.enabled_capabilities",
-        "default_value": "all",
+        "default_value": "light,binary_sensor,climate,media_player",
         "value_type": "string",
-        "label": "Enabled Capabilities",
+        "label": "Enabled Capability Domains",
         "description": (
             "Comma-separated capability names for shadow prediction, or 'all' for all with can_predict=true."
         ),

@@ -23,6 +23,24 @@ MODULE_SOURCE_KEYS = {
     "discovery": "discovery.domain_filter",
 }
 
+MODULE_VALID_SOURCES = {
+    "presence": {
+        "camera_person",
+        "camera_face",
+        "motion",
+        "light_interaction",
+        "dimmer_press",
+        "door",
+        "media_active",
+        "media_inactive",
+        "device_tracker",
+    },
+    "activity": {"light", "switch", "binary_sensor", "media_player", "climate", "cover"},
+    "anomaly": {"light", "binary_sensor", "climate", "media_player", "switch"},
+    "shadow": {"light", "binary_sensor", "climate", "media_player"},
+    "discovery": {"light", "switch", "binary_sensor", "media_player", "climate", "cover"},
+}
+
 
 class SourceUpdate(BaseModel):
     sources: list[str]
@@ -50,6 +68,10 @@ def _register_module_config_routes(router: APIRouter, hub: IntelligenceHub) -> N
             raise HTTPException(404, f"Unknown module: {module}")
         if not body.sources:
             raise HTTPException(400, "At least one source must remain enabled")
+        valid = MODULE_VALID_SOURCES.get(module, set())
+        invalid = [s for s in body.sources if s not in valid]
+        if invalid:
+            raise HTTPException(400, f"Invalid sources: {invalid}")
         config_key = MODULE_SOURCE_KEYS[module]
         value = ",".join(body.sources)
         await hub.cache.set_config(config_key, value, changed_by="user")

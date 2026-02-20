@@ -26,6 +26,7 @@ export default function CorrelationDetail({ id, type }) {
   const [correlation, setCorrelation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Split id on double-dash to get entity pair
   const parts = id.split('--');
@@ -59,10 +60,10 @@ export default function CorrelationDetail({ id, type }) {
       })
       .catch((err) => setError(err))
       .finally(() => setLoading(false));
-  }, [id, entity1, entity2]);
+  }, [id, entity1, entity2, retryCount]);
 
   if (loading) return <LoadingState type="cards" />;
-  if (error) return <ErrorState error={error} onRetry={() => location.reload()} />;
+  if (error) return <ErrorState error={error} onRetry={() => setRetryCount((prev) => prev + 1)} />;
   if (!correlation) {
     return (
       <div class="t-frame" data-label="not found">

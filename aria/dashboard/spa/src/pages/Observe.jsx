@@ -65,7 +65,7 @@ export default function Observe() {
       {/* Live metrics strip */}
       <div class="t-frame" data-label="live metrics">
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          <a href="#/detail/entity/occupancy" class="clickable-data flex items-center gap-1.5" style="text-decoration: none; color: inherit;">
+          <a href="#/detail/module/presence" class="clickable-data flex items-center gap-1.5" style="text-decoration: none; color: inherit;">
             <span style="color: var(--text-tertiary)">Occupancy</span>
             <span class="font-medium" style="color: var(--text-primary)">{occ && occ.anyone_home ? 'Home' : occ ? 'Away' : '\u2014'}</span>
           </a>
@@ -73,11 +73,11 @@ export default function Observe() {
             <span style="color: var(--text-tertiary)">Events</span>
             <span class="data-mono font-medium" style="color: var(--text-primary)">{evRate != null ? `${evRate}/min` : '\u2014'}</span>
           </a>
-          <a href="#/detail/entity/lights" class="clickable-data flex items-center gap-1.5" style="text-decoration: none; color: inherit;">
+          <a href="#/detail/module/intelligence" class="clickable-data flex items-center gap-1.5" style="text-decoration: none; color: inherit;">
             <span style="color: var(--text-tertiary)">Lights</span>
             <span class="data-mono font-medium" style="color: var(--text-primary)">{lightsOn != null ? `${lightsOn} on` : '\u2014'}</span>
           </a>
-          <a href="#/detail/entity/power" class="clickable-data flex items-center gap-1.5" style="text-decoration: none; color: inherit;">
+          <a href="#/detail/module/intelligence" class="clickable-data flex items-center gap-1.5" style="text-decoration: none; color: inherit;">
             <span style="color: var(--text-tertiary)">Power</span>
             <span class="data-mono font-medium" style="color: var(--text-primary)">{powerW != null ? `${Math.round(powerW)} W` : '\u2014'}</span>
           </a>

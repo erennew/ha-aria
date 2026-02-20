@@ -131,38 +131,38 @@ export default function Understand() {
     <div class="space-y-8 animate-page-enter">
       <PageBanner page="UNDERSTAND" subtitle="Anomalies ARIA has found, patterns it's learned, and how accurate its predictions are — with the reasoning behind each." />
 
-      <div class="clickable-data" onClick={() => { window.location.hash = '#/detail/anomaly/all'; }} style="cursor: pointer;">
+      <a href="#/detail/anomaly/all" class="clickable-data" style="text-decoration: none; color: inherit; display: block;">
         <AnomalyAlerts anomalies={anomalies} />
-      </div>
+      </a>
       <PatternsList patterns={patterns} />
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {intel && (
-          <div class="clickable-data" onClick={() => { window.location.hash = '#/detail/prediction/all'; }} style="cursor: pointer;">
+          <a href="#/detail/prediction/all" class="clickable-data" style="text-decoration: none; color: inherit; display: block;">
             <PredictionsVsActuals predictions={intel.predictions} intradayTrend={intel.intraday_trend} />
-          </div>
+          </a>
         )}
-        <div class="clickable-data" onClick={() => { window.location.hash = '#/detail/drift/all'; }} style="cursor: pointer;">
+        <a href="#/detail/drift/all" class="clickable-data" style="text-decoration: none; color: inherit; display: block;">
           <DriftStatus drift={drift} />
-        </div>
+        </a>
       </div>
 
-      <div class="clickable-data" onClick={() => { window.location.hash = '#/detail/anomaly/shap'; }} style="cursor: pointer;">
+      <a href="#/detail/anomaly/shap" class="clickable-data" style="text-decoration: none; color: inherit; display: block;">
         <ShapAttributions shap={shap} />
-      </div>
+      </a>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {intel && (
-          <div class="clickable-data" onClick={() => { window.location.hash = '#/detail/baseline/all'; }} style="cursor: pointer;">
+          <a href="#/detail/baseline/all" class="clickable-data" style="text-decoration: none; color: inherit; display: block;">
             <Baselines baselines={intel.baselines} />
-          </div>
+          </a>
         )}
         {intel && <TrendsOverTime trendData={intel.trend_data} intradayTrend={intel.intraday_trend} />}
       </div>
       {intel && (
-        <div class="clickable-data" onClick={() => { window.location.hash = '#/detail/correlation/all'; }} style="cursor: pointer;">
+        <a href="#/detail/correlation/all" class="clickable-data" style="text-decoration: none; color: inherit; display: block;">
           <Correlations correlations={intel.entity_correlations?.top_co_occurrences} />
-        </div>
+        </a>
       )}
 
       <ShadowBrief accuracy={shadowAccuracy} />
