@@ -18,7 +18,7 @@ class EventStore:
 
     async def initialize(self) -> None:
         """Create database, enable WAL mode, and ensure schema exists."""
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        os.makedirs(os.path.dirname(self.db_path) or ".", exist_ok=True)
 
         self._conn = await aiosqlite.connect(self.db_path)
         self._conn.row_factory = aiosqlite.Row
@@ -62,13 +62,15 @@ class EventStore:
         timestamp: str,
         entity_id: str,
         domain: str,
-        old_state: str | None,
-        new_state: str | None,
-        device_id: str | None,
-        area_id: str | None,
-        attributes_json: str | None,
+        old_state: str | None = None,
+        new_state: str | None = None,
+        device_id: str | None = None,
+        area_id: str | None = None,
+        attributes_json: str | None = None,
     ) -> None:
         """Insert a single state_changed event."""
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         await self._conn.execute(
             """INSERT INTO state_change_events
                (timestamp, entity_id, domain, old_state, new_state,
@@ -83,6 +85,8 @@ class EventStore:
         (timestamp, entity_id, domain, old_state, new_state,
          device_id, area_id, attributes_json).
         """
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         if not events:
             return
         await self._conn.executemany(
@@ -98,6 +102,8 @@ class EventStore:
 
     async def query_events(self, start: str, end: str, limit: int = 10000) -> list[dict]:
         """Query events within a time window [start, end)."""
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         cursor = await self._conn.execute(
             """SELECT * FROM state_change_events
                WHERE timestamp >= ? AND timestamp < ?
@@ -109,6 +115,8 @@ class EventStore:
 
     async def query_by_entity(self, entity_id: str, start: str, end: str, limit: int = 10000) -> list[dict]:
         """Query events for a specific entity within a time window."""
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         cursor = await self._conn.execute(
             """SELECT * FROM state_change_events
                WHERE entity_id = ? AND timestamp >= ? AND timestamp < ?
@@ -120,6 +128,8 @@ class EventStore:
 
     async def query_by_area(self, area_id: str, start: str, end: str, limit: int = 10000) -> list[dict]:
         """Query events for a specific area within a time window."""
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         cursor = await self._conn.execute(
             """SELECT * FROM state_change_events
                WHERE area_id = ? AND timestamp >= ? AND timestamp < ?
@@ -131,6 +141,8 @@ class EventStore:
 
     async def query_by_domain(self, domain: str, start: str, end: str, limit: int = 10000) -> list[dict]:
         """Query events for a specific domain within a time window."""
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         cursor = await self._conn.execute(
             """SELECT * FROM state_change_events
                WHERE domain = ? AND timestamp >= ? AND timestamp < ?
@@ -142,6 +154,8 @@ class EventStore:
 
     async def count_events(self, start: str, end: str) -> int:
         """Count events within a time window [start, end)."""
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         cursor = await self._conn.execute(
             """SELECT COUNT(*) FROM state_change_events
                WHERE timestamp >= ? AND timestamp < ?""",
@@ -154,6 +168,8 @@ class EventStore:
 
     async def prune_before(self, cutoff: str) -> int:
         """Delete events with timestamp strictly before cutoff. Returns count deleted."""
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         cursor = await self._conn.execute(
             "DELETE FROM state_change_events WHERE timestamp < ?",
             (cutoff,),
@@ -163,6 +179,8 @@ class EventStore:
 
     async def total_count(self) -> int:
         """Total number of events in the store."""
+        if not self._conn:
+            raise RuntimeError("EventStore not initialized")
         cursor = await self._conn.execute("SELECT COUNT(*) FROM state_change_events")
         row = await cursor.fetchone()
         return row[0]
