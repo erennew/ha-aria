@@ -2,34 +2,31 @@
  * Clickable summary card for each OODA destination on the Home page.
  * Shatters into fragments on click (SUPERHOT style), then navigates.
  */
-import { useRef, useCallback } from 'preact/hooks';
-import { shatterElement } from 'superhot-ui';
+import { useRef, useCallback, useState } from 'preact/hooks';
 
 export default function OodaSummaryCard({ title, subtitle, metric, metricLabel, href, accentColor }) {
   const color = accentColor || 'var(--accent)';
   const cardRef = useRef(null);
-  const shattering = useRef(false);
+  const [shattered, setShattered] = useState(false);
 
   const handleClick = useCallback((ev) => {
     ev.preventDefault();
-    if (shattering.current || !cardRef.current) return;
-    shattering.current = true;
+    if (shattered) return;
+    setShattered(true);
 
-    shatterElement(cardRef.current, {
-      fragments: 8,
-      onComplete: () => {
-        window.location.hash = href.startsWith('#') ? href.slice(1) : href;
-      },
-    });
-  }, [href]);
+    // Navigate after shatter animation completes
+    setTimeout(() => {
+      window.location.hash = href.startsWith('#') ? href.slice(1) : href;
+    }, 500);
+  }, [href, shattered]);
 
   return (
     <a
       ref={cardRef}
       href={href}
       onClick={handleClick}
-      class="t-frame t-card-hover block"
-      style="text-decoration: none; padding: 16px 20px; cursor: pointer;"
+      class={`t-frame t-card-hover block${shattered ? ' sh-card-shatter' : ''}`}
+      style="text-decoration: none; padding: 16px 20px; cursor: pointer; position: relative;"
     >
       <div class="flex items-center justify-between mb-2">
         <span

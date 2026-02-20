@@ -554,6 +554,21 @@ body {
   .crt-overlay { display: none; }
 }
 
+/* ── SUPERHOT card shatter (pure CSS, works everywhere) ── */
+@keyframes sh-card-crack {
+  0%   { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); }
+  20%  { opacity: 1; transform: scale(1.02); filter: brightness(1.5); }
+  40%  { opacity: 0.8; transform: scale(0.98) rotate(0.5deg); filter: brightness(2) saturate(0); }
+  100% { opacity: 0; transform: scale(0.85) rotate(2deg); filter: brightness(3) saturate(0); }
+}
+
+.sh-card-shatter {
+  animation: sh-card-crack 500ms ease-out forwards !important;
+  pointer-events: none !important;
+  border-color: var(--sh-threat, #DC2626) !important;
+  box-shadow: 0 0 20px var(--sh-threat-glow, rgba(220,38,38,0.3)) !important;
+}
+
 /* ── Force ALL superhot-ui effects on mobile ── */
 /* superhot-ui disables shatter/mantra/glitch on small screens by default.
    ARIA wants full effects everywhere — override the package's mobile rules. */
