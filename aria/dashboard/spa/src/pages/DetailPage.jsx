@@ -47,7 +47,7 @@ export default function DetailPage({ type, id, rest }) {
 
     // Dynamic import for code splitting — each renderer only loads when navigated to
     const filename = type.charAt(0).toUpperCase() + type.slice(1) + 'Detail';
-    import(`../components/${filename}.jsx`)
+    import(`./details/${filename}.jsx`)
       .then((mod) => {
         setRenderer(() => mod.default);
       })
