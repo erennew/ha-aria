@@ -1339,9 +1339,15 @@ def _register_event_store_routes(router: APIRouter, hub: IntelligenceHub) -> Non
         entity_id: str | None = None,
         area_id: str | None = None,
         domain: str | None = None,
-        limit: int = Query(default=1000, le=10000),
+        limit: int = Query(default=1000, ge=1, le=10000),
     ):
         """Query state_changed events from the event store."""
+        try:
+            datetime.fromisoformat(start)
+            datetime.fromisoformat(end)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="start/end must be ISO 8601 timestamps") from None
+
         if not hasattr(hub, "event_store") or not hub.event_store:
             return JSONResponse({"error": "Event store not available"}, status_code=503)
 
