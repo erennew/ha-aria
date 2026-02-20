@@ -724,6 +724,10 @@ class MLEngine(Module):
         # controls the column order used when assembling the numpy feature matrix.
         self._collect_dict_feature_names(config.get("presence_features", {}), names)
 
+        # Event-derived features (Phase 2 — from SegmentBuilder)
+        # Must appear here (after presence, before rolling windows) to match engine ordering.
+        self._collect_dict_feature_names(config.get("event_features", {}), names)
+
         # Rolling window features (hub-only: live activity log stats not available to engine)
         for hours in ROLLING_WINDOWS_HOURS:
             names.extend(
@@ -738,9 +742,6 @@ class MLEngine(Module):
         # Pattern features (Phase 3)
         if config.get("pattern_features", {}).get("trajectory_class", False):
             names.append("trajectory_class")
-
-        # Event-derived features (Phase 2 — from SegmentBuilder)
-        self._collect_dict_feature_names(config.get("event_features", {}), names)
 
         return names
 

@@ -229,6 +229,8 @@ def _hub_base_feature_names_from_default() -> list[str]:
     MLEngine._collect_dict_feature_names(config.get("lag_features", {}), names)
     MLEngine._collect_dict_feature_names(config.get("interaction_features", {}), names)
     MLEngine._collect_dict_feature_names(config.get("presence_features", {}), names)
+    # Event-derived features (Phase 2 — shared between engine and hub)
+    MLEngine._collect_dict_feature_names(config.get("event_features", {}), names)
     # Exclude hub-only rolling window and pattern features — engine has no live activity log
     return names
 
@@ -295,6 +297,7 @@ def test_hub_rolling_window_features_extend_engine_base():
     MLEngine._collect_dict_feature_names(config.get("lag_features", {}), hub_names)
     MLEngine._collect_dict_feature_names(config.get("interaction_features", {}), hub_names)
     MLEngine._collect_dict_feature_names(config.get("presence_features", {}), hub_names)
+    MLEngine._collect_dict_feature_names(config.get("event_features", {}), hub_names)
     for hours in ROLLING_WINDOWS_HOURS:
         hub_names.extend(
             [
