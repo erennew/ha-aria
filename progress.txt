@@ -1,31 +1,8 @@
-# Interactive Dashboard — Progress Log
+# Pipeline Sankey Accuracy Overhaul — Progress Log
 # Append-only during execution
 
-## 2026-02-19 — Session Start
-- Design approved: docs/plans/2026-02-19-interactive-dashboard-design.md
-- PRD: tasks/prd.json (15 acceptance criteria tasks)
-- Plan: docs/plans/2026-02-19-interactive-dashboard-plan.md (11 implementation tasks)
-- Branch: feature/interactive-dashboard
-- Execution: Subagent-driven development
-
-## Batch 1: Phase 1 — Screenshot Audit (T1-T4)
-- T1: Puppeteer scaffold + screenshot-audit.js ✅
-- T2: API comparison + screenshot capture (11 pages, 31 endpoints, 0 mismatches) ✅
-- T3-T4: Merged into T2 (no mismatches found)
-
-## Batch 2: Phase 2 — Detail Infrastructure (T5-T7)
-- T5 (plan T3): Breadcrumb, DetailPage, .clickable-data CSS ✅
-- T6 (plan T4-T5): 13 detail renderers with SUPERHOT treatments ✅
-- T7 (plan T6): Click handlers on all 12 pages + shared components ✅
-- Build verified: 325.5kb bundle, clean
-
-## Batch 3: Phase 3 — Configurable Data Sources (T8-T10)
-- T8 (plan T8): Backend routes_module_config.py + config_defaults + 6 tests ✅
-- T9 (plan T9): Presence module reads enabled_signals with 60s cache + 6 tests ✅
-- T10 (plan T10): TerminalToggle + DataSourceConfig components, integrated into Observe + Understand ✅
-
-## Batch 4: Final Verification (T11)
-- SPA build: 325.5kb bundle ✅
-- Full test suite: 1510 passed, 15 skipped, 0 failures ✅
-- Pre-existing failure: test_ml_training.py::test_load_training_data (on main, not regression)
-- Config defaults test count updated 87→92 ✅
+## 2026-02-20 — Session Start
+- Design approved: docs/plans/2026-02-20-pipeline-sankey-accuracy-design.md
+- PRD: tasks/prd.json (8 tasks)
+- Plan: docs/plans/2026-02-20-pipeline-sankey-accuracy-plan.md
+- Branch: feature/interactive-dashboard (continuing)
