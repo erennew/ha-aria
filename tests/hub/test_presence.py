@@ -31,12 +31,16 @@ class MockCacheManager:
 
     def __init__(self):
         self._cache: dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
 
     def get_cache(self, category: str):
         return self._cache.get(category)
 
     async def set_cache(self, category: str, data: Any, metadata: dict | None = None):
         self._cache[category] = data
+
+    async def get_config_value(self, key: str, fallback: Any = None) -> Any:
+        return self._config.get(key, fallback)
 
 
 class MockHub:
@@ -919,3 +923,113 @@ class TestSeedPresenceFromHA:
 
         assert module._person_states == {}
         assert any("HA_URL" in record.message or "HA_TOKEN" in record.message for record in caplog.records)
+
+
+# ============================================================================
+# Enabled Signal Filtering
+# ============================================================================
+
+
+class TestEnabledSignalFiltering:
+    """Test enabled_signals config filtering of signal types."""
+
+    async def test_presence_skips_disabled_signal(self, module):
+        """Signal types not in enabled_signals config are skipped."""
+        # Configure only motion and door as enabled (camera_person NOT listed)
+        module.hub.cache._config["presence.enabled_signals"] = "motion,door"
+        # Force cache refresh
+        module._enabled_signals_ts = 0
+
+        event = {
+            "after": {
+                "camera": "driveway",
+                "label": "person",
+                "score": 0.87,
+            }
+        }
+        await module._handle_frigate_event(event)
+        signals = module._room_signals.get("driveway", [])
+        # camera_person is not in enabled list, should be skipped
+        assert len(signals) == 0
+
+    async def test_presence_processes_enabled_signal(self, module):
+        """Signal types listed in enabled_signals config are processed."""
+        module.hub.cache._config["presence.enabled_signals"] = "motion,camera_person"
+        module._enabled_signals_ts = 0
+
+        event = {
+            "after": {
+                "camera": "driveway",
+                "label": "person",
+                "score": 0.87,
+            }
+        }
+        await module._handle_frigate_event(event)
+        signals = module._room_signals.get("driveway", [])
+        assert len(signals) == 1
+        assert signals[0][0] == "camera_person"
+
+    async def test_presence_allows_all_when_config_empty(self, module):
+        """All signal types are processed when enabled_signals config is empty/None."""
+        # No config set — default is None (all enabled)
+        module._enabled_signals_ts = 0
+
+        event = {
+            "after": {
+                "camera": "driveway",
+                "label": "person",
+                "score": 0.87,
+            }
+        }
+        await module._handle_frigate_event(event)
+        signals = module._room_signals.get("driveway", [])
+        assert len(signals) == 1
+        assert signals[0][0] == "camera_person"
+
+    async def test_enabled_signals_cached_for_60_seconds(self, module):
+        """Enabled signals are cached and not re-read within 60 seconds."""
+        module.hub.cache._config["presence.enabled_signals"] = "motion"
+        module._enabled_signals_ts = 0
+
+        # First call refreshes the cache
+        await module._refresh_enabled_signals()
+        assert module._enabled_signals == ["motion"]
+
+        # Change config — should NOT be picked up due to caching
+        module.hub.cache._config["presence.enabled_signals"] = "motion,camera_person"
+        await module._refresh_enabled_signals()
+        assert module._enabled_signals == ["motion"]  # Still old value
+
+    async def test_enabled_signals_refreshes_after_expiry(self, module):
+        """Enabled signals cache expires after 60 seconds."""
+        import time
+
+        module.hub.cache._config["presence.enabled_signals"] = "motion"
+        module._enabled_signals_ts = 0
+
+        await module._refresh_enabled_signals()
+        assert module._enabled_signals == ["motion"]
+
+        # Simulate cache expiry
+        module._enabled_signals_ts = time.time() - 61
+        module.hub.cache._config["presence.enabled_signals"] = "motion,camera_person"
+        await module._refresh_enabled_signals()
+        assert module._enabled_signals == ["motion", "camera_person"]
+
+    async def test_ha_state_change_respects_enabled_signals(self, module):
+        """HA state changes skip disabled signal types."""
+        module.hub.cache._config["presence.enabled_signals"] = "door"
+        module._enabled_signals_ts = 0
+        module._resolve_room = AsyncMock(return_value="living_room")
+
+        # motion is NOT in enabled list
+        data = {
+            "new_state": {
+                "entity_id": "binary_sensor.living_room_motion",
+                "state": "on",
+                "attributes": {"device_class": "motion"},
+            }
+        }
+        await module._handle_ha_state_change(data)
+        signals = module._room_signals.get("living_room", [])
+        assert len(signals) == 0

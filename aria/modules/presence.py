@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import random
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any
@@ -119,6 +120,10 @@ class PresenceModule(Module):
         # Local entity→room cache (built from discovery cache, refreshed periodically)
         self._entity_room_cache: dict[str, str] = {}
         self._entity_room_cache_built = False
+
+        # Enabled signal types cache (from config, refreshed every 60s)
+        self._enabled_signals: list[str] | None = None
+        self._enabled_signals_ts: float = 0
 
     async def _discover_camera_rooms(self) -> dict[str, str]:
         """Build camera->room mapping from HA entity/device registry cache.
@@ -472,6 +477,7 @@ class PresenceModule(Module):
 
     async def _handle_frigate_event(self, event: dict):
         """Handle a Frigate event (person detected, face recognized)."""
+        await self._refresh_enabled_signals()
         after = event.get("after", {})
         if not after:
             return
@@ -531,6 +537,7 @@ class PresenceModule(Module):
 
     async def _handle_person_count(self, camera: str, count):
         """Handle person count update for a camera."""
+        await self._refresh_enabled_signals()
         room = self.camera_rooms.get(camera, camera)
         now = datetime.now()
         try:
@@ -656,6 +663,7 @@ class PresenceModule(Module):
 
     async def _handle_ha_state_change(self, data: dict):
         """Process a state_changed event for presence-relevant entities."""
+        await self._refresh_enabled_signals()
         new_state = data.get("new_state")
         if not new_state:
             return
@@ -760,6 +768,27 @@ class PresenceModule(Module):
     # Signal management + state flush
     # ------------------------------------------------------------------
 
+    async def _refresh_enabled_signals(self):
+        """Refresh the enabled signal types from config, cached for 60 seconds."""
+        now = time.time()
+        if self._enabled_signals is not None and now - self._enabled_signals_ts <= 60:
+            return
+        try:
+            value = await self.hub.cache.get_config_value("presence.enabled_signals")
+            if value:
+                self._enabled_signals = [s.strip() for s in str(value).split(",")]
+            else:
+                self._enabled_signals = None  # None means all enabled
+        except Exception:
+            self._enabled_signals = None  # On error, allow all
+        self._enabled_signals_ts = now
+
+    def _is_signal_enabled(self, signal_type: str) -> bool:
+        """Check if a signal type is enabled (uses cached value)."""
+        if self._enabled_signals is None:
+            return True  # None means all enabled
+        return signal_type in self._enabled_signals
+
     def _add_signal(
         self,
         room: str,
@@ -768,7 +797,9 @@ class PresenceModule(Module):
         detail: str,
         timestamp: datetime,
     ):
-        """Add a presence signal for a room."""
+        """Add a presence signal for a room (skips disabled signal types)."""
+        if not self._is_signal_enabled(signal_type):
+            return
         self._room_signals[room].append((signal_type, value, detail, timestamp))
 
     def _get_active_signals(self, room: str, now: datetime) -> list:
