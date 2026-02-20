@@ -232,3 +232,13 @@ Each message is a JSON audit event. Optional query params:
 
 - `?types=cache.write,api.request` — filter to specific event types (comma-separated)
 - `?severity_min=warning` — minimum severity level (`debug`, `info`, `warning`, `error`, `critical`)
+
+## Dashboard SPA
+
+```bash
+# SPA served at /ui/ with catch-all for client-side routing
+curl -s http://127.0.0.1:8001/ui/
+curl -s http://127.0.0.1:8001/ui/observe    # Any SPA route returns index.html
+```
+
+The `/ui/{path}` catch-all route serves `index.html` for all paths that don't match a real static file (JS, CSS). This enables deep-linking, browser refresh, and bookmark support for client-side hash routes.

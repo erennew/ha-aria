@@ -68,3 +68,6 @@ Implementation details and less-frequently-encountered gotchas. The top-level CL
 - **PageBanner expects `page=` not `title=`** — JSX silently drops unrecognized props. Always check component signature.
 - **Entity discovery uses lifecycle merge** — Missing entities marked stale, archived after 72h. Auto-promote on rediscovery.
 - **Pipeline Sankey topology must stay accurate** — `src/lib/pipelineGraph.js` contains `ALL_NODES`, `LINKS`, `NODE_DETAIL`. Update when adding/removing modules.
+- **SUPERHOT mobile overrides use `!important`** — `index.css` forces all `superhot-ui` effects on phone/tablet via `@media` blocks with `!important`. If `superhot-ui` changes its class names, the overrides will silently stop working.
+- **CRT overlay is full-page fixed** — `.crt-overlay` div in `app.jsx` covers the entire viewport with `pointer-events: none`. Hidden when `prefers-reduced-motion: reduce`. Uses `z-index: 9999` — ensure new overlays/modals account for this.
+- **OodaSummaryCard shatter is pure CSS** — Uses `sh-card-shatter` class + `sh-card-crack` keyframe (500ms), not JS fragment logic. Navigation fires after 500ms `setTimeout`.

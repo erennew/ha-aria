@@ -29,7 +29,7 @@ The dashboard has 5 primary OODA destinations and 6 system pages, built from doz
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| `PageBanner` | `components/PageBanner.jsx` | ASCII pixel-art "ARIA ✦ PAGE_NAME" SVG header with optional subtitle — first element on every page. SUPERHOT scan-line + glow loop applied via `.page-banner-sh` class. |
+| `PageBanner` | `components/PageBanner.jsx` | ASCII pixel-art "ARIA ✦ PAGE_NAME" SVG header with optional subtitle — first element on every page. `.page-banner-sh` class applies piOS terminal styling: dark bg, left accent border, CRT scanline stripes (::before), horizontal scan beam sweep (::after), phosphor glow animation on SVG text. Stronger glow in dark mode. |
 | `CollapsibleSection` | `components/CollapsibleSection.jsx` | Expand/collapse with cursor-as-affordance (cursor-active/working/idle) |
 | `HeroCard` | `components/HeroCard.jsx` | Large monospace KPI with optional sparkline (`sparkData`/`sparkColor` props). SUPERHOT freshness states (`data-sh-freshness`) applied for stale/live data. |
 | `TimeChart` | `components/TimeChart.jsx` | uPlot wrapper — full mode (`<figure>`) or `compact` sparkline mode (no axes) |
@@ -40,7 +40,7 @@ The dashboard has 5 primary OODA destinations and 6 system pages, built from doz
 | `DiscoverySettings` | `components/DiscoverySettings.jsx` | Settings panel: autonomy mode, naming backend, thresholds, Save/Run Now |
 | `InlineSettings` | `components/InlineSettings.jsx` | Contextual settings panel embedded on OODA pages. Accepts `categories` prop (array of config category strings). Loads only matching params from `/api/config`, renders sliders/toggles/selects with debounced save + reset. Hidden when no matching configs load. |
 | `PipelineStatusBar` | `components/PipelineStatusBar.jsx` | Compact one-line bar on Home showing pipeline stage, shadow stage, and WebSocket status. Applies `data-sh-effect="glitch"` on module failure, `data-sh-mantra="OFFLINE"` when WS is down. |
-| `OodaSummaryCard` | `components/OodaSummaryCard.jsx` | Clickable summary card linking to each OODA destination. Props: `title`, `subtitle`, `metric`, `metricLabel`, `href`, `accentColor`. Used in the 3-card grid on Home. |
+| `OodaSummaryCard` | `components/OodaSummaryCard.jsx` | Clickable summary card linking to each OODA destination. Props: `title`, `subtitle`, `metric`, `metricLabel`, `href`, `accentColor`. On click, plays pure CSS shatter animation (`.sh-card-shatter` — brightness flash → desaturate → scale down → red glow → fade out, 500ms) then navigates via hash. Used in the 3-card grid on Home. |
 
 ## Home Page Layout
 

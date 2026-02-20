@@ -24,3 +24,11 @@ cd aria/dashboard/spa && npm run build
 - Use `class` attribute (Preact), NOT `className`
 - Tailwind via pre-built `bundle.css` — arbitrary values may not exist. Use inline `style` for non-standard values.
 - uPlot renders on `<canvas>` — CSS variables must be resolved via `getComputedStyle()` before passing to uPlot
+
+**SPA routing:**
+- API serves `/ui/{path}` catch-all — returns `index.html` for any path that isn't a real static file (JS/CSS). Enables deep-linking and browser refresh.
+- Real static files (bundle.js, bundle.css) served directly by the same route handler before falling through to index.html.
+
+**SUPERHOT mobile overrides:**
+- `index.css` includes `@media (max-width: 639px)` block that restores ALL `superhot-ui` effects on phones (shatter fragments, mantra watermarks, glitch jitter). The `superhot-ui` package disables these on small screens by default; ARIA overrides with `!important`.
+- Same pattern at tablet breakpoint — restores full glitch jitter that `superhot-ui` simplifies.

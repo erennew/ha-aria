@@ -148,7 +148,7 @@
 | `/ws` | WS | Cache update push (real-time dashboard) |
 | `/ws/audit` | WS | Live audit event stream |
 | **Static** | | |
-| `/ui/{path}` | GET | Preact SPA static files |
+| `/ui/{path}` | GET | Preact SPA — catch-all serves index.html for client-side routing; real files (JS/CSS) served directly |
 
 ### Event Bus Contract
 

@@ -24,9 +24,11 @@ The dashboard borrows visual motifs from SUPERHOT's aesthetic language — minim
 |----------------|------------------|
 | **Crystalline red on white** | Anomalies and critical alerts use `--sh-threat` (crystalline red) against neutral surfaces — maximum contrast for maximum urgency |
 | **Time freeze** | Stale data dims and desaturates (`.sh-frozen`). Fresh data is crisp and vivid. The passage of time is always visible. |
-| **Shatter/fragment** | Dismissed alerts and resolved anomalies break apart via `.sh-shatter` transition before removal |
+| **Shatter/fragment** | Dismissed alerts break apart via `.sh-shatter` (JS fragments). OODA summary cards use `.sh-card-shatter` (pure CSS crack: flash → desaturate → scale → red glow → fade). |
 | **Glitch corruption** | Error states and data gaps use `.sh-glitch` — horizontal offset + chromatic aberration on text |
 | **Typographic repetition** | Critical system states repeat their label (e.g., "OFFLINE OFFLINE OFFLINE") as background watermark via `.sh-mantra` |
+| **piOS terminal panel** | Page banners use `.page-banner-sh` — dark bg, left accent border, CRT scanline stripes (::before), moving scan beam (::after), phosphor glow on SVG text |
+| **CRT scanline overlay** | Full-page `.crt-overlay` div in app.jsx — subtle repeating gradient over entire viewport, stronger in dark mode |
 | **Geometric minimalism** | Data visualizations favor sharp angles and clean geometry over rounded or organic shapes |
 
 These motifs layer on top of the terminal aesthetic — SUPERHOT provides the emotional register (tension, urgency, time-awareness), the terminal provides the structural register (monospace, brackets, cursors).
@@ -428,12 +430,13 @@ These classes implement the SUPERHOT thematic motifs. They compose with the tier
 | `.sh-frozen` | T1 | Desaturate to grayscale + 60% opacity, subtle frost overlay | Data older than staleness threshold |
 | `.sh-glitch` | T2 | 2-frame horizontal jitter + red/cyan chromatic split on text | Error states, data parse failures |
 | `.sh-shatter` | T2 | Element breaks into 4-6 triangular fragments that drift outward and fade | Dismissed alerts, resolved anomalies |
+| `.sh-card-shatter` | T2 | Pure CSS card crack: brightness flash → desaturate → scale down → red glow → fade out (500ms) | OODA summary card click-to-navigate on Home page |
 | `.sh-mantra` | T1 | Repeating label text as faded watermark behind content | Critical persistent states (OFFLINE, STALE, ERROR) |
 | `.sh-threat-pulse` | T3 | `--sh-threat` border glow, 2-cycle pulse then static | New anomaly detection, threshold breach |
 
 **Responsive rules:**
-- Phone: `.sh-shatter` reduced to simple fade-out, `.sh-mantra` disabled
-- Tablet: `.sh-glitch` simplified to color shift only (no jitter)
+- Phone: ALL SUPERHOT and ambient effects enabled — ARIA overrides `superhot-ui` package CSS that normally disables shatter/mantra/glitch on phones. See mobile override block in `index.css`.
+- Tablet: `.sh-glitch` restored to full jitter (ARIA overrides `superhot-ui` tablet simplification)
 - Reduced motion: all effects replaced with instant state change (no animation)
 
 ## Responsive Breakpoints
