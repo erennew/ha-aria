@@ -112,16 +112,19 @@ export default function Home() {
           label="anomalies"
           delta={anomalyDelta}
           warning={anomalyItems.length > 0}
+          href="#/detail/anomaly/all"
         />
         <HeroCard
           value={recValue}
           label="recommendations"
           delta={recDelta}
+          href="#/detail/suggestion/all"
         />
         <HeroCard
           value={accValue}
           label="accuracy"
           delta={accDelta}
+          href="#/detail/prediction/accuracy"
         />
       </div>
 

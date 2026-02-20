@@ -148,7 +148,7 @@ function EntityRow({ entity, onOverride, compact }) {
 
   return (
     <div class={`flex items-center gap-2 ${compact ? 'py-0.5' : 'py-1.5'}`} style={compact ? '' : 'border-bottom: 1px solid var(--border-subtle)'}>
-      <span class="text-xs truncate flex-1 data-mono" style="color: var(--text-secondary)">{entity.entity_id}</span>
+      <a href={`#/detail/curation/${entity.entity_id}`} class="clickable-data text-xs truncate flex-1 data-mono" style="color: var(--text-secondary); text-decoration: none;">{entity.entity_id}</a>
       <span class="text-[10px] font-medium flex-shrink-0 px-1.5 py-0.5" style={`border-radius: var(--radius); ${statusStyle}`}>
         {entity.status}
       </span>

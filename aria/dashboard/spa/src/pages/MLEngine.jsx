@@ -205,7 +205,7 @@ function PipelineOverview({ pipeline, loading }) {
                 </thead>
                 <tbody>
                   {Object.entries(pr.scores).map(([name, vals]) => (
-                    <tr key={name} style="border-bottom: 1px solid var(--border-subtle);">
+                    <tr key={name} class="clickable-data" style="border-bottom: 1px solid var(--border-subtle); cursor: pointer;" onClick={() => { window.location.hash = `#/detail/model/${name}`; }}>
                       <td style="padding: 8px 12px; color: var(--text-primary);">{name}</td>
                       <td style="text-align: right; padding: 8px 12px; color: var(--accent);">
                         {vals?.r2 != null ? vals.r2.toFixed(3) : '\u2014'}
@@ -239,7 +239,7 @@ function PipelineOverview({ pipeline, loading }) {
           </div>
         </div>
         {fb.drift_flagged > 0 && (
-          <div style="margin-top: 8px;">
+          <div class="clickable-data" style="margin-top: 8px; cursor: pointer;" onClick={() => { window.location.hash = '#/detail/drift/all'; }}>
             <Badge label={`${fb.drift_flagged} drift`} color="var(--status-warning)" />
           </div>
         )}
@@ -462,7 +462,7 @@ function TrainingHistory({ models, loading }) {
                   </thead>
                   <tbody>
                     {Object.entries(scores).map(([name, vals]) => (
-                      <tr key={name} style="border-bottom: 1px solid var(--border-subtle);">
+                      <tr key={name} class="clickable-data" style="border-bottom: 1px solid var(--border-subtle); cursor: pointer;" onClick={() => { window.location.hash = `#/detail/model/${name}`; }}>
                         <td style="padding: 8px 12px; color: var(--text-primary);">{name}</td>
                         <td style="text-align: right; padding: 8px 12px; color: var(--accent);">
                           {vals?.r2 != null ? vals.r2.toFixed(3) : '\u2014'}

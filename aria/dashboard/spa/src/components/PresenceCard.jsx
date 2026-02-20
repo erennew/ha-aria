@@ -98,12 +98,12 @@ export default function PresenceCard() {
       {roomEntries.length > 0 ? (
         <div class="space-y-2">
           {roomEntries.slice(0, 6).map(([name, room]) => (
-            <div key={name}>
+            <a key={name} href={`#/detail/room/${name}`} class="clickable-data block" style="text-decoration: none; color: inherit;">
               <div class="text-xs mb-0.5" style="color: var(--text-secondary); text-transform: capitalize;">
                 {name.replace(/_/g, ' ')}
               </div>
               <ProbBar value={room.probability} />
-            </div>
+            </a>
           ))}
           {roomEntries.length > 6 && (
             <div class="text-xs" style="color: var(--text-tertiary)">

@@ -23,7 +23,7 @@ function RecommendationCard({ suggestion, onAction, updating }) {
   const status = (suggestion.status || 'pending').toLowerCase();
 
   return (
-    <div class="t-frame" data-label={suggestion.name || 'recommendation'} style="padding: 1.25rem;">
+    <div class="t-frame clickable-data" data-label={suggestion.name || 'recommendation'} style="padding: 1.25rem; cursor: pointer;" onClick={() => { window.location.hash = `#/detail/suggestion/${suggestion.id || suggestion.name || 'unknown'}`; }}>
       <div class="flex items-center justify-between mb-2">
         <span class="text-base font-bold" style="color: var(--text-primary)">{suggestion.name || 'Unnamed'}</span>
         <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={statusStyle(status)}>{status}</span>

@@ -166,12 +166,14 @@ function CapabilityCard({ name, capability, onTogglePredict, onAction }) {
     >
       {/* Header row: name + badges */}
       <div class="flex items-center justify-between mb-2" style="flex-wrap: wrap; gap: 4px;">
-        <h3
-          class="text-base font-bold"
-          style="color: var(--text-primary); margin: 0;"
+        <a
+          href={`#/detail/capability/${name}`}
+          class="clickable-data text-base font-bold"
+          style="color: var(--text-primary); margin: 0; text-decoration: none;"
+          onClick={(e) => e.stopPropagation()}
         >
           {humanize(name)}
-        </h3>
+        </a>
         <div class="flex items-center gap-1" style="flex-wrap: wrap;">
           {/* Entity count badge */}
           <span
@@ -427,7 +429,9 @@ function RegistrySection() {
           <tbody>
             {caps.map((cap) => (
               <tr key={cap.id} style="border-bottom: 1px solid var(--border-subtle);">
-                <td style="padding: 8px 12px; font-family: var(--font-mono); color: var(--text-primary);">{cap.id}</td>
+                <td style="padding: 8px 12px; font-family: var(--font-mono); color: var(--text-primary);">
+                  <a href={`#/detail/capability/${cap.id}`} class="clickable-data" style="text-decoration: none; color: inherit;">{cap.id}</a>
+                </td>
                 <td style="padding: 8px 12px; color: var(--text-secondary);">{cap.name}</td>
                 <td style="padding: 8px 12px;">
                   <span class="inline-block px-1.5 py-0.5 rounded text-xs" style={`color: ${layerColor(cap.layer)}; background: var(--bg-surface-raised);`}>

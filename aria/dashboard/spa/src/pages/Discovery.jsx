@@ -165,10 +165,10 @@ export default function Discovery() {
       label: 'Entity',
       sortable: true,
       render: (_, row) => (
-        <div>
+        <a href={`#/detail/entity/${row.entity_id}`} class="clickable-data block" style="text-decoration: none; color: inherit;">
           <div class="font-semibold" style="color: var(--text-primary)">{row.friendly_name || row.entity_id}</div>
           <div class="text-xs data-mono" style="color: var(--text-tertiary)">{row.entity_id}</div>
-        </div>
+        </a>
       ),
     },
     {
@@ -395,10 +395,12 @@ export default function Discovery() {
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {areaCounts.map((a) => (
-              <div key={a.area_id} class="t-frame" data-label={a.name} style="padding: 1rem;">
-                <div class="font-semibold text-sm truncate" style="color: var(--text-primary)" title={a.name}>{a.name}</div>
-                <div class="text-sm mt-1" style="color: var(--text-tertiary)">{a.count} entities</div>
-              </div>
+              <a key={a.area_id} href={`#/detail/room/${a.area_id}`} class="clickable-data block" style="text-decoration: none; color: inherit;">
+                <div class="t-frame" data-label={a.name} style="padding: 1rem;">
+                  <div class="font-semibold text-sm truncate" style="color: var(--text-primary)" title={a.name}>{a.name}</div>
+                  <div class="text-sm mt-1" style="color: var(--text-tertiary)">{a.count} entities</div>
+                </div>
+              </a>
             ))}
           </div>
         </section>

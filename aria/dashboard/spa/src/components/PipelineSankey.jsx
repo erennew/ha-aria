@@ -96,6 +96,7 @@ function SankeyNode({ node, status, metric, onClick, highlighted, dimmed, onMous
 
   return (
     <g
+      class={onClick ? 'clickable-data' : ''}
       transform={`translate(${node.x}, ${node.y})`}
       onClick={() => onClick && onClick(node)}
       onMouseEnter={onMouseEnter}
@@ -290,6 +291,9 @@ export default function PipelineSankey({ moduleStatuses, cacheData }) {
     } else if (node.column === 4) {
       // Output node — toggle trace-back
       setTraceTarget((prev) => (prev === node.id ? null : node.id));
+    } else {
+      // Navigate to module detail
+      window.location.hash = `#/detail/module/${node.id}`;
     }
   }
 

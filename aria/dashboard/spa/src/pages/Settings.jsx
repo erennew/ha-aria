@@ -58,7 +58,7 @@ function ParamControl({ config, onUpdate }) {
     <div class="flex flex-col sm:flex-row sm:items-center gap-2 py-3" style="border-bottom: 1px solid var(--border-subtle)">
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
-          <span class="text-sm font-medium" style="color: var(--text-secondary)">{config.label || config.key}</span>
+          <a href={`#/detail/config/${config.key}`} class="clickable-data text-sm font-medium" style="color: var(--text-secondary); text-decoration: none;">{config.label || config.key}</a>
           {saving && <span class="text-xs" style="color: var(--accent)">Saving...</span>}
         </div>
         {config.description && (

@@ -13,7 +13,7 @@ function computeFreshness(timestamp) {
   return 'fresh';
 }
 
-export default function HeroCard({ value, label, unit, delta, warning, loading, sparkData, sparkColor, timestamp }) {
+export default function HeroCard({ value, label, unit, delta, warning, loading, sparkData, sparkColor, timestamp, href }) {
   const cursorClass = loading ? 'cursor-working' : 'cursor-active';
   const ref = useRef(null);
 
@@ -32,7 +32,7 @@ export default function HeroCard({ value, label, unit, delta, warning, loading, 
     return () => clearInterval(interval);
   }, [timestamp]);
 
-  return (
+  const cardContent = (
     <div
       ref={ref}
       class={`t-frame ${cursorClass}`}
@@ -75,4 +75,10 @@ export default function HeroCard({ value, label, unit, delta, warning, loading, 
       )}
     </div>
   );
+
+  if (href) {
+    return <a href={href} class="clickable-data block" style="text-decoration: none; color: inherit;">{cardContent}</a>;
+  }
+
+  return cardContent;
 }
