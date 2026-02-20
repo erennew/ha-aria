@@ -558,7 +558,26 @@ class PresenceModule(Module):
     # HA WebSocket listener (motion, lights, dimmers, device_tracker)
     # ------------------------------------------------------------------
 
-    async def _ws_listen_loop(self):  # noqa: C901
+    async def _ws_auth_and_subscribe(self, ws) -> bool:
+        """Authenticate and subscribe to state_changed on a HA WebSocket.
+
+        Returns True if ready to receive events, False to retry.
+        """
+        msg = await ws.receive_json()
+        if msg.get("type") != "auth_required":
+            return False
+
+        await ws.send_json({"type": "auth", "access_token": self.ha_token})
+        auth_resp = await ws.receive_json()
+        if auth_resp.get("type") != "auth_ok":
+            self.logger.error(f"WS auth failed: {auth_resp}")
+            return False
+
+        await ws.send_json({"id": 1, "type": "subscribe_events", "event_type": "state_changed"})
+        await ws.receive_json()  # subscription confirmation
+        return True
+
+    async def _ws_listen_loop(self):
         """Connect to HA WebSocket and listen for presence-relevant events."""
         ws_url = self.ha_url.replace("http", "ws", 1) + "/api/websocket"
         stagger = RECONNECT_STAGGER.get("presence_ws", 6)
@@ -572,33 +591,10 @@ class PresenceModule(Module):
                 continue
             try:
                 async with self._http_session.ws_connect(ws_url) as ws:
-                    msg = await ws.receive_json()
-                    if msg.get("type") != "auth_required":
-                        continue
-
-                    await ws.send_json(
-                        {
-                            "type": "auth",
-                            "access_token": self.ha_token,
-                        }
-                    )
-                    auth_resp = await ws.receive_json()
-                    if auth_resp.get("type") != "auth_ok":
-                        self.logger.error(f"WS auth failed: {auth_resp}")
+                    if not await self._ws_auth_and_subscribe(ws):
                         jitter = retry_delay * random.uniform(-0.25, 0.25)
-                        actual_delay = retry_delay + jitter
-                        await asyncio.sleep(actual_delay)
+                        await asyncio.sleep(retry_delay + jitter)
                         continue
-
-                    # Subscribe to state_changed events
-                    await ws.send_json(
-                        {
-                            "id": 1,
-                            "type": "subscribe_events",
-                            "event_type": "state_changed",
-                        }
-                    )
-                    await ws.receive_json()  # subscription confirmation
 
                     self.logger.info("Presence WS connected — listening for sensor events")
                     retry_delay = 5

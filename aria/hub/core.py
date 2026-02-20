@@ -55,6 +55,21 @@ class Module:
         pass
 
 
+def _is_entry_expired(line: str, cutoff: datetime) -> bool:
+    """Check if a snapshot_log JSONL line has a timestamp before cutoff."""
+    try:
+        entry = json.loads(line)
+        ts = entry.get("timestamp") or entry.get("date") or ""
+        if ts:
+            parsed = datetime.fromisoformat(ts)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+            return parsed < cutoff
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass  # Keep malformed lines (don't silently drop data)
+    return False
+
+
 class IntelligenceHub:
     """Central hub for managing modules, cache, and WebSocket events."""
 
@@ -414,7 +429,7 @@ class IntelligenceHub:
         if not log_path.exists():
             return 0
 
-        cutoff = (datetime.now(tz=UTC) - timedelta(days=retention_days)).isoformat()
+        cutoff = datetime.now(tz=UTC) - timedelta(days=retention_days)
 
         def _prune_file() -> int:
             try:
@@ -429,15 +444,10 @@ class IntelligenceHub:
                 line = line.strip()
                 if not line:
                     continue
-                try:
-                    entry = json.loads(line)
-                    ts = entry.get("timestamp") or entry.get("date") or ""
-                    if ts and ts < cutoff:
-                        pruned_count += 1
-                        continue
-                except (json.JSONDecodeError, TypeError):
-                    pass  # Keep malformed lines (don't silently drop data)
-                kept.append(line)
+                if _is_entry_expired(line, cutoff):
+                    pruned_count += 1
+                else:
+                    kept.append(line)
 
             if pruned_count > 0:
                 try:

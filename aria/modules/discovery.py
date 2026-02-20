@@ -183,8 +183,11 @@ class DiscoveryModule(Module):
                 error_msg = stderr.decode() if stderr else "Unknown error"
                 raise RuntimeError(f"Discovery failed: {error_msg}")
 
-            # Parse JSON output
+            # Parse and validate JSON output
             capabilities = json.loads(stdout.decode())
+
+            if "entities" not in capabilities:
+                raise ValueError("Discovery output missing required 'entities' key")
 
             # Store in hub cache
             await self._store_discovery_results(capabilities)

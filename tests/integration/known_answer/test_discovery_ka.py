@@ -221,7 +221,8 @@ async def test_classification_tiers(discovery_module, hub):
     """Verify entity classification: automation/update → tier 1 auto-excluded."""
     await discovery_module.run_classification()
 
-    # Check automation.morning_lights → tier 1 (automation is auto-excluded domain)
+    # Direct hub.cache.get_curation() access — no hub.get_curation() public method exists.
+    # Justified: curation is a dedicated SQLite table, not a cache category.
     automation_curation = await hub.cache.get_curation("automation.morning_lights")
     assert automation_curation is not None, "automation.morning_lights should have curation"
     assert automation_curation["tier"] == 1, f"automation domain should be tier 1, got {automation_curation['tier']}"

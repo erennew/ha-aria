@@ -29,7 +29,12 @@ FROZEN_NOW = datetime(2026, 2, 19, 10, 0, 0)
 
 
 def _freeze_datetime(monkeypatch, target_dt):
-    """Patch datetime in presence module to return fixed time."""
+    """Patch datetime in presence module to return fixed time.
+
+    Works because presence.py uses ``from datetime import datetime`` —
+    the class is a module-level name that monkeypatch can replace.
+    If the import style changes, this mock will silently stop freezing time.
+    """
     mock_dt = MagicMock(wraps=datetime)
     mock_dt.now.return_value = target_dt
     mock_dt.utcnow.return_value = target_dt

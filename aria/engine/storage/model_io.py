@@ -1,7 +1,10 @@
 """Model serialization — pickle save/load for sklearn models."""
 
+import logging
 import pickle
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class ModelIO:
@@ -31,6 +34,7 @@ class ModelIO:
             # Legacy format: just the model object
             return data, {}
         except Exception:
+            logger.warning("Failed to load model %s from %s", name, path, exc_info=True)
             return None, None
 
     def list_models(self) -> list[str]:
