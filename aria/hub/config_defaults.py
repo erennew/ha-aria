@@ -122,6 +122,51 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
         "max_value": 365,
         "step": 1,
     },
+    # ── Event Segments ─────────────────────────────────────────────────
+    {
+        "key": "segments.generation_interval_m",
+        "default_value": "15",
+        "value_type": "number",
+        "label": "Segment Generation Interval",
+        "description": "How often (in minutes) to generate ML feature segments from events.",
+        "description_layman": (
+            "How often ARIA summarizes recent activity into a learning"
+            " snapshot. Shorter intervals capture finer detail but use"
+            " more CPU."
+        ),
+        "description_technical": (
+            "SegmentBuilder runs on this interval to convert EventStore"
+            " rows into feature segments for ML training. Range 5-60 min,"
+            " default 15. At 5 min: ~288 segments/day, high resolution."
+            " At 60 min: ~24 segments/day, less CPU, coarser patterns."
+        ),
+        "category": "Event Segments",
+        "min_value": 5,
+        "max_value": 60,
+        "step": 5,
+    },
+    {
+        "key": "segments.retention_hours",
+        "default_value": "168",
+        "value_type": "number",
+        "label": "Segment Retention (hours)",
+        "description": "How long to keep generated segments before pruning.",
+        "description_layman": (
+            "How many hours of learning snapshots to keep. Longer"
+            " retention lets ARIA spot weekly patterns but uses more"
+            " disk space."
+        ),
+        "description_technical": (
+            "Segments older than this are pruned during maintenance."
+            " Default 168 hours (7 days). At 168h with 15-min intervals:"
+            " ~672 segments retained. At 720h (30 days): ~2880 segments."
+            " Segments are small (~200 bytes each) so storage is minimal."
+        ),
+        "category": "Event Segments",
+        "min_value": 24,
+        "max_value": 720,
+        "step": 24,
+    },
     # ── Feature Engineering ───────────────────────────────────────────
     {
         "key": "features.decay_half_life_days",
