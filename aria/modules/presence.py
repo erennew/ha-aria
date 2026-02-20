@@ -110,6 +110,9 @@ class PresenceModule(Module):
         # Bayesian estimator (shared with engine, but used in real-time here)
         self._occupancy = BayesianOccupancy()
 
+        # Config-driven weight/decay loading (refreshed every 60s)
+        self._presence_config_loaded: datetime | None = None
+
         # Shared aiohttp session (created in initialize, closed in shutdown)
         self._http_session: aiohttp.ClientSession | None = None
 
@@ -798,13 +801,35 @@ class PresenceModule(Module):
             return
         self._room_signals[room].append((signal_type, value, detail, timestamp))
 
+    async def _load_presence_config(self):
+        """Load presence weight/decay config from DB (cached 60s)."""
+        now = datetime.now()
+        if self._presence_config_loaded and (now - self._presence_config_loaded).total_seconds() < 60:
+            return
+        overrides = {}
+        for signal_type in SENSOR_CONFIG:
+            weight = await self.hub.cache.get_config_value(
+                f"presence.weight.{signal_type}",
+                SENSOR_CONFIG[signal_type]["weight"],
+            )
+            decay = await self.hub.cache.get_config_value(
+                f"presence.decay.{signal_type}",
+                SENSOR_CONFIG[signal_type]["decay_seconds"],
+            )
+            overrides[signal_type] = {
+                "weight": float(weight),
+                "decay_seconds": int(float(decay)),
+            }
+        self._occupancy.update_sensor_config(overrides)
+        self._presence_config_loaded = now
+
     def _get_active_signals(self, room: str, now: datetime) -> list:
         """Get non-stale signals for a room."""
         cutoff = now - timedelta(seconds=SIGNAL_STALE_S)
         active = []
         for sig_type, value, detail, ts in self._room_signals.get(room, []):
-            # Apply per-type decay
-            config = SENSOR_CONFIG.get(sig_type, {"decay_seconds": 300})
+            # Apply per-type decay from instance config
+            config = self._occupancy.sensor_config.get(sig_type, {"decay_seconds": 300})
             decay = config.get("decay_seconds", 300)
             if decay == 0 or ts >= cutoff:
                 # No decay or within stale window
@@ -817,6 +842,7 @@ class PresenceModule(Module):
 
     async def _flush_presence_state(self):
         """Recalculate presence probabilities and write to cache."""
+        await self._load_presence_config()
         now = datetime.now()
 
         # Refresh entity→room cache every 5 minutes (piggyback on 30s flush cycle)

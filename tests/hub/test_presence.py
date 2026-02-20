@@ -1033,3 +1033,60 @@ class TestEnabledSignalFiltering:
         await module._handle_ha_state_change(data)
         signals = module._room_signals.get("living_room", [])
         assert len(signals) == 0
+
+
+# ============================================================================
+# Presence Config Loading
+# ============================================================================
+
+
+class TestPresenceConfigWeights:
+    """Test config-driven presence weights and decay times."""
+
+    @pytest.mark.asyncio
+    async def test_load_presence_config_applies_weights(self, module):
+        """Config weight overrides reach the BayesianOccupancy instance."""
+        module.hub.cache._config["presence.weight.motion"] = 0.5
+        module.hub.cache._config["presence.decay.motion"] = 60
+        await module._load_presence_config()
+        assert module._occupancy.sensor_config["motion"]["weight"] == 0.5
+        assert module._occupancy.sensor_config["motion"]["decay_seconds"] == 60
+
+    @pytest.mark.asyncio
+    async def test_config_cached_60_seconds(self, module):
+        """Config is only reloaded every 60 seconds, not every call."""
+        module.hub.cache._config["presence.weight.motion"] = 0.5
+        await module._load_presence_config()
+        assert module._occupancy.sensor_config["motion"]["weight"] == 0.5
+
+        # Change config, call again immediately — should still be 0.5 (cached)
+        module.hub.cache._config["presence.weight.motion"] = 0.1
+        await module._load_presence_config()
+        assert module._occupancy.sensor_config["motion"]["weight"] == 0.5
+
+    @pytest.mark.asyncio
+    async def test_fallback_to_defaults_when_config_missing(self, module):
+        """If config keys don't exist, falls back to SENSOR_CONFIG defaults."""
+        await module._load_presence_config()
+        assert module._occupancy.sensor_config["motion"]["weight"] == SENSOR_CONFIG["motion"]["weight"]
+        assert module._occupancy.sensor_config["motion"]["decay_seconds"] == SENSOR_CONFIG["motion"]["decay_seconds"]
+
+    @pytest.mark.asyncio
+    async def test_flush_calls_load_config(self, module):
+        """_flush_presence_state calls _load_presence_config."""
+        module.hub.cache._config["presence.weight.motion"] = 0.42
+        module._entity_room_cache_built = True
+        await module._flush_presence_state()
+        assert module._occupancy.sensor_config["motion"]["weight"] == 0.42
+
+    @pytest.mark.asyncio
+    async def test_get_active_signals_uses_instance_decay(self, module):
+        """_get_active_signals reads decay from occupancy.sensor_config."""
+        now = datetime.now()
+        module._occupancy.update_sensor_config({"motion": {"weight": 0.9, "decay_seconds": 10}})
+        # Add signal 15s ago — beyond 10s decay, should be filtered
+        module._add_signal("room", "motion", 0.9, "test", now - timedelta(seconds=15))
+        active = module._get_active_signals("room", now)
+        # Signal should be nearly zero (decay_factor ~ 1 - 15/10 = -0.5, clamped to 0.1)
+        assert len(active) == 1
+        assert active[0][1] < 0.15  # heavily decayed
