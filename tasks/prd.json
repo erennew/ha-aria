@@ -8,7 +8,7 @@
       "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/scripts/screenshot-audit.js",
       "test -d /home/justin/Documents/projects/ha-aria/docs/audit"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": []
   },
   {
@@ -20,7 +20,7 @@
       "grep -q 'fetch' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/scripts/screenshot-audit.js",
       "grep -qE '(anomalies|shadow|pipeline|curation|capabilities)' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/scripts/screenshot-audit.js"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [1]
   },
   {
@@ -41,7 +41,7 @@
       "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/guide.png",
       "test -f /home/justin/Documents/projects/ha-aria/docs/audit/audit-report.md"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [2]
   },
   {
@@ -51,7 +51,7 @@
     "acceptance_criteria": [
       "grep -qiE '(0 mismatches|no mismatches|all pages match|PASS)' /home/justin/Documents/projects/ha-aria/docs/audit/audit-report.md"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [3]
   },
   {
@@ -65,7 +65,7 @@
       "grep -q 'DetailPage' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/app.jsx",
       "grep -q '/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/app.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [4]
   },
   {
@@ -80,7 +80,7 @@
       "grep -q 'PageBanner' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/AnomalyDetail.jsx",
       "grep -q 't-frame' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/RoomDetail.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [5]
   },
   {
@@ -98,7 +98,7 @@
       "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/CorrelationDetail.jsx",
       "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/BaselineDetail.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [6]
   },
   {
@@ -112,7 +112,7 @@
       "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Decide.jsx",
       "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PresenceCard.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [7]
   },
   {
@@ -126,7 +126,7 @@
       "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/DataCuration.jsx",
       "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Settings.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [7]
   },
   {
@@ -137,7 +137,7 @@
       "grep -q 'href\\|onClick' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/HeroCard.jsx",
       "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PipelineSankey.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [5]
   },
   {
@@ -148,7 +148,7 @@
       "cd /home/justin/Documents/projects/ha-aria/aria/dashboard/spa && npm run build 2>&1 | tail -1 | grep -vq 'error'",
       "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/dist/bundle.js"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [8, 9, 10]
   },
   {
@@ -161,7 +161,7 @@
       "grep -q 'routes_module_config' /home/justin/Documents/projects/ha-aria/aria/hub/server.py",
       "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/hub/ -k 'module_config' -x --timeout=120 -q"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [4]
   },
   {
@@ -173,7 +173,7 @@
       "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/hub/test_presence.py -x --timeout=120 -q",
       "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/hub/ -k 'source_config' -x --timeout=120 -q"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [12]
   },
   {
@@ -186,7 +186,7 @@
       "grep -q 'DataSourceConfig' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Observe.jsx",
       "grep -q 'DataSourceConfig' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Understand.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [12]
   },
   {
@@ -198,7 +198,7 @@
       "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/ -x --timeout=120 -q",
       "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/home.png"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [11, 13, 14]
   }
 ]

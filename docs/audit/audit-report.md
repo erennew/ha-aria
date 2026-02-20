@@ -18,7 +18,7 @@ Generated: 2026-02-20T01:26:04.709Z
 | settings | captured | - | 1 | 1 | - |
 | guide | captured | - | 1 | 0 | - |
 
-**Totals:** 11 routes, 31 API calls, 0 failures, 0 page errors
+**Totals:** 11 routes, 31 API calls, 0 failures, 0 page errors — **PASS: all pages match**
 
 ---
 
