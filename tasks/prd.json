@@ -9,7 +9,7 @@
       "! grep -q \"source: 'logbook_json', target: 'patterns'\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/lib/pipelineGraph.js",
       "! grep -q \"source: 'snapshot_json', target: 'ml_engine'\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/lib/pipelineGraph.js"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": []
   },
   {
@@ -23,7 +23,7 @@
       "grep -q \"source: 'discovery', target: 'shadow_engine'\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/lib/pipelineGraph.js",
       "grep -q \"source: 'intelligence', target: 'orchestrator'\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/lib/pipelineGraph.js"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [1]
   },
   {
@@ -37,7 +37,7 @@
       "! grep -q \"out_auto_suggestions\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/lib/pipelineGraph.js",
       "! grep -q \"out_shadow_preds\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/lib/pipelineGraph.js"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [1, 2]
   },
   {
@@ -51,7 +51,7 @@
       "grep -q \"#/understand\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/lib/pipelineGraph.js",
       "grep -q \"#/decide\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/lib/pipelineGraph.js"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [3]
   },
   {
@@ -64,7 +64,7 @@
       "! grep -q \"activity_labeler\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PipelineSankey.jsx",
       "! grep -q \"r2_history\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PipelineSankey.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [3]
   },
   {
@@ -74,7 +74,7 @@
     "acceptance_criteria": [
       "grep -q \"node.page\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PipelineSankey.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [3, 5]
   },
   {
@@ -86,7 +86,7 @@
       "grep -q \"node.page\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PipelineStepper.jsx",
       "grep -q \"getModuleStatus\" /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PipelineStepper.jsx"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [3, 5]
   },
   {
@@ -97,7 +97,7 @@
       "cd /home/justin/Documents/projects/ha-aria/aria/dashboard/spa && npm run build 2>&1 | tail -1 | grep -vq 'error'",
       "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/dist/bundle.js"
     ],
-    "passes": false,
+    "passes": true,
     "blocked_by": [4, 5, 6, 7]
   }
 ]

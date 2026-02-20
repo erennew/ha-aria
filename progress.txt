@@ -6,3 +6,18 @@
 - PRD: tasks/prd.json (8 tasks)
 - Plan: docs/plans/2026-02-20-pipeline-sankey-accuracy-plan.md
 - Branch: feature/interactive-dashboard (continuing)
+
+## Batch 1: T1-T4 — pipelineGraph.js topology overhaul
+- T1: Removed 7 incorrect links (shadow→orchestrator, logbook→patterns, etc.) ✅
+- T2: Added 6 missing links (engine→ml_engine, discovery→presence, etc.) + annotated feedback ✅
+- T3: Replaced 14 stale outputs with 7 OODA-aligned nodes ✅
+- T4: Fixed NODE_DETAIL text + ACTION_CONDITIONS routes ✅
+
+## Batch 2: T5-T7 — PipelineSankey + PipelineStepper
+- T5: Fixed freshness categoryMap, removed dead sparklines and stale node refs ✅
+- T6: Output nodes navigate to OODA pages, removed trace-back feature ✅
+- T7: PipelineStepper clickable rows + real status LED colors ✅
+
+## Batch 3: T8 — Build verification
+- SPA build: 325.7kb bundle, clean ✅
+- All 8 PRD tasks pass ✅
