@@ -187,6 +187,9 @@ class MLEngine(Module):
         # Model pipeline status: untrained | training | ready | stale
         self.model_status: str = "untrained"
 
+        # Lazy-init SegmentBuilder for event-derived features
+        self._segment_builder = None
+
     async def initialize(self):
         """Initialize module - load existing models."""
         self.logger.info("ML Engine initializing...")
@@ -736,6 +739,9 @@ class MLEngine(Module):
         if config.get("pattern_features", {}).get("trajectory_class", False):
             names.append("trajectory_class")
 
+        # Event-derived features (Phase 2 — from SegmentBuilder)
+        self._collect_dict_feature_names(config.get("event_features", {}), names)
+
         return names
 
     @staticmethod
@@ -1036,8 +1042,17 @@ class MLEngine(Module):
         if "time_features" not in snapshot:
             snapshot = {**snapshot, "time_features": self._compute_time_features(snapshot)}
 
+        # Build segment data from EventStore (if available)
+        segment_data = None
+        try:
+            segment_data = await self._build_segment_data()
+        except Exception as e:
+            self.logger.warning("Segment build failed, using snapshot only: %s", e)
+
         # Delegate base feature extraction to shared engine builder
-        features = _engine_build_feature_vector(snapshot, config, prev_snapshot, rolling_stats)
+        features = _engine_build_feature_vector(
+            snapshot, config, prev_snapshot, rolling_stats, segment_data=segment_data
+        )
 
         # Hub-only: append rolling window features from live activity log
         rws = rolling_window_stats or {}
@@ -1056,6 +1071,26 @@ class MLEngine(Module):
             features["trajectory_class"] = self._encode_trajectory(trajectory)
 
         return features
+
+    async def _build_segment_data(self) -> dict[str, Any] | None:
+        """Build a 15-minute feature segment from EventStore.
+
+        Returns segment dict or None if EventStore is unavailable.
+        Lazily creates SegmentBuilder on first call.
+        """
+        if not getattr(self.hub, "event_store", None):
+            return None
+
+        if self._segment_builder is None:
+            from aria.shared.segment_builder import SegmentBuilder
+
+            self._segment_builder = SegmentBuilder(self.hub.event_store, self.hub.entity_graph)
+
+        now = datetime.now(tz=UTC)
+        return await self._segment_builder.build_segment(
+            (now - timedelta(minutes=15)).isoformat(),
+            now.isoformat(),
+        )
 
     def _extract_target(self, snapshot: dict[str, Any], target: str) -> float | None:
         """Extract target value from snapshot.
