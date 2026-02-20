@@ -8,7 +8,10 @@ to separate modules.
 
 import fnmatch
 import logging
+from collections import defaultdict
 from typing import Any
+
+from aria.automation.models import DayContext
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +78,36 @@ class EventNormalizer:
 
             result.append(e)
         return result
+
+    def segment_by_day_type(
+        self,
+        events: list[dict],
+        day_contexts: list[DayContext],
+    ) -> dict[str, list[dict]]:
+        """Split events into pools by day type, excluding vacation days.
+
+        Args:
+            events: List of event dicts with "timestamp" field.
+            day_contexts: List of DayContext from day classifier.
+
+        Returns:
+            Dict mapping day_type → list of events for that type.
+            Vacation days are excluded entirely.
+        """
+        # Build date → day_type lookup
+        date_to_type: dict[str, str] = {}
+        for ctx in day_contexts:
+            date_to_type[ctx.date] = ctx.day_type
+
+        pools: dict[str, list[dict]] = defaultdict(list)
+        for event in events:
+            event_date = event.get("timestamp", "")[:10]  # YYYY-MM-DD
+            day_type = date_to_type.get(event_date, "workday")
+
+            # Exclude vacation days — empty-house noise corrupts patterns
+            if day_type == "vacation":
+                continue
+
+            pools[day_type].append(event)
+
+        return dict(pools)
