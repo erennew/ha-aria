@@ -1,103 +1,204 @@
-{
-  "feature": "Phase 3+4: Issue Triage & Fix",
-  "version": "1.0",
-  "created": "2026-02-19",
-  "tasks": [
-    {
-      "id": "T01",
-      "name": "Close already-fixed issues",
-      "acceptance": "gh issue list --state closed --json number -q '.[].number' | grep -q '8' && gh issue list --state closed --json number -q '.[].number' | grep -q '14' && gh issue list --state closed --json number -q '.[].number' | grep -q '15' && gh issue list --state closed --json number -q '.[].number' | grep -q '16' && gh issue list --state closed --json number -q '.[].number' | grep -q '17' && gh issue list --state closed --json number -q '.[].number' | grep -q '18' && gh issue list --state closed --json number -q '.[].number' | grep -q '39'",
-      "passes": false
-    },
-    {
-      "id": "T02",
-      "name": "Close archived-module issues",
-      "acceptance": "gh issue list --state closed --json number -q '.[].number' | grep -q '10'",
-      "passes": false
-    },
-    {
-      "id": "T03",
-      "name": "Annotate partial-archived issues",
-      "acceptance": "gh issue view 25 --json comments -q '.comments | length' | xargs test 1 -le",
-      "passes": false
-    },
-    {
-      "id": "T04",
-      "name": "Re-label unlabeled issues",
-      "acceptance": "gh issue view 43 --json labels -q '.labels[].name' | grep -q 'priority:critical'",
-      "passes": false
-    },
-    {
-      "id": "T05",
-      "name": "Create GitHub labels, milestones, project board",
-      "acceptance": "gh label list | grep -q 'archived' && gh label list | grep -q 'phase:4' && gh api repos/{owner}/{repo}/milestones -q '.[].title' | grep -q 'Phase 4'",
-      "passes": false
-    },
-    {
-      "id": "T06",
-      "name": "Security: Redact config secrets (#43)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/hub/test_api.py -k 'redact' --timeout=120 -x -q",
-      "passes": false
-    },
-    {
-      "id": "T07",
-      "name": "Security: Add CORS middleware (#44)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && grep -q 'CORSMiddleware' aria/hub/api.py",
-      "passes": false
-    },
-    {
-      "id": "T08",
-      "name": "Security: Auth warning when ARIA_API_KEY unset (#64)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && grep -q 'ARIA_API_KEY not set' aria/hub/api.py",
-      "passes": false
-    },
-    {
-      "id": "T09",
-      "name": "Security: Auth gate on /ws/audit (#65)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && grep -A5 'ws/audit' aria/hub/api.py | grep -q '_ARIA_API_KEY'",
-      "passes": false
-    },
-    {
-      "id": "T10",
-      "name": "Reliability: Engine-Hub schema contract test (#19)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/integration/test_schema_contract.py --timeout=120 -x -q",
-      "passes": false
-    },
-    {
-      "id": "T11",
-      "name": "Reliability: Stagger reconnect delays (#20)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && grep -c 'retry_delay = [0-9]' aria/modules/discovery.py aria/modules/activity_monitor.py aria/modules/presence.py | grep -v ':0$' | wc -l | xargs test 3 -le",
-      "passes": false
-    },
-    {
-      "id": "T12",
-      "name": "Reliability: Telegram startup probe (#21)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && grep -q 'verify_telegram\\|telegram.*probe\\|telegram.*connectivity' aria/watchdog.py",
-      "passes": false
-    },
-    {
-      "id": "T13",
-      "name": "Reliability: Snapshot write lock (#22)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && grep -q 'flock\\|fcntl\\|already_exists\\|hour.window' aria/engine/collectors/snapshot.py",
-      "passes": false
-    },
-    {
-      "id": "T14",
-      "name": "Reliability: Presence cold-start validation (#23)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && grep -q 'presence_valid\\|all.zero\\|presence.*cold' aria/engine/validation.py",
-      "passes": false
-    },
-    {
-      "id": "T15",
-      "name": "Performance: Async subprocess in discovery (#51)",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && grep -q 'create_subprocess_exec' aria/modules/discovery.py",
-      "passes": false
-    },
-    {
-      "id": "T16",
-      "name": "All tests pass after all fixes",
-      "acceptance": "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/ --timeout=120 -x -q",
-      "passes": false
-    }
-  ]
-}
+[
+  {
+    "id": 1,
+    "title": "Install Puppeteer and create screenshot audit script scaffold",
+    "description": "Add puppeteer as a devDependency in spa/package.json. Create spa/scripts/screenshot-audit.js with the basic structure: launch headless browser, navigate to each of the 11 routes, wait for loading states to clear, capture full-page screenshots to docs/audit/screenshots/. Create docs/audit/ directory.",
+    "acceptance_criteria": [
+      "grep -q 'puppeteer' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/package.json",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/scripts/screenshot-audit.js",
+      "test -d /home/justin/Documents/projects/ha-aria/docs/audit"
+    ],
+    "passes": false,
+    "blocked_by": []
+  },
+  {
+    "id": 2,
+    "title": "Add API comparison to screenshot audit script",
+    "description": "Extend screenshot-audit.js to hit each page's corresponding backend API endpoints (per the API mapping table in the design doc), extract rendered DOM text, compare key data points, and generate docs/audit/audit-report.md with any mismatches found. The script should be runnable via 'node spa/scripts/screenshot-audit.js' while the hub is running.",
+    "acceptance_criteria": [
+      "grep -q 'audit-report' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/scripts/screenshot-audit.js",
+      "grep -q 'fetch' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/scripts/screenshot-audit.js",
+      "grep -qE '(anomalies|shadow|pipeline|curation|capabilities)' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/scripts/screenshot-audit.js"
+    ],
+    "passes": false,
+    "blocked_by": [1]
+  },
+  {
+    "id": 3,
+    "title": "Run screenshot audit and capture all 11 pages",
+    "description": "Execute the screenshot audit script against the running ARIA hub. Verify all 11 screenshots are captured and the audit report is generated. Review the report for any frontend/backend mismatches.",
+    "acceptance_criteria": [
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/home.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/observe.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/understand.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/decide.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/discovery.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/capabilities.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/ml-engine.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/data-curation.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/validation.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/settings.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/guide.png",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/audit-report.md"
+    ],
+    "passes": false,
+    "blocked_by": [2]
+  },
+  {
+    "id": 4,
+    "title": "Fix any frontend/backend mismatches found in audit",
+    "description": "Address any data mismatches identified in audit-report.md. This may involve fixing API calls in frontend components, correcting data transformations, or updating cache key references. Re-run audit after fixes to confirm resolution.",
+    "acceptance_criteria": [
+      "grep -qiE '(0 mismatches|no mismatches|all pages match|PASS)' /home/justin/Documents/projects/ha-aria/docs/audit/audit-report.md"
+    ],
+    "passes": false,
+    "blocked_by": [3]
+  },
+  {
+    "id": 5,
+    "title": "Create shared detail infrastructure: Breadcrumb, clickable-data CSS, DetailPage router",
+    "description": "Create: (1) spa/src/components/Breadcrumb.jsx — terminal-style path nav with clickable segments, (2) .clickable-data CSS class in index.css with hover affordance (--bg-surface-raised, cursor pointer, left accent border), (3) spa/src/pages/DetailPage.jsx — route component that reads :type and :id params and dispatches to type-specific renderers. Add DetailPage route to app.jsx.",
+    "acceptance_criteria": [
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/Breadcrumb.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/DetailPage.jsx",
+      "grep -q 'clickable-data' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/index.css",
+      "grep -q 'DetailPage' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/app.jsx",
+      "grep -q '/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/app.jsx"
+    ],
+    "passes": false,
+    "blocked_by": [4]
+  },
+  {
+    "id": 6,
+    "title": "Build core detail renderers: Anomaly, Room, Entity, Prediction",
+    "description": "Create the 4 most-used detail renderers in spa/src/pages/details/: AnomalyDetail.jsx (SHAP + path trace + severity history), RoomDetail.jsx (signals + Bayesian breakdown + persons), EntityDetail.jsx (state + area + curation tier), PredictionDetail.jsx (prediction vs actual + confidence). Each follows Summary/Explanation/History layout with SUPERHOT treatments (sh-threat-pulse for critical anomalies, sh-frozen for stale data).",
+    "acceptance_criteria": [
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/AnomalyDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/RoomDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/EntityDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/PredictionDetail.jsx",
+      "grep -q 'PageBanner' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/AnomalyDetail.jsx",
+      "grep -q 't-frame' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/RoomDetail.jsx"
+    ],
+    "passes": false,
+    "blocked_by": [5]
+  },
+  {
+    "id": 7,
+    "title": "Build remaining detail renderers: Suggestion, Capability, Model, Drift, Module, Config, Curation, Correlation, Baseline",
+    "description": "Create the remaining 9 detail renderers in spa/src/pages/details/. Refactor existing CapabilityDetail.jsx component into the new detail routing system. Each follows the Summary/Explanation/History layout pattern with SUPERHOT visual treatments.",
+    "acceptance_criteria": [
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/SuggestionDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/CapabilityDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/ModelDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/DriftDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/ModuleDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/ConfigDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/CurationDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/CorrelationDetail.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/details/BaselineDetail.jsx"
+    ],
+    "passes": false,
+    "blocked_by": [6]
+  },
+  {
+    "id": 8,
+    "title": "Add click handlers to OODA pages (Home, Observe, Understand, Decide)",
+    "description": "Wire up clickable-data on the 4 primary pages: Home.jsx (HeroCards link to anomalies/suggestions/accuracy, Sankey nodes to module detail), Observe.jsx (presence rooms, live metrics, activity items), Understand.jsx (anomaly cards, prediction rows, drift indicators, correlations, baselines), Decide.jsx (suggestion cards). Use .clickable-data class and navigate to #/detail/:type/:id.",
+    "acceptance_criteria": [
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Home.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Observe.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Understand.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Decide.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PresenceCard.jsx"
+    ],
+    "passes": false,
+    "blocked_by": [7]
+  },
+  {
+    "id": 9,
+    "title": "Add click handlers to system pages (Discovery, Capabilities, ML Engine, Data Curation, Settings)",
+    "description": "Wire up clickable-data on the 5 system pages: Discovery.jsx, Capabilities.jsx (refactor to use detail routing), MLEngine.jsx, DataCuration.jsx, Settings.jsx. Use .clickable-data class and navigate to #/detail/:type/:id.",
+    "acceptance_criteria": [
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Discovery.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Capabilities.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/MLEngine.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/DataCuration.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Settings.jsx"
+    ],
+    "passes": false,
+    "blocked_by": [7]
+  },
+  {
+    "id": 10,
+    "title": "Add click handlers to shared components (HeroCard, PipelineSankey)",
+    "description": "Add optional href/onClick props to HeroCard (navigates to relevant detail page) and PipelineSankey (node click navigates to #/detail/module/:id). Verify OodaSummaryCard existing href works correctly.",
+    "acceptance_criteria": [
+      "grep -q 'href\\|onClick' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/HeroCard.jsx",
+      "grep -q '#/detail/' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/PipelineSankey.jsx"
+    ],
+    "passes": false,
+    "blocked_by": [5]
+  },
+  {
+    "id": 11,
+    "title": "Build SPA and verify detail routing works end-to-end",
+    "description": "Run npm run build in spa directory. Verify the SPA builds without errors and bundle.js is generated.",
+    "acceptance_criteria": [
+      "cd /home/justin/Documents/projects/ha-aria/aria/dashboard/spa && npm run build 2>&1 | tail -1 | grep -vq 'error'",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/dist/bundle.js"
+    ],
+    "passes": false,
+    "blocked_by": [8, 9, 10]
+  },
+  {
+    "id": 12,
+    "title": "Create backend module source config endpoints",
+    "description": "Create aria/hub/routes_module_config.py with GET/PUT /api/config/modules/{module}/sources endpoints. Add default source configs to config_defaults.py (presence.enabled_signals, activity.enabled_domains, anomaly.enabled_entities, shadow.enabled_capabilities, discovery.domain_filter). Register routes in server.py. Write tests.",
+    "acceptance_criteria": [
+      "test -f /home/justin/Documents/projects/ha-aria/aria/hub/routes_module_config.py",
+      "grep -q 'enabled_signals\\|enabled_domains' /home/justin/Documents/projects/ha-aria/aria/hub/config_defaults.py",
+      "grep -q 'routes_module_config' /home/justin/Documents/projects/ha-aria/aria/hub/server.py",
+      "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/hub/ -k 'module_config' -x --timeout=120 -q"
+    ],
+    "passes": false,
+    "blocked_by": [4]
+  },
+  {
+    "id": 13,
+    "title": "Wire modules to read source config at runtime",
+    "description": "Update presence.py to read presence.enabled_signals from config and skip disabled signal types. Update activity module to read activity.enabled_domains. Update intelligence.py to read anomaly source config. Modules should re-read config on config change events. Write tests for filtering behavior.",
+    "acceptance_criteria": [
+      "grep -q 'enabled_signals' /home/justin/Documents/projects/ha-aria/aria/modules/presence.py",
+      "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/hub/test_presence.py -x --timeout=120 -q",
+      "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/hub/ -k 'source_config' -x --timeout=120 -q"
+    ],
+    "passes": false,
+    "blocked_by": [12]
+  },
+  {
+    "id": 14,
+    "title": "Build frontend data source config components and integrate into pages",
+    "description": "Create spa/src/components/TerminalToggle.jsx ([ON]/[OFF] terminal-style toggle), spa/src/components/DataSourceConfig.jsx (source toggle list per module using PUT /api/config/modules/{module}/sources). Extend InlineSettings to support DataSourceConfig sections. Add to Observe (Presence + Activity Sources), Understand (Anomaly + Shadow Sources). Include safety: prevent last toggle-off, warning for high-contribution sources.",
+    "acceptance_criteria": [
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/TerminalToggle.jsx",
+      "test -f /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/components/DataSourceConfig.jsx",
+      "grep -q 'DataSourceConfig' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Observe.jsx",
+      "grep -q 'DataSourceConfig' /home/justin/Documents/projects/ha-aria/aria/dashboard/spa/src/pages/Understand.jsx"
+    ],
+    "passes": false,
+    "blocked_by": [12]
+  },
+  {
+    "id": 15,
+    "title": "Final build, full test suite, and re-run screenshot audit",
+    "description": "Rebuild SPA. Run full Python test suite. Re-run screenshot audit to capture final state of all pages plus representative detail pages. Verify no regressions.",
+    "acceptance_criteria": [
+      "cd /home/justin/Documents/projects/ha-aria/aria/dashboard/spa && npm run build 2>&1 | tail -1 | grep -vq 'error'",
+      "cd /home/justin/Documents/projects/ha-aria && .venv/bin/python -m pytest tests/ -x --timeout=120 -q",
+      "test -f /home/justin/Documents/projects/ha-aria/docs/audit/screenshots/home.png"
+    ],
+    "passes": false,
+    "blocked_by": [11, 13, 14]
+  }
+]
