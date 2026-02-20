@@ -554,6 +554,31 @@ body {
   .crt-overlay { display: none; }
 }
 
+/* ── Force ALL superhot-ui effects on mobile ── */
+/* superhot-ui disables shatter/mantra/glitch on small screens by default.
+   ARIA wants full effects everywhere — override the package's mobile rules. */
+@media (max-width: 639px) {
+  .sh-fragment {
+    animation: sh-shatter-fragment var(--sh-shatter-duration, 600ms) ease-out forwards !important;
+    opacity: 1 !important;
+    transition: none !important;
+  }
+
+  [data-sh-mantra]::before {
+    display: flex !important;
+  }
+
+  [data-sh-state="stale"]::after {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  [data-sh-effect="glitch"] {
+    animation: sh-glitch-jitter var(--sh-glitch-duration, 300ms) steps(4) 2 !important;
+    color: inherit !important;
+  }
+}
 
 /* ── New ambient animations ── */
 
