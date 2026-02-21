@@ -73,6 +73,7 @@ include = ["aria*"]
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+addopts = "-n 12 --dist load"
 markers = [
     "ollama: tests requiring a running Ollama instance (deselect with '-m not ollama')",
 ]
