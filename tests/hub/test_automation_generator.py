@@ -66,6 +66,9 @@ class MockHub:
     def register_module(self, mod):
         self.modules[mod.module_id] = mod
 
+    def get_module(self, module_id: str):
+        return self.modules.get(module_id)
+
     async def publish(self, event_type: str, data: dict[str, Any]):
         self._published_events.append({"event_type": event_type, "data": data})
 
@@ -677,3 +680,119 @@ class TestSuggestionFormat:
         matched = [s for s in result2 if s["suggestion_id"] == sid]
         if matched:
             assert matched[0]["status"] == "approved"
+
+
+# ============================================================================
+# Task 32: Health Cache + Observability
+# ============================================================================
+
+
+class TestHealthCacheUpdate:
+    """Tests for automation_system_health cache category."""
+
+    @pytest.fixture
+    def hub(self):
+        """Create a MockHub for health cache tests."""
+        return MockHub()
+
+    @pytest.fixture
+    def module(self, hub):
+        """Create a generator module for health cache tests."""
+        return AutomationGeneratorModule(hub, top_n=5, min_confidence=0.5)
+
+    @pytest.mark.asyncio
+    async def test_health_cache_populated_after_generation(self, hub, module):
+        """generate_suggestions() writes automation_system_health cache."""
+        # Seed pattern cache with a valid detection
+        det = make_detection(source="pattern", confidence=0.9)
+        await hub.set_cache("patterns", make_pattern_cache([det]))
+        await hub.set_cache("gaps", {"detections": []})
+
+        with (
+            patch("aria.modules.automation_generator.refine_automation", new_callable=AsyncMock) as mock_refine,
+            patch("aria.modules.automation_generator.validate_automation") as mock_validate,
+            patch("aria.modules.automation_generator.compare_candidate") as mock_shadow,
+        ):
+            mock_refine.side_effect = lambda auto, **kw: auto
+            mock_validate.return_value = (True, [])
+            mock_shadow.return_value = ShadowResult(
+                candidate={},
+                status="new",
+                duplicate_score=0.0,
+                conflicting_automation=None,
+                gap_source_automation=None,
+                reason="New automation",
+            )
+            await module.generate_suggestions()
+
+        health = await hub.get_cache("automation_system_health")
+        assert health is not None
+        data = health["data"]
+        assert data["generator_loaded"] is True
+        assert data["suggestions_total"] >= 1
+        assert "last_generation" in data
+        assert "suggestions_pending" in data
+
+    @pytest.mark.asyncio
+    async def test_health_cache_counts_by_status(self, hub, module):
+        """Health cache correctly counts pending/approved/rejected."""
+        # Pre-populate existing suggestions with mixed statuses
+        existing = [
+            {"suggestion_id": "s1", "status": "approved", "created_at": "2026-01-01"},
+            {"suggestion_id": "s2", "status": "rejected", "created_at": "2026-01-01"},
+        ]
+        await hub.set_cache("automation_suggestions", {"suggestions": existing, "count": 2})
+
+        # Empty caches for the generation run
+        await hub.set_cache("patterns", {"detections": []})
+        await hub.set_cache("gaps", {"detections": []})
+
+        # No detections means no new suggestions — just health update
+        await module.generate_suggestions()
+
+        health = await hub.get_cache("automation_system_health")
+        assert health is not None
+        data = health["data"]
+        assert data["suggestions_total"] == 0
+        assert data["suggestions_pending"] == 0
+
+    @pytest.mark.asyncio
+    async def test_health_cache_failure_is_non_fatal(self, hub, module):
+        """Health cache update failure doesn't break suggestion generation."""
+        await hub.set_cache("patterns", {"detections": []})
+        await hub.set_cache("gaps", {"detections": []})
+
+        # Make set_cache fail only for health updates
+        original_set_cache = hub.set_cache
+
+        async def _failing_set_cache(category, data, metadata=None):
+            if category == "automation_system_health":
+                raise RuntimeError("simulated cache failure")
+            return await original_set_cache(category, data, metadata)
+
+        hub.set_cache = _failing_set_cache
+
+        # Should not raise
+        result = await module.generate_suggestions()
+        assert isinstance(result, list)
+
+    @pytest.mark.asyncio
+    async def test_health_cache_includes_orchestrator_status(self, hub, module):
+        """Health cache reports orchestrator module presence."""
+        await hub.set_cache("patterns", {"detections": []})
+        await hub.set_cache("gaps", {"detections": []})
+
+        # No orchestrator registered
+        await module.generate_suggestions()
+        health = await hub.get_cache("automation_system_health")
+        assert health["data"]["orchestrator_loaded"] is False
+
+        # Register a fake orchestrator
+        mock_orch = MagicMock()
+        mock_orch.module_id = "orchestrator"
+        hub.modules["orchestrator"] = mock_orch
+        hub.get_module = lambda mid: hub.modules.get(mid)
+
+        await module.generate_suggestions()
+        health = await hub.get_cache("automation_system_health")
+        assert health["data"]["orchestrator_loaded"] is True

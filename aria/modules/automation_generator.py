@@ -130,6 +130,7 @@ class AutomationGeneratorModule(Module):
         detections = await self._load_detections()
         if not detections:
             self.logger.info("No detections found in pattern/gap caches")
+            await self._update_health_cache([])
             return []
 
         # 2. Score and sort
@@ -189,7 +190,55 @@ class AutomationGeneratorModule(Module):
         )
 
         self.logger.info("Generated %d automation suggestions", len(suggestions))
+
+        # 9. Update system health cache
+        await self._update_health_cache(suggestions)
+
         return suggestions
+
+    # ------------------------------------------------------------------
+    # Health reporting
+    # ------------------------------------------------------------------
+
+    async def _update_health_cache(self, suggestions: list[dict[str, Any]]) -> None:
+        """Update the automation_system_health cache category.
+
+        Provides a single-read health snapshot for the /api/automations/health
+        endpoint and observability dashboards.
+        """
+        try:
+            ha_cache = await self.hub.get_cache("ha_automations")
+            pipeline = await self.hub.get_cache("pipeline_state")
+            feedback_cache = await self.hub.get_cache("automation_feedback")
+
+            ha_data = ha_cache.get("data", {}) if ha_cache else {}
+            fb_data = feedback_cache.get("data", {}) if feedback_cache else {}
+
+            pending = sum(1 for s in suggestions if s.get("status") == "pending")
+            approved = sum(1 for s in suggestions if s.get("status") == "approved")
+            rejected = sum(1 for s in suggestions if s.get("status") == "rejected")
+
+            health = {
+                "suggestions_total": len(suggestions),
+                "suggestions_pending": pending,
+                "suggestions_approved": approved,
+                "suggestions_rejected": rejected,
+                "ha_automations_count": len(ha_data.get("automations", {})),
+                "ha_automations_last_synced": ha_cache.get("last_updated") if ha_cache else None,
+                "pipeline_stage": pipeline.get("current_stage", "shadow") if pipeline else "shadow",
+                "feedback_count": len(fb_data.get("suggestions", {})),
+                "generator_loaded": True,
+                "orchestrator_loaded": self.hub.get_module("orchestrator") is not None,
+                "last_generation": datetime.now().isoformat(),
+            }
+
+            await self.hub.set_cache(
+                "automation_system_health",
+                health,
+                {"source": "automation_generator"},
+            )
+        except Exception as e:
+            self.logger.warning("Failed to update health cache: %s", e)
 
     # ------------------------------------------------------------------
     # Internal pipeline steps
