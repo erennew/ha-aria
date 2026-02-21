@@ -12,20 +12,22 @@ def entity_graph():
     """Mock EntityGraph with known entities."""
     graph = MagicMock()
     graph.has_entity = MagicMock(
-        side_effect=lambda eid: eid
-        in {
-            "binary_sensor.bedroom_motion",
-            "light.bedroom",
-            "light.kitchen",
-            "switch.fan",
-            "person.alice",
-            "sensor.bedroom_illuminance",
-            "lock.front_door",
-            "alarm_control_panel.home",
-            "cover.garage",
-            "notify.mobile",
-            "scene.evening",
-        }
+        side_effect=lambda eid: (
+            eid
+            in {
+                "binary_sensor.bedroom_motion",
+                "light.bedroom",
+                "light.kitchen",
+                "switch.fan",
+                "person.alice",
+                "sensor.bedroom_illuminance",
+                "lock.front_door",
+                "alarm_control_panel.home",
+                "cover.garage",
+                "notify.mobile",
+                "scene.evening",
+            }
+        )
     )
     return graph
 

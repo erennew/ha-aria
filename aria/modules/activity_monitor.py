@@ -482,9 +482,9 @@ class ActivityMonitor(Module):
                 )
             )
             task.add_done_callback(
-                lambda t: self.logger.debug("Event store persist task failed: %s", t.exception())
-                if t.exception()
-                else None
+                lambda t: (
+                    self.logger.debug("Event store persist task failed: %s", t.exception()) if t.exception() else None
+                )
             )
         except Exception as e:
             self.logger.warning("Event store persist failed: %s", e)
