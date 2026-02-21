@@ -187,6 +187,9 @@ class MLEngine(Module):
         # Model pipeline status: untrained | training | ready | stale
         self.model_status: str = "untrained"
 
+        # Lazy-init SegmentBuilder for event-derived features
+        self._segment_builder = None
+
     async def initialize(self):
         """Initialize module - load existing models."""
         self.logger.info("ML Engine initializing...")
@@ -721,6 +724,10 @@ class MLEngine(Module):
         # controls the column order used when assembling the numpy feature matrix.
         self._collect_dict_feature_names(config.get("presence_features", {}), names)
 
+        # Event-derived features (Phase 2 — from SegmentBuilder)
+        # Must appear here (after presence, before rolling windows) to match engine ordering.
+        self._collect_dict_feature_names(config.get("event_features", {}), names)
+
         # Rolling window features (hub-only: live activity log stats not available to engine)
         for hours in ROLLING_WINDOWS_HOURS:
             names.extend(
@@ -1036,8 +1043,17 @@ class MLEngine(Module):
         if "time_features" not in snapshot:
             snapshot = {**snapshot, "time_features": self._compute_time_features(snapshot)}
 
+        # Build segment data from EventStore (if available)
+        segment_data = None
+        try:
+            segment_data = await self._build_segment_data()
+        except Exception as e:
+            self.logger.warning("Segment build failed, using snapshot only: %s", e)
+
         # Delegate base feature extraction to shared engine builder
-        features = _engine_build_feature_vector(snapshot, config, prev_snapshot, rolling_stats)
+        features = _engine_build_feature_vector(
+            snapshot, config, prev_snapshot, rolling_stats, segment_data=segment_data
+        )
 
         # Hub-only: append rolling window features from live activity log
         rws = rolling_window_stats or {}
@@ -1056,6 +1072,83 @@ class MLEngine(Module):
             features["trajectory_class"] = self._encode_trajectory(trajectory)
 
         return features
+
+    async def _build_segment_data(self) -> dict[str, Any] | None:
+        """Build a 15-minute feature segment from EventStore.
+
+        Returns segment dict or None if EventStore is unavailable.
+        Lazily creates SegmentBuilder on first call.
+        """
+        if not getattr(self.hub, "event_store", None):
+            return None
+
+        if self._segment_builder is None:
+            from aria.shared.segment_builder import SegmentBuilder
+
+            self._segment_builder = SegmentBuilder(self.hub.event_store, self.hub.entity_graph)
+
+        now = datetime.now(tz=UTC)
+        return await self._segment_builder.build_segment(
+            (now - timedelta(minutes=15)).isoformat(),
+            now.isoformat(),
+        )
+
+    async def _get_dynamic_targets(self) -> dict[str, Any]:
+        """Discover per-area and per-domain prediction targets from EventStore.
+
+        Queries 7 days of events, counts activity per area/domain, and creates
+        targets for areas with >100 events and key domains with >100 events.
+
+        Returns dict mapping target_name to extractor function:
+            {"area_kitchen_activity": lambda segment: segment["per_area_activity"].get("kitchen", 0)}
+        """
+        _MIN_EVENTS = 100
+
+        if not getattr(self.hub, "event_store", None):
+            return {}
+
+        now = datetime.now(tz=UTC)
+        start = (now - timedelta(days=7)).isoformat()
+        end = now.isoformat()
+
+        try:
+            events = await self.hub.event_store.query_events(start, end)
+        except Exception as e:
+            self.logger.warning("Failed to query events for dynamic targets: %s", e)
+            return {}
+
+        if not events:
+            return {}
+
+        # Count events per area
+        from collections import Counter
+
+        area_counts: Counter = Counter()
+        domain_counts: Counter = Counter()
+        for event in events:
+            area = event.get("area_id")
+            if area:
+                area_counts[area] += 1
+            domain_counts[event.get("domain", "")] += 1
+
+        targets: dict[str, Any] = {}
+
+        # Per-area targets (areas with sufficient activity)
+        for area, count in area_counts.items():
+            if count >= _MIN_EVENTS:
+                area_key = area
+                targets[f"area_{area_key}_activity"] = lambda seg, a=area_key: seg.get("per_area_activity", {}).get(
+                    a, 0
+                )
+
+        # Per-domain targets (key domains with sufficient activity)
+        for domain, count in domain_counts.items():
+            if count >= _MIN_EVENTS and domain:
+                targets[f"domain_{domain}_event_count"] = lambda seg, d=domain: seg.get("per_domain_counts", {}).get(
+                    d, 0
+                )
+
+        return targets
 
     def _extract_target(self, snapshot: dict[str, Any], target: str) -> float | None:
         """Extract target value from snapshot.

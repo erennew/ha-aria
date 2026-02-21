@@ -4,7 +4,6 @@ Converts detected behavioral patterns into Home Assistant automations,
 manages approval flow, and creates virtual sensors for pattern detection events.
 """
 
-import hashlib
 import json
 import logging
 from datetime import datetime, timedelta
@@ -101,197 +100,28 @@ class OrchestratorModule(Module):
                 self.logger.error(f"Failed to regenerate suggestions: {e}")
 
     async def generate_suggestions(self) -> list[dict[str, Any]]:
-        """Generate automation suggestions from detected patterns.
+        """Generate automation suggestions by delegating to AutomationGeneratorModule.
 
-        Reads patterns from hub cache, filters by confidence threshold,
-        generates HA automation YAML structures, and stores suggestions in cache.
+        If the automation_generator module is registered, delegates to it.
+        Otherwise falls back to reading the automation_suggestions cache directly.
 
         Returns:
             List of generated suggestions
         """
-        self.logger.info("Generating automation suggestions from patterns...")
+        self.logger.info("Generating automation suggestions...")
 
-        # 1. Load patterns from cache (warn if older than 24 hours)
-        patterns_cache = await self.hub.get_cache_fresh("patterns", timedelta(hours=24), caller="orchestrator")
-        if not patterns_cache or "data" not in patterns_cache:
-            self.logger.warning("No patterns found in cache")
-            return []
+        # Delegate to AutomationGeneratorModule if available
+        generator = self.hub.modules.get("automation_generator")
+        if generator is not None:
+            self.logger.info("Delegating suggestion generation to AutomationGeneratorModule")
+            return await generator.generate_suggestions()
 
-        patterns_data = patterns_cache["data"]
-        patterns = patterns_data.get("patterns", [])
-
-        if not patterns:
-            self.logger.warning("Patterns cache is empty")
-            return []
-
-        self.logger.info(f"Found {len(patterns)} patterns in cache")
-
-        # 2. Filter patterns by confidence
-        eligible_patterns = [p for p in patterns if p.get("confidence", 0) >= self.min_confidence]
-
-        self.logger.info(f"{len(eligible_patterns)} patterns meet confidence threshold (≥{self.min_confidence:.0%})")
-
-        # 3. Generate suggestions
-        suggestions = []
-        for pattern in eligible_patterns:
-            try:
-                suggestion = await self._pattern_to_suggestion(pattern)
-                suggestions.append(suggestion)
-            except Exception as e:
-                self.logger.error(f"Failed to generate suggestion for pattern {pattern.get('pattern_id')}: {e}")
-
-        # 4. Load existing suggestions to preserve status
-        existing_suggestions_cache = await self.hub.get_cache("automation_suggestions")
-        existing_suggestions = {}
-        if existing_suggestions_cache and "data" in existing_suggestions_cache:
-            for s in existing_suggestions_cache["data"].get("suggestions", []):
-                existing_suggestions[s["suggestion_id"]] = s
-
-        # 5. Merge with existing suggestions (preserve approval status)
-        final_suggestions = []
-        for suggestion in suggestions:
-            suggestion_id = suggestion["suggestion_id"]
-            if suggestion_id in existing_suggestions:
-                # Preserve status from existing suggestion
-                existing = existing_suggestions[suggestion_id]
-                suggestion["status"] = existing.get("status", "pending")
-                suggestion["created_at"] = existing.get("created_at", suggestion["created_at"])
-                if existing.get("automation_id"):
-                    suggestion["automation_id"] = existing["automation_id"]
-            final_suggestions.append(suggestion)
-
-        # 6. Store in cache
-        await self.hub.set_cache(
-            "automation_suggestions",
-            {
-                "suggestions": final_suggestions,
-                "count": len(final_suggestions),
-                "eligible_patterns": len(eligible_patterns),
-                "total_patterns": len(patterns),
-            },
-            {"source": "orchestrator", "min_confidence": self.min_confidence},
-        )
-
-        self.logger.info(f"Generated {len(final_suggestions)} automation suggestions")
-        return final_suggestions
-
-    async def _pattern_to_suggestion(self, pattern: dict[str, Any]) -> dict[str, Any]:
-        """Convert a pattern into an automation suggestion.
-
-        Args:
-            pattern: Pattern dictionary from pattern recognition module
-
-        Returns:
-            Automation suggestion dictionary
-        """
-        pattern_id = pattern["pattern_id"]
-        area = pattern.get("area", "general")
-        typical_time = pattern.get("typical_time", "00:00")  # HH:MM format
-        variance_minutes = pattern.get("variance_minutes", 0)
-        frequency = pattern.get("frequency", 0)
-        total_days = pattern.get("total_days", 1)
-        associated_signals = pattern.get("associated_signals", [])
-        llm_description = pattern.get("llm_description", "No description available")
-
-        # Parse typical time
-        time_parts = typical_time.split(":")
-        hour = int(time_parts[0])
-        minute = int(time_parts[1])
-
-        # Generate automation YAML structure
-        # Trigger: Time pattern (typical time ± variance)
-        automation_yaml = {
-            "alias": f"Pattern: {pattern.get('name', pattern_id)}",
-            "description": f"Auto-generated from detected pattern. {llm_description}",
-            "trigger": [{"platform": "time", "at": f"{hour:02d}:{minute:02d}:00"}],
-            "condition": [],
-            "action": [],
-        }
-
-        # Extract actions from associated signals
-        actions = self._signals_to_actions(area, associated_signals)
-        automation_yaml["action"] = actions
-
-        # Check for restricted domains
-        requires_explicit_approval = self._check_safety_guardrails(actions)
-
-        # Generate unique suggestion ID (hash of pattern_id + timestamp)
-        suggestion_id = hashlib.sha256(f"{pattern_id}_{typical_time}".encode()).hexdigest()[:16]
-
-        # Calculate confidence (based on pattern frequency)
-        confidence = frequency / total_days if total_days > 0 else 0
-
-        suggestion = {
-            "suggestion_id": suggestion_id,
-            "pattern_id": pattern_id,
-            "automation_yaml": automation_yaml,
-            "confidence": confidence,
-            "status": "pending",
-            "requires_explicit_approval": requires_explicit_approval,
-            "created_at": datetime.now().isoformat(),
-            "metadata": {
-                "area": area,
-                "typical_time": typical_time,
-                "variance_minutes": variance_minutes,
-                "frequency": frequency,
-                "total_days": total_days,
-                "llm_description": llm_description,
-            },
-        }
-
-        if requires_explicit_approval:
-            self.logger.warning(f"Suggestion {suggestion_id} requires explicit approval (restricted domains detected)")
-
-        return suggestion
-
-    def _signals_to_actions(self, area: str, signals: list[str]) -> list[dict[str, Any]]:
-        """Convert associated signals into Home Assistant actions.
-
-        Args:
-            area: Area name
-            signals: List of signal strings (e.g., "bedroom_light_on_h7")
-
-        Returns:
-            List of HA action dictionaries
-        """
-        actions = []
-
-        # Parse signals to extract entities and states
-        for signal in signals:
-            # Signal format: "{area}_{entity_type}_{state}_h{hour}"
-            parts = signal.split("_")
-
-            if len(parts) < 3:
-                continue
-
-            signal_area = parts[0]
-            entity_type = parts[1]
-            state = parts[2]
-
-            # Only process signals for this area
-            if signal_area != area:
-                continue
-
-            # Map to HA service calls
-            if entity_type == "light":
-                if state == "on":
-                    actions.append({"service": "light.turn_on", "target": {"area_id": area}})
-                elif state == "off":
-                    actions.append({"service": "light.turn_off", "target": {"area_id": area}})
-
-        # Default action if no signals parsed
-        if not actions:
-            actions.append(
-                {
-                    "service": "notify.persistent_notification",
-                    "data": {
-                        "message": f"Pattern detected in {area} at typical time",
-                        "title": f"{area.title()} Pattern",
-                    },
-                }
-            )
-
-        return actions
+        # Fallback: read existing suggestions from cache
+        self.logger.warning("AutomationGeneratorModule not registered, reading cache directly")
+        cached = await self.hub.get_cache("automation_suggestions")
+        if cached and "data" in cached:
+            return cached["data"].get("suggestions", [])
+        return []
 
     def _check_safety_guardrails(self, actions: list[dict[str, Any]]) -> bool:
         """Check if actions contain restricted domains.
@@ -366,13 +196,16 @@ class OrchestratorModule(Module):
             # 6. Track created automation
             await self._track_created_automation(automation_id, suggestion_id)
 
+            # 6b. Immediately add to ha_automations cache (prevents re-suggestion)
+            await self._update_ha_automations_cache(automation_id, automation_yaml)
+
             # 7. Publish approval event
             await self.hub.publish(
                 "automation_approved",
                 {
                     "suggestion_id": suggestion_id,
                     "automation_id": automation_id,
-                    "pattern_id": suggestion["pattern_id"],
+                    "pattern_id": suggestion.get("metadata", {}).get("pattern_id", suggestion.get("source", "")),
                 },
             )
 
@@ -419,7 +252,11 @@ class OrchestratorModule(Module):
 
         # 4. Publish rejection event
         await self.hub.publish(
-            "automation_rejected", {"suggestion_id": suggestion_id, "pattern_id": suggestion["pattern_id"]}
+            "automation_rejected",
+            {
+                "suggestion_id": suggestion_id,
+                "pattern_id": suggestion.get("metadata", {}).get("pattern_id", suggestion.get("source", "")),
+            },
         )
 
         self.logger.info(f"Suggestion {suggestion_id} rejected")
@@ -532,6 +369,51 @@ class OrchestratorModule(Module):
 
         # Save tracking data
         await self.hub.set_cache("created_automations", tracking_data)
+
+    async def _update_ha_automations_cache(self, automation_id: str, automation_yaml: dict[str, Any]):
+        """Immediately add approved automation to ha_automations cache.
+
+        Prevents re-suggestion before the next sync cycle by ensuring
+        the shadow comparison engine sees the new automation.
+
+        Args:
+            automation_id: Unique automation identifier
+            automation_yaml: Automation configuration
+        """
+        # Load existing ha_automations cache
+        ha_cache = await self.hub.get_cache("ha_automations")
+        automations = list(ha_cache["data"].get("automations", [])) if ha_cache and "data" in ha_cache else []
+
+        # Build the automation entry
+        automation_entry = {
+            "id": automation_id,
+            **automation_yaml,
+        }
+
+        # Replace existing or append
+        replaced = False
+        for i, existing in enumerate(automations):
+            if existing.get("id") == automation_id:
+                automations[i] = automation_entry
+                replaced = True
+                break
+
+        if not replaced:
+            automations.append(automation_entry)
+
+        # Update cache
+        await self.hub.set_cache(
+            "ha_automations",
+            {
+                "automations": automations,
+                "count": len(automations),
+                "last_sync": ha_cache["data"].get("last_sync", "") if ha_cache and "data" in ha_cache else "",
+                "changes_since_last": 1,
+            },
+            {"source": "orchestrator_approval"},
+        )
+
+        self.logger.info(f"Added automation {automation_id} to ha_automations cache")
 
     async def update_pattern_detection_sensor(self, pattern_name: str, pattern_id: str, confidence: float):
         """Update HA virtual sensor for pattern detection events.

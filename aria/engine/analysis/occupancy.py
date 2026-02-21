@@ -49,6 +49,17 @@ class BayesianOccupancy:
         """
         self.area_sensors = area_sensors or {}
         self.priors = priors or {}
+        self.sensor_config = {k: dict(v) for k, v in SENSOR_CONFIG.items()}
+
+    def update_sensor_config(self, overrides: dict) -> None:
+        """Override sensor config values for specific signal types.
+
+        Only updates known signal types; unknown types are ignored.
+        Partial overrides are merged (e.g. weight-only keeps existing decay).
+        """
+        for signal_type, cfg in overrides.items():
+            if signal_type in self.sensor_config:
+                self.sensor_config[signal_type] = {**self.sensor_config[signal_type], **cfg}
 
     def estimate(self, snapshot, timestamp=None):
         """Estimate per-area occupancy from current snapshot.
@@ -181,7 +192,7 @@ class BayesianOccupancy:
         log_odds = math.log(prior / (1 - prior))
 
         for sensor_type, value, _ in signals:
-            config = SENSOR_CONFIG.get(sensor_type, {"weight": 0.3})
+            config = self.sensor_config.get(sensor_type, {"weight": 0.3})
             weight = config["weight"]
 
             # Convert sensor value to evidence (log-likelihood ratio)
