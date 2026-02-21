@@ -254,6 +254,139 @@ class AnomalyGapAnalyzer(Module):
 
         return results
 
+    # ── Cross-reference HA automations ──────────────────────────────────
+
+    def filter_covered_gaps(
+        self,
+        gaps: list[DetectionResult],
+        ha_automations: list[dict],
+    ) -> list[DetectionResult]:
+        """Remove gaps already covered by existing HA automations.
+
+        A gap is considered covered if an HA automation:
+        - For sequence gaps (chain > 1): has the same trigger entity AND
+          at least one matching action entity
+        - For solo gaps (chain == 1): has the trigger entity as an action
+          target (someone already automated turning it on/off)
+
+        Args:
+            gaps: DetectionResult objects from analyze_gaps().
+            ha_automations: List of HA automation dicts (from REST API).
+
+        Returns:
+            Filtered list with covered gaps removed.
+        """
+        if not ha_automations:
+            return gaps
+
+        # Build lookup: entity_id → set of action entity_ids per automation
+        automation_coverage = self._build_automation_coverage(ha_automations)
+
+        filtered = []
+        for gap in gaps:
+            if self._is_gap_covered(gap, automation_coverage):
+                self.logger.debug(
+                    "Gap filtered (covered by HA): trigger=%s actions=%s",
+                    gap.trigger_entity,
+                    gap.action_entities,
+                )
+                continue
+            filtered.append(gap)
+
+        self.logger.info(
+            "Cross-reference: %d gaps → %d after filtering (%d covered)",
+            len(gaps),
+            len(filtered),
+            len(gaps) - len(filtered),
+        )
+        return filtered
+
+    def _build_automation_coverage(
+        self,
+        ha_automations: list[dict],
+    ) -> dict[str, set[str]]:
+        """Build trigger→actions mapping from HA automations.
+
+        Returns:
+            Dict mapping trigger entity_id → set of action entity_ids.
+            Also maps action entity_ids → {"__action_target__"} to flag
+            entities that are action targets of any automation.
+        """
+        coverage: dict[str, set[str]] = defaultdict(set)
+
+        for auto in ha_automations:
+            trigger_entities = self._extract_trigger_entities(auto)
+            action_entities = self._extract_action_entities(auto)
+
+            for trigger in trigger_entities:
+                coverage[trigger].update(action_entities)
+
+            # Also mark action entities as covered targets
+            for action in action_entities:
+                coverage[action].add("__action_target__")
+
+        return coverage
+
+    def _is_gap_covered(
+        self,
+        gap: DetectionResult,
+        coverage: dict[str, set[str]],
+    ) -> bool:
+        """Check if a gap is covered by existing automation coverage."""
+        if len(gap.entity_chain) > 1:
+            # Sequence gap: need trigger match AND action overlap
+            trigger_actions = coverage.get(gap.trigger_entity, set())
+            if not trigger_actions:
+                return False
+            return any(a in trigger_actions for a in gap.action_entities)
+        else:
+            # Solo gap: covered if entity is an action target of any automation
+            return "__action_target__" in coverage.get(gap.trigger_entity, set())
+
+    @staticmethod
+    def _extract_trigger_entities(automation: dict) -> list[str]:
+        """Extract entity_ids from automation triggers."""
+        entities = []
+        triggers = automation.get("trigger", automation.get("triggers", []))
+        if isinstance(triggers, dict):
+            triggers = [triggers]
+        for trigger in triggers:
+            entity_id = trigger.get("entity_id")
+            if entity_id:
+                if isinstance(entity_id, list):
+                    entities.extend(entity_id)
+                else:
+                    entities.append(entity_id)
+        return entities
+
+    @staticmethod
+    def _extract_action_entities(automation: dict) -> list[str]:
+        """Extract entity_ids from automation actions."""
+        entities = []
+        actions = automation.get("action", automation.get("actions", []))
+        if isinstance(actions, dict):
+            actions = [actions]
+        for action in actions:
+            # Check target.entity_id
+            target = action.get("target", {})
+            if isinstance(target, dict):
+                entity_id = target.get("entity_id")
+                if entity_id:
+                    if isinstance(entity_id, list):
+                        entities.extend(entity_id)
+                    else:
+                        entities.append(entity_id)
+            # Check data.entity_id (legacy format)
+            data = action.get("data", {})
+            if isinstance(data, dict):
+                entity_id = data.get("entity_id")
+                if entity_id:
+                    if isinstance(entity_id, list):
+                        entities.extend(entity_id)
+                    else:
+                        entities.append(entity_id)
+        return entities
+
     # ── Helpers ──────────────────────────────────────────────────────────
 
     def _resolve_area(self, entity_id: str, events: list[dict]) -> str | None:
