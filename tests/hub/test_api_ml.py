@@ -24,16 +24,18 @@ class TestGetMLDrift:
         """Extracts drift status from intelligence cache."""
         api_hub.cache.get = AsyncMock(
             return_value={
-                "drift_status": {
-                    "needs_retrain": True,
-                    "reason": "drift detected in power_watts",
-                    "drifted_metrics": ["power_watts"],
-                    "rolling_mae": {"power_watts": 12.5},
-                    "current_mae": {"power_watts": 28.0},
-                    "threshold": {"power_watts": 15.0},
-                    "page_hinkley": {"power_watts": {"detected": True}},
-                    "adwin": {"power_watts": {"detected": False}},
-                    "days_analyzed": 7,
+                "data": {
+                    "drift_status": {
+                        "needs_retrain": True,
+                        "reason": "drift detected in power_watts",
+                        "drifted_metrics": ["power_watts"],
+                        "rolling_mae": {"power_watts": 12.5},
+                        "current_mae": {"power_watts": 28.0},
+                        "threshold": {"power_watts": 15.0},
+                        "page_hinkley": {"power_watts": {"detected": True}},
+                        "adwin": {"power_watts": {"detected": False}},
+                        "days_analyzed": 7,
+                    }
                 }
             }
         )
@@ -51,7 +53,7 @@ class TestGetMLDrift:
 
     def test_returns_defaults_when_no_drift_status(self, api_hub, api_client):
         """Returns defaults when intelligence exists but has no drift_status."""
-        api_hub.cache.get = AsyncMock(return_value={"some_other_key": "value"})
+        api_hub.cache.get = AsyncMock(return_value={"data": {"some_other_key": "value"}})
 
         response = api_client.get("/api/ml/drift")
         assert response.status_code == 200
@@ -91,12 +93,14 @@ class TestGetMLFeatures:
         """Extracts feature selection from intelligence cache."""
         api_hub.cache.get = AsyncMock(
             return_value={
-                "feature_selection": {
-                    "selected_features": ["hour_sin", "power_watts_lag1", "day_of_week"],
-                    "total_features": 48,
-                    "method": "mrmr",
-                    "max_features": 30,
-                    "last_computed": "2026-02-13T03:00:00",
+                "data": {
+                    "feature_selection": {
+                        "selected_features": ["hour_sin", "power_watts_lag1", "day_of_week"],
+                        "total_features": 48,
+                        "method": "mrmr",
+                        "max_features": 30,
+                        "last_computed": "2026-02-13T03:00:00",
+                    }
                 }
             }
         )
@@ -113,7 +117,7 @@ class TestGetMLFeatures:
 
     def test_returns_defaults_when_no_feature_selection(self, api_hub, api_client):
         """Returns defaults when intelligence exists but has no feature_selection."""
-        api_hub.cache.get = AsyncMock(return_value={"some_other_key": "value"})
+        api_hub.cache.get = AsyncMock(return_value={"data": {"some_other_key": "value"}})
 
         response = api_client.get("/api/ml/features")
         assert response.status_code == 200
@@ -154,10 +158,12 @@ class TestGetMLModels:
         """Extracts model health from intelligence cache."""
         api_hub.cache.get = AsyncMock(
             return_value={
-                "reference_model": {"r2": 0.85, "mae": 3.2},
-                "incremental_training": {"last_batch": "2026-02-13", "samples": 500},
-                "forecaster_backend": "prophet",
-                "ml_models": {"gradient_boosting": {"r2": 0.82}, "random_forest": {"r2": 0.78}},
+                "data": {
+                    "reference_model": {"r2": 0.85, "mae": 3.2},
+                    "incremental_training": {"last_batch": "2026-02-13", "samples": 500},
+                    "forecaster_backend": "prophet",
+                    "ml_models": {"gradient_boosting": {"r2": 0.82}, "random_forest": {"r2": 0.78}},
+                }
             }
         )
 
@@ -200,11 +206,13 @@ class TestGetMLAnomalies:
         """Extracts anomaly data from intelligence cache."""
         api_hub.cache.get = AsyncMock(
             return_value={
-                "anomaly_alerts": [
-                    {"metric": "power_watts", "severity": "high", "timestamp": "2026-02-13T10:00:00"},
-                ],
-                "autoencoder_status": {"enabled": True, "reconstruction_error": 0.05},
-                "isolation_forest_status": {"contamination": 0.01, "n_estimators": 100},
+                "data": {
+                    "anomaly_alerts": [
+                        {"metric": "power_watts", "severity": "high", "timestamp": "2026-02-13T10:00:00"},
+                    ],
+                    "autoencoder_status": {"enabled": True, "reconstruction_error": 0.05},
+                    "isolation_forest_status": {"contamination": 0.01, "n_estimators": 100},
+                }
             }
         )
 
@@ -246,13 +254,15 @@ class TestGetMLSHAP:
         """Extracts SHAP attributions from intelligence cache."""
         api_hub.cache.get = AsyncMock(
             return_value={
-                "shap_attributions": {
-                    "attributions": [
-                        {"feature": "hour_sin", "contribution": 0.15, "direction": "positive"},
-                        {"feature": "power_watts_lag1", "contribution": -0.08, "direction": "negative"},
-                    ],
-                    "model_type": "GradientBoosting",
-                    "computed_at": "2026-02-13T03:30:00",
+                "data": {
+                    "shap_attributions": {
+                        "attributions": [
+                            {"feature": "hour_sin", "contribution": 0.15, "direction": "positive"},
+                            {"feature": "power_watts_lag1", "contribution": -0.08, "direction": "negative"},
+                        ],
+                        "model_type": "GradientBoosting",
+                        "computed_at": "2026-02-13T03:30:00",
+                    }
                 }
             }
         )
@@ -269,7 +279,7 @@ class TestGetMLSHAP:
 
     def test_returns_unavailable_when_no_shap_data(self, api_hub, api_client):
         """Returns unavailable when intelligence exists but has no SHAP data."""
-        api_hub.cache.get = AsyncMock(return_value={"some_other_key": "value"})
+        api_hub.cache.get = AsyncMock(return_value={"data": {"some_other_key": "value"}})
 
         response = api_client.get("/api/ml/shap")
         assert response.status_code == 200

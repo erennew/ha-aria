@@ -58,10 +58,10 @@ class TestCorrelateWithEnvironment:
     def test_strong_illuminance_correlation(self):
         """Events tracking illuminance should prefer illuminance trigger.
 
-        Correlation is time-of-day based: if illuminance readings happen at
-        times that track when the user acts, the pattern is light-driven.
+        Correlation is value-based: if illuminance values correlate with when
+        the user acts (minute-of-day), the pattern is light-driven.
         """
-        # Events move later as days get longer
+        # Events move later as days get longer (minutes: 1048, 1051, 1055, 1058, 1062, 1065)
         event_timestamps = [
             "2026-02-01T17:28:00",
             "2026-02-03T17:31:00",
@@ -70,14 +70,14 @@ class TestCorrelateWithEnvironment:
             "2026-02-09T17:42:00",
             "2026-02-11T17:45:00",
         ]
-        # Illuminance readings at times that track the events (same shift pattern)
+        # Illuminance values that increase with the event times (strong positive correlation)
         illuminance_events = [
-            {"timestamp": "2026-02-01T17:26:00", "value": 50.0},
-            {"timestamp": "2026-02-03T17:29:00", "value": 50.0},
-            {"timestamp": "2026-02-05T17:33:00", "value": 50.0},
-            {"timestamp": "2026-02-07T17:36:00", "value": 50.0},
-            {"timestamp": "2026-02-09T17:40:00", "value": 50.0},
-            {"timestamp": "2026-02-11T17:43:00", "value": 50.0},
+            {"timestamp": "2026-02-01T17:26:00", "value": 100.0},
+            {"timestamp": "2026-02-03T17:29:00", "value": 130.0},
+            {"timestamp": "2026-02-05T17:33:00", "value": 170.0},
+            {"timestamp": "2026-02-07T17:36:00", "value": 200.0},
+            {"timestamp": "2026-02-09T17:40:00", "value": 240.0},
+            {"timestamp": "2026-02-11T17:43:00", "value": 270.0},
         ]
         result = correlate_with_environment(
             event_timestamps,

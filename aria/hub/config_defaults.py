@@ -2404,6 +2404,88 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
         "max_value": 3600,
         "step": 30,
     },
+    {
+        "key": "presence.weight.media_active",
+        "default_value": "0.4",
+        "value_type": "number",
+        "label": "Media Active Trust",
+        "description": "Bayesian prior weight for active media playback signals.",
+        "description_layman": (
+            "How much should ARIA trust that someone is present when"
+            " a media player is playing or paused? Moderate — media"
+            " can auto-play, but usually someone started it."
+        ),
+        "description_technical": (
+            "Bayesian prior weight for media_player playing/paused/idle"
+            " states. Range 0.1-1.0. Default 0.4. Lower than motion"
+            " because media can auto-play via automations."
+        ),
+        "category": "Presence Weights",
+        "min_value": 0.1,
+        "max_value": 1.0,
+        "step": 0.05,
+    },
+    {
+        "key": "presence.weight.media_inactive",
+        "default_value": "0.1",
+        "value_type": "number",
+        "label": "Media Inactive Trust",
+        "description": "Bayesian prior weight for inactive media player signals.",
+        "description_layman": (
+            "How much should ARIA trust that someone is present when"
+            " a media player is off or on standby? Very low — media"
+            " being off tells us almost nothing."
+        ),
+        "description_technical": (
+            "Bayesian prior weight for media_player off/standby states."
+            " Range 0.1-1.0. Default 0.1. Minimal signal — absence"
+            " of media activity is not evidence of absence."
+        ),
+        "category": "Presence Weights",
+        "min_value": 0.1,
+        "max_value": 1.0,
+        "step": 0.05,
+    },
+    {
+        "key": "presence.decay.media_active",
+        "default_value": "1800",
+        "value_type": "number",
+        "label": "Media Active Decay (seconds)",
+        "description": "How long an active media signal persists before fading.",
+        "description_layman": (
+            "After someone starts playing media, how long does that"
+            " count? Default 30 min — media sessions are typically"
+            " sustained activities."
+        ),
+        "description_technical": (
+            "Decay time for media playing/paused states. Default 1800"
+            " (30 min). Longer than motion because media sessions"
+            " imply sustained presence."
+        ),
+        "category": "Presence Decay",
+        "min_value": 30,
+        "max_value": 7200,
+        "step": 60,
+    },
+    {
+        "key": "presence.decay.media_inactive",
+        "default_value": "300",
+        "value_type": "number",
+        "label": "Media Inactive Decay (seconds)",
+        "description": "How long an inactive media signal persists before fading.",
+        "description_layman": (
+            "After a media player goes to standby, how long does that"
+            " count? Default 5 min — very short, since standby is"
+            " not strong evidence."
+        ),
+        "description_technical": (
+            "Decay time for media off/standby states. Default 300 (5 min). Short decay matching the low signal weight."
+        ),
+        "category": "Presence Decay",
+        "min_value": 30,
+        "max_value": 3600,
+        "step": 30,
+    },
     # ── Module Data Sources ────────────────────────────────────────────
     {
         "key": "presence.enabled_signals",
