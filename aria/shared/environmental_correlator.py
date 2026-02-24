@@ -142,7 +142,7 @@ def correlate_with_environment(
     # Illuminance correlation: event time-of-day vs illuminance time-of-day
     # If illuminance readings shift with the events, the behavior tracks light.
     if illuminance_events:
-        xs, ys = _pair_by_date(event_timestamps, illuminance_events)
+        xs, ys = _pair_by_date(event_timestamps, illuminance_events, value_key="value")
         r = _pearson_r(xs, ys)
         result["illuminance_correlation_r"] = round(r, 4)
         result["prefer_illuminance_trigger"] = abs(r) >= threshold

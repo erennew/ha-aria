@@ -102,11 +102,12 @@ class SegmentBuilder:
                 entropy -= p * math.log2(p)
         return round(entropy, 4)
 
-    @staticmethod
-    def _compute_per_area_activity(events: list[dict]) -> dict:
+    def _compute_per_area_activity(self, events: list[dict]) -> dict:
         area_counts: dict[str, int] = defaultdict(int)
         for e in events:
             area = e.get("area_id")
+            if not area:
+                area = self.entity_graph.get_area(e.get("entity_id", ""))
             if area:
                 area_counts[area] += 1
         return dict(area_counts)

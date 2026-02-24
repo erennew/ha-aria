@@ -23,6 +23,8 @@ SENSOR_CONFIG = {
     "camera_face": {"weight": 1.0, "decay_seconds": 0},  # Highest: identified person, no decay
     "light_interaction": {"weight": 0.7, "decay_seconds": 600},  # Light on/off = someone acted
     "dimmer_press": {"weight": 0.85, "decay_seconds": 300},  # Physical button = definite presence
+    "media_active": {"weight": 0.4, "decay_seconds": 1800},  # Media playing/paused, 30 min decay
+    "media_inactive": {"weight": 0.1, "decay_seconds": 300},  # Media off/standby, low signal
 }
 
 # Prior probability of occupancy when no sensor data available

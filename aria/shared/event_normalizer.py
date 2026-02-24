@@ -24,7 +24,7 @@ NEGATIVE_STATES = {"off", "False", "false", "clear", "closed", "locked", "not_ho
 class EventNormalizer:
     """Filters and normalizes raw EventStore events for detection engines."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any], entity_graph=None):
         self.ignored_states = set(config.get("filter.ignored_states", ["unavailable", "unknown"]))
         self.exclude_entities = set(config.get("filter.exclude_entities", []))
         self.exclude_areas = set(config.get("filter.exclude_areas", []))
@@ -32,6 +32,7 @@ class EventNormalizer:
         self.include_domains = set(config.get("filter.include_domains", []))
         self.exclude_patterns = list(config.get("filter.exclude_entity_patterns", []))
         self.min_availability_pct = config.get("filter.min_availability_pct", 80)
+        self.entity_graph = entity_graph
 
     def filter_states(self, events: list[dict]) -> list[dict]:
         """Remove events where old_state or new_state is in ignored set."""
@@ -61,7 +62,9 @@ class EventNormalizer:
             if entity_id in self.exclude_entities:
                 continue
 
-            # Area exclusion
+            # Area exclusion (resolve via entity_graph if direct area_id missing)
+            if not area_id and self.entity_graph:
+                area_id = self.entity_graph.get_area(entity_id)
             if area_id and area_id in self.exclude_areas:
                 continue
 

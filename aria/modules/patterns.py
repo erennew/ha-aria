@@ -16,7 +16,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
-import ollama
 import pandas as pd
 from mlxtend.frequent_patterns import apriori, association_rules
 from mlxtend.preprocessing import TransactionEncoder
@@ -24,6 +23,8 @@ from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 
 from aria.capabilities import Capability
+from aria.engine.config import OllamaConfig
+from aria.engine.llm.client import ollama_chat
 from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
@@ -468,11 +469,9 @@ Examples: "Morning routine", "Bedtime", "Evening arrival", "Night light", "Weeke
 Label:"""
 
         try:
-            response = await asyncio.to_thread(
-                ollama.generate, model="qwen2.5:7b", prompt=prompt, options={"temperature": 0.3, "num_predict": 20}
-            )
-            text = getattr(response, "response", "").strip()
-            text = self._strip_think_tags(text)
+            config = OllamaConfig(model="qwen2.5:7b")
+            response = await asyncio.to_thread(ollama_chat, prompt, config)
+            text = self._strip_think_tags(response.strip())
             text = text.strip().strip('"').strip("'")
             if len(text) > 50:
                 text = text[:47] + "..."

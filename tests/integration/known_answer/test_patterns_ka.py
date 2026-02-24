@@ -108,19 +108,15 @@ async def patterns_module(hub, tmp_path):
     return module
 
 
-def _mock_ollama_generate(**kwargs):
-    """Deterministic stand-in for ``ollama.generate``."""
-
-    class _Response:
-        response = "Morning routine"
-
-    return _Response()
+def _mock_ollama_chat(prompt, config=None):
+    """Deterministic stand-in for ``ollama_chat``."""
+    return "Morning routine"
 
 
 @pytest.mark.asyncio
 async def test_detects_recurring_patterns(patterns_module):
     """Pattern detection should find >= 1 pattern from the kitchen morning routine."""
-    with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+    with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
         patterns = await patterns_module.detect_patterns()
 
     assert len(patterns) >= 1, f"Expected at least 1 pattern, got {len(patterns)}"
@@ -133,7 +129,7 @@ async def test_detects_recurring_patterns(patterns_module):
 @pytest.mark.asyncio
 async def test_patterns_cached(patterns_module, hub):
     """Detected patterns should be stored in hub cache under 'patterns' key."""
-    with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+    with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
         patterns = await patterns_module.detect_patterns()
 
     cache_entry = await hub.get_cache("patterns")
@@ -150,7 +146,7 @@ async def test_patterns_cached(patterns_module, hub):
 @pytest.mark.asyncio
 async def test_golden_snapshot(patterns_module, hub, update_golden):
     """Golden snapshot of normalized pattern output."""
-    with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+    with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
         patterns = await patterns_module.detect_patterns()
 
     # Normalize patterns for deterministic comparison

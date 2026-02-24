@@ -42,20 +42,16 @@ class MockHub:
         pass
 
 
-def _mock_ollama_generate(**kwargs):
+def _mock_ollama_chat(prompt, config=None):
     """Return a deterministic label based on area mentioned in the prompt."""
-    prompt = kwargs.get("prompt", "")
     if "bedroom" in prompt.lower():
-        label = "Morning routine"
+        return "Morning routine"
     elif "kitchen" in prompt.lower():
-        label = "Lunch prep"
+        return "Lunch prep"
     elif "living" in prompt.lower():
-        label = "Evening wind-down"
+        return "Evening wind-down"
     else:
-        label = "Daily activity"
-    response = MagicMock()
-    response.response = label
-    return response
+        return "Daily activity"
 
 
 def _make_sequence_events(area_id, chain, days=20, base_hour=7):
@@ -280,7 +276,7 @@ class TestLLMInterpretation:
         hub.event_store.query_by_area = AsyncMock(return_value=events)
         hub.entity_graph.get_area.return_value = "bedroom"
 
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
 
         for p in patterns:
@@ -312,7 +308,7 @@ class TestDayTypeAnalysis:
         hub.event_store.query_by_area = AsyncMock(return_value=events)
         hub.entity_graph.get_area.return_value = "bedroom"
 
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
 
         for p in patterns:
@@ -363,7 +359,7 @@ class TestDayTypeAnalysis:
         hub.event_store.query_by_area = AsyncMock(return_value=events)
         hub.entity_graph.get_area.return_value = "bedroom"
 
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
 
         day_types = {p["day_type"] for p in patterns}
@@ -377,7 +373,7 @@ class TestDayTypeAnalysis:
         hub.event_store.query_by_area = AsyncMock(return_value=events)
         hub.entity_graph.get_area.return_value = "bedroom"
 
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
 
         for p in patterns:
@@ -412,7 +408,7 @@ class TestNewOutputFields:
     @pytest.mark.asyncio
     async def test_entity_chain_present(self, hub, patterns_module):
         self._setup_events(hub)
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
         for p in patterns:
             assert "entity_chain" in p
@@ -421,7 +417,7 @@ class TestNewOutputFields:
     @pytest.mark.asyncio
     async def test_trigger_entity_present(self, hub, patterns_module):
         self._setup_events(hub)
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
         for p in patterns:
             assert "trigger_entity" in p
@@ -429,7 +425,7 @@ class TestNewOutputFields:
     @pytest.mark.asyncio
     async def test_temporal_bounds(self, hub, patterns_module):
         self._setup_events(hub)
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
         for p in patterns:
             assert "first_seen" in p
@@ -439,7 +435,7 @@ class TestNewOutputFields:
     @pytest.mark.asyncio
     async def test_source_event_count(self, hub, patterns_module):
         self._setup_events(hub)
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
         for p in patterns:
             assert "source_event_count" in p
@@ -449,7 +445,7 @@ class TestNewOutputFields:
     async def test_pattern_complete_structure(self, hub, patterns_module):
         """All required fields from Phase 3 design should be present."""
         self._setup_events(hub)
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             patterns = await patterns_module.detect_patterns()
         assert len(patterns) > 0
         required_fields = [
@@ -519,7 +515,7 @@ class TestCacheStorage:
         hub.event_store.query_by_area = AsyncMock(return_value=events)
         hub.entity_graph.get_area.return_value = "bedroom"
 
-        with patch("aria.modules.patterns.ollama.generate", side_effect=_mock_ollama_generate):
+        with patch("aria.modules.patterns.ollama_chat", side_effect=_mock_ollama_chat):
             await patterns_module.detect_patterns()
 
         cache = await hub.get_cache("patterns")

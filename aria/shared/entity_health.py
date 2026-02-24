@@ -35,7 +35,8 @@ def compute_entity_health(
         )
 
     unavailable_count = sum(1 for e in events if e.get("new_state") in UNAVAILABLE_STATES)
-    availability_pct = 1.0 - (unavailable_count / total_events)
+    entity_event_count = len(events)
+    availability_pct = 1.0 - (unavailable_count / entity_event_count) if entity_event_count > 0 else 0.0
 
     # Longest outage would require timestamp analysis — simplified for now
     longest_outage = 0.0
