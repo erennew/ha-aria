@@ -218,6 +218,13 @@ class HaAutomationSync:
         """
         normalized = copy.deepcopy(automation)
 
+        # Ensure both singular and plural keys exist for triggers, conditions, actions
+        for singular, plural in [("trigger", "triggers"), ("condition", "conditions"), ("action", "actions")]:
+            if singular in normalized and plural not in normalized:
+                normalized[plural] = normalized[singular]
+            elif plural in normalized and singular not in normalized:
+                normalized[singular] = normalized[plural]
+
         # Normalize entity IDs in triggers
         for trigger in normalized.get("trigger", []):
             self._normalize_entity_id_field(trigger)
@@ -233,6 +240,11 @@ class HaAutomationSync:
             target = action.get("target", {})
             if target:
                 self._normalize_entity_id_field(target)
+
+        # Sync plural keys after normalization
+        for singular, plural in [("trigger", "triggers"), ("condition", "conditions"), ("action", "actions")]:
+            if singular in normalized:
+                normalized[plural] = normalized[singular]
 
         return normalized
 

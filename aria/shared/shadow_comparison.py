@@ -288,7 +288,7 @@ def _extract_trigger_signature(automation: dict[str, Any]) -> set[str]:
     """Extract a set of trigger signatures for comparison."""
     signatures = set()
     for trigger in automation.get("triggers") or automation.get("trigger", []):
-        platform = trigger.get("platform", "")
+        platform = trigger.get("platform", "") or trigger.get("trigger", "")
         if platform == "state":
             entity_id = trigger.get("entity_id", "")
             to_state = trigger.get("to", "")
