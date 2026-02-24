@@ -81,6 +81,8 @@ class IntelligenceHub:
         Args:
             cache_path: Path to SQLite cache database
         """
+        # Direct cache reads (hub.cache.get*) are acceptable for read-through patterns.
+        # Writes should go through hub.set_cache() to ensure event emission (#135).
         self.cache = CacheManager(cache_path)
         # NOTE: modules, module_status, and subscribers are public for read access
         # but should be treated as read-only by external callers. Use register_module(),

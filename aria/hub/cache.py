@@ -1,4 +1,8 @@
-"""SQLite cache manager with JSON columns and versioning."""
+"""SQLite cache manager with JSON columns and versioning.
+
+# TODO(tech-debt): CacheManager is a god class — split into CacheReader, CacheWriter,
+# ConfigStore, and EventLog when next major refactor lands (#148).
+"""
 
 import asyncio
 import contextlib

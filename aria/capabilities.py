@@ -19,8 +19,8 @@ VALID_PIPELINE_STAGES = frozenset({"backtest", "shadow", "suggest", "autonomous"
 class DemandSignal:
     """Declares what entity groupings a module needs from discovery."""
 
-    entity_domains: list[str] = field(default_factory=list)
-    device_classes: list[str] = field(default_factory=list)
+    entity_domains: tuple[str, ...] = field(default_factory=tuple)
+    device_classes: tuple[str, ...] = field(default_factory=tuple)
     min_entities: int = 5
     description: str = ""
 
@@ -38,18 +38,18 @@ class Capability:
     description: str
     module: str
     layer: str
-    config_keys: list[str] = field(default_factory=list)
-    test_paths: list[str] = field(default_factory=list)
-    test_markers: list[str] = field(default_factory=list)
-    runtime_deps: list[str] = field(default_factory=list)
-    optional_deps: list[str] = field(default_factory=list)
-    data_paths: list[str] = field(default_factory=list)
-    demand_signals: list[DemandSignal] = field(default_factory=list)
-    systemd_units: list[str] = field(default_factory=list)
+    config_keys: tuple[str, ...] = field(default_factory=tuple)
+    test_paths: tuple[str, ...] = field(default_factory=tuple)
+    test_markers: tuple[str, ...] = field(default_factory=tuple)
+    runtime_deps: tuple[str, ...] = field(default_factory=tuple)
+    optional_deps: tuple[str, ...] = field(default_factory=tuple)
+    data_paths: tuple[str, ...] = field(default_factory=tuple)
+    demand_signals: tuple[DemandSignal, ...] = field(default_factory=tuple)
+    systemd_units: tuple[str, ...] = field(default_factory=tuple)
     pipeline_stage: str | None = None
     status: str = "stable"
     added_version: str = "1.0.0"
-    depends_on: list[str] = field(default_factory=list)
+    depends_on: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if not self.id:

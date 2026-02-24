@@ -23,17 +23,17 @@ def _make_cap(**overrides):
         description="Controls lights across zones",
         module="aria.modules.discovery",
         layer="hub",
-        config_keys=["light_threshold"],
-        test_paths=["tests/hub/test_discovery.py"],
-        test_markers=["lighting"],
-        runtime_deps=["aiohttp"],
-        optional_deps=[],
-        data_paths=["~/ha-logs/intelligence/"],
-        systemd_units=["aria-hub.service"],
+        config_keys=("light_threshold",),
+        test_paths=("tests/hub/test_discovery.py",),
+        test_markers=("lighting",),
+        runtime_deps=("aiohttp",),
+        optional_deps=(),
+        data_paths=("~/ha-logs/intelligence/",),
+        systemd_units=("aria-hub.service",),
         pipeline_stage=None,
         status="stable",
         added_version="1.0.0",
-        depends_on=[],
+        depends_on=(),
     )
     defaults.update(overrides)
     return Capability(**defaults)
@@ -70,8 +70,8 @@ class TestCapabilityCreation:
             assert cap.pipeline_stage == stage
 
     def test_with_depends_on(self):
-        cap = _make_cap(depends_on=["discovery", "ml_engine"])
-        assert cap.depends_on == ["discovery", "ml_engine"]
+        cap = _make_cap(depends_on=("discovery", "ml_engine"))
+        assert cap.depends_on == ("discovery", "ml_engine")
 
 
 class TestDemandSignal:
@@ -79,20 +79,20 @@ class TestDemandSignal:
 
     def test_demand_signal_defaults(self):
         sig = DemandSignal()
-        assert sig.entity_domains == []
-        assert sig.device_classes == []
+        assert sig.entity_domains == ()
+        assert sig.device_classes == ()
         assert sig.min_entities == 5
         assert sig.description == ""
 
     def test_demand_signal_custom_fields(self):
         sig = DemandSignal(
-            entity_domains=["light", "switch"],
-            device_classes=["occupancy"],
+            entity_domains=("light", "switch"),
+            device_classes=("occupancy",),
             min_entities=10,
             description="Lighting groups for zone control",
         )
-        assert sig.entity_domains == ["light", "switch"]
-        assert sig.device_classes == ["occupancy"]
+        assert sig.entity_domains == ("light", "switch")
+        assert sig.device_classes == ("occupancy",)
         assert sig.min_entities == 10
         assert sig.description == "Lighting groups for zone control"
 
@@ -102,18 +102,18 @@ class TestDemandSignal:
             sig.min_entities = 10
 
     def test_capability_with_demand_signals(self):
-        signals = [
-            DemandSignal(entity_domains=["light"], min_entities=10),
-            DemandSignal(entity_domains=["climate"], device_classes=["thermostat"]),
-        ]
+        signals = (
+            DemandSignal(entity_domains=("light",), min_entities=10),
+            DemandSignal(entity_domains=("climate",), device_classes=("thermostat",)),
+        )
         cap = _make_cap(demand_signals=signals)
         assert len(cap.demand_signals) == 2
-        assert cap.demand_signals[0].entity_domains == ["light"]
-        assert cap.demand_signals[1].device_classes == ["thermostat"]
+        assert cap.demand_signals[0].entity_domains == ("light",)
+        assert cap.demand_signals[1].device_classes == ("thermostat",)
 
     def test_capability_without_demand_signals_defaults_empty(self):
         cap = _make_cap()
-        assert cap.demand_signals == []
+        assert cap.demand_signals == ()
 
 
 class TestCapabilityValidation:
@@ -209,9 +209,9 @@ class TestRegistryDependencyGraph:
 
     def test_dependency_graph_structure(self):
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="base", depends_on=[]))
-        reg.register(_make_cap(id="mid", depends_on=["base"]))
-        reg.register(_make_cap(id="top", depends_on=["mid"]))
+        reg.register(_make_cap(id="base", depends_on=()))
+        reg.register(_make_cap(id="mid", depends_on=("base",)))
+        reg.register(_make_cap(id="top", depends_on=("mid",)))
 
         graph = reg.dependency_graph()
         assert graph == {
@@ -222,37 +222,37 @@ class TestRegistryDependencyGraph:
 
     def test_validate_deps_no_issues(self):
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="base", depends_on=[]))
-        reg.register(_make_cap(id="child", depends_on=["base"]))
+        reg.register(_make_cap(id="base", depends_on=()))
+        reg.register(_make_cap(id="child", depends_on=("base",)))
         errors = reg.validate_deps()
         assert errors == []
 
     def test_validate_deps_missing_dependency(self):
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="orphan", depends_on=["nonexistent"]))
+        reg.register(_make_cap(id="orphan", depends_on=("nonexistent",)))
         errors = reg.validate_deps()
         assert any("nonexistent" in e for e in errors)
 
     def test_validate_deps_cycle_detection(self):
         """Two-node cycle: a->b->a."""
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="a", depends_on=["b"]))
-        reg.register(_make_cap(id="b", depends_on=["a"]))
+        reg.register(_make_cap(id="a", depends_on=("b",)))
+        reg.register(_make_cap(id="b", depends_on=("a",)))
         errors = reg.validate_deps()
         assert any("cycle" in e.lower() for e in errors)
 
     def test_validate_deps_three_node_cycle(self):
         """a->b->c->a."""
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="a", depends_on=["b"]))
-        reg.register(_make_cap(id="b", depends_on=["c"]))
-        reg.register(_make_cap(id="c", depends_on=["a"]))
+        reg.register(_make_cap(id="a", depends_on=("b",)))
+        reg.register(_make_cap(id="b", depends_on=("c",)))
+        reg.register(_make_cap(id="c", depends_on=("a",)))
         errors = reg.validate_deps()
         assert any("cycle" in e.lower() for e in errors)
 
     def test_validate_deps_self_reference(self):
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="self_ref", depends_on=["self_ref"]))
+        reg.register(_make_cap(id="self_ref", depends_on=("self_ref",)))
         errors = reg.validate_deps()
         assert any("cycle" in e.lower() for e in errors)
 
@@ -266,7 +266,7 @@ class TestValidateConfigKeys:
     def test_validate_config_keys_missing(self):
         """Cap with a nonexistent config key should produce an issue."""
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="bad_cfg", config_keys=["totally.fake.key"]))
+        reg.register(_make_cap(id="bad_cfg", config_keys=("totally.fake.key",)))
         issues = reg.validate_config_keys()
         assert len(issues) == 1
         assert "totally.fake.key" in issues[0]
@@ -274,7 +274,7 @@ class TestValidateConfigKeys:
     def test_validate_config_keys_present(self):
         """Cap with a real config key should produce no issue."""
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="good_cfg", config_keys=["shadow.min_confidence"]))
+        reg.register(_make_cap(id="good_cfg", config_keys=("shadow.min_confidence",)))
         issues = reg.validate_config_keys()
         assert issues == []
 
@@ -285,7 +285,7 @@ class TestValidateTestPaths:
     def test_validate_test_paths_missing(self):
         """Cap with a nonexistent test path should produce an issue."""
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="bad_path", test_paths=["tests/nonexistent_file.py"]))
+        reg.register(_make_cap(id="bad_path", test_paths=("tests/nonexistent_file.py",)))
         issues = reg.validate_test_paths()
         assert len(issues) == 1
         assert "tests/nonexistent_file.py" in issues[0]
@@ -293,7 +293,7 @@ class TestValidateTestPaths:
     def test_validate_test_paths_present(self):
         """Cap with a real test path should produce no issue."""
         reg = CapabilityRegistry()
-        reg.register(_make_cap(id="good_path", test_paths=["tests/hub/test_shadow_engine.py"]))
+        reg.register(_make_cap(id="good_path", test_paths=("tests/hub/test_shadow_engine.py",)))
         issues = reg.validate_test_paths()
         assert issues == []
 
@@ -307,9 +307,9 @@ class TestValidateAll:
         reg.register(
             _make_cap(
                 id="broken",
-                config_keys=["fake.config.key"],
-                test_paths=["tests/does_not_exist.py"],
-                depends_on=["missing_dep"],
+                config_keys=("fake.config.key",),
+                test_paths=("tests/does_not_exist.py",),
+                depends_on=("missing_dep",),
             )
         )
         issues = reg.validate_all()
@@ -491,6 +491,6 @@ class TestDemandSignalDeclarations:
         assert any(len(c.demand_signals) > 0 for c in caps)
 
     def test_demand_signals_are_frozen(self):
-        ds = DemandSignal(entity_domains=["sensor"], min_entities=5)
+        ds = DemandSignal(entity_domains=("sensor",), min_entities=5)
         with pytest.raises((AttributeError, TypeError, Exception), match="frozen|cannot|immutable|FrozenInstanceError"):
             ds.min_entities = 10

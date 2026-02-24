@@ -7,7 +7,7 @@ behavioral clusters before feeding into detection engines.
 
 import logging
 import statistics
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -228,9 +228,9 @@ def _find_connected_components(qualifying_pairs: set[frozenset[str]]) -> list[fr
         if eid in visited:
             continue
         component: set[str] = set()
-        queue = [eid]
+        queue = deque([eid])
         while queue:
-            current = queue.pop(0)
+            current = queue.popleft()
             if current in component:
                 continue
             component.add(current)

@@ -267,7 +267,7 @@ class PresenceModule(Module):
                     else:
                         logger.warning("HA REST API returned %d during presence seeding", resp.status)
             finally:
-                if not self._http_session:
+                if session is not self._http_session and not session.closed:
                     await session.close()
         except Exception as e:
             logger.warning("Failed to seed presence from HA: %s", e)
