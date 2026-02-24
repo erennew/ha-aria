@@ -1,7 +1,10 @@
 """ARIA CLI — unified entry point for batch engine and real-time hub."""
 
 import argparse
+import logging
 import sys
+
+logger = logging.getLogger(__name__)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -416,7 +419,7 @@ async def _schedule_audit_pruning(hub, audit_logger, logger) -> None:
             if config_val is not None:
                 retention = int(config_val)
         except Exception:
-            pass
+            logger.debug("Failed to read audit retention config, using default", exc_info=True)
         deleted = await audit_logger.prune(retention)
         if deleted:
             logger.info(f"Audit pruning: {deleted} records removed")
@@ -689,7 +692,7 @@ def _collect_status_data() -> dict:
             result["hub_running"] = True
             result["hub_health"] = health
     except Exception:
-        pass
+        logger.debug("Hub health check failed (hub may not be running)", exc_info=True)
 
     # Count cache categories from hub if running, else check DB file
     result["cache_categories"] = _get_cache_category_count(result["hub_health"], intelligence_dir)
@@ -720,7 +723,7 @@ def _get_cache_category_count(hub_health, intelligence_dir) -> int:
                 count = cursor.fetchone()[0]
             return count
         except Exception:
-            pass
+            logger.debug("Failed to read cache category count from DB", exc_info=True)
     return 0
 
 
@@ -1039,6 +1042,7 @@ def _hub_api_get(path: str) -> dict | None:
         with urllib.request.urlopen(req, timeout=5) as resp:
             return json.loads(resp.read())
     except Exception:
+        logger.debug("Hub API GET %s failed", path, exc_info=True)
         return None
 
 
@@ -1053,6 +1057,7 @@ def _hub_api_post(path: str) -> dict | None:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read())
     except Exception:
+        logger.debug("Hub API POST %s failed", path, exc_info=True)
         return None
 
 
@@ -1066,6 +1071,7 @@ def _hub_api_delete(path: str) -> dict | None:
         with urllib.request.urlopen(req, timeout=5) as resp:
             return json.loads(resp.read())
     except Exception:
+        logger.debug("Hub API DELETE %s failed", path, exc_info=True)
         return None
 
 

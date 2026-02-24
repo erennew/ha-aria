@@ -154,5 +154,5 @@ def _get_area_entities(area_id: str | None, entity_graph: object) -> list[str]:
                     result.append(eid)
         return result
     except Exception as exc:
-        logger.warning("Failed to resolve entities in area %s: %s", area_id, exc)
+        logger.warning("Failed to resolve entities in area %s: %s", area_id, exc, exc_info=True)
         return []

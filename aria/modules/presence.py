@@ -393,7 +393,7 @@ class PresenceModule(Module):
                 if resp.status == 200:
                     return await resp.read()
         except Exception:
-            pass
+            logger.debug("Failed to fetch Frigate thumbnail for %s", event_id, exc_info=True)
         return None
 
     async def get_frigate_snapshot(self, event_id: str) -> bytes | None:
@@ -408,7 +408,7 @@ class PresenceModule(Module):
                 if resp.status == 200:
                     return await resp.read()
         except Exception:
-            pass
+            logger.debug("Failed to fetch Frigate snapshot for %s", event_id, exc_info=True)
         return None
 
     # ------------------------------------------------------------------
@@ -450,7 +450,7 @@ class PresenceModule(Module):
                             topic = str(message.topic)
                             await self._handle_mqtt_message(topic, payload)
                         except json.JSONDecodeError:
-                            pass
+                            logger.debug("Invalid JSON in MQTT message payload")
                         except Exception as e:
                             self.logger.warning(f"MQTT message error: {e}")
 
@@ -611,7 +611,7 @@ class PresenceModule(Module):
                                     event_data = data.get("event", {}).get("data", {})
                                     await self._handle_ha_state_change(event_data)
                             except json.JSONDecodeError:
-                                pass
+                                logger.debug("Invalid JSON in HA WebSocket message")
                         elif msg.type in (
                             aiohttp.WSMsgType.CLOSED,
                             aiohttp.WSMsgType.ERROR,
@@ -759,7 +759,7 @@ class PresenceModule(Module):
                             self._entity_room_cache[entity_id] = area
                             return area
         except Exception:
-            pass
+            logger.warning("Failed to resolve room for entity %s", entity_id, exc_info=True)
 
         return None
 
@@ -779,6 +779,7 @@ class PresenceModule(Module):
             else:
                 self._enabled_signals = None  # None means all enabled
         except Exception:
+            logger.debug("Failed to refresh enabled signals config", exc_info=True)
             self._enabled_signals = None  # On error, allow all
         self._enabled_signals_ts = now
 

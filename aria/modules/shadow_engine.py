@@ -60,6 +60,11 @@ ROOM_INDICATOR_DOMAINS = {
 }
 
 
+def _log_task_exception(task):
+    if not task.cancelled() and task.exception():
+        logger.error("Unhandled exception in background task: %s", task.exception())
+
+
 class ThompsonSampler:
     """Thompson Sampling for explore/exploit decisions using Beta posteriors.
 
@@ -274,6 +279,7 @@ class ShadowEngine(Module):
 
         # Start periodic resolution task
         self._resolution_task = asyncio.create_task(self._resolution_loop())
+        self._resolution_task.add_done_callback(_log_task_exception)
 
         self.logger.info("Shadow engine initialized")
 

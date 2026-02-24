@@ -67,7 +67,7 @@ async def refine_automation(
     try:
         raw_response = await asyncio.to_thread(ollama_chat, prompt, config)
     except Exception:
-        logger.warning("LLM refiner call failed, using template output")
+        logger.warning("LLM refiner call failed, using template output", exc_info=True)
         return automation
 
     if not raw_response:

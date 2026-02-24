@@ -392,7 +392,7 @@ def _check_timer_last_run(unit: str, results: list):
                 )
             )
     except Exception:
-        pass  # Non-fatal per-timer check
+        logging.getLogger("aria.watchdog").debug("Per-timer check failed for %s", unit, exc_info=True)
 
 
 def check_audit_alerts(  # noqa: PLR0911

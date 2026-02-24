@@ -49,7 +49,7 @@ async def _fetch_google_events(start_date: str, end_date: str) -> list[dict]:
         events = json.loads(raw)
         return [{"summary": e.get("summary", ""), "start": e.get("start", ""), "end": e.get("end", "")} for e in events]
     except Exception:
-        logger.warning("Google Calendar fetch failed, returning empty list")
+        logger.warning("Google Calendar fetch failed, returning empty list", exc_info=True)
         return []
 
 
@@ -61,7 +61,7 @@ async def _fetch_ha_events(start_date: str, end_date: str, entity_id: str | None
         raw_events = await _fetch_ha_calendar(start_date, end_date, entity_id)
         return [_normalize_ha_event(e) for e in raw_events]
     except Exception:
-        logger.warning("HA calendar fetch failed for %s, returning empty list", entity_id)
+        logger.warning("HA calendar fetch failed for %s, returning empty list", entity_id, exc_info=True)
         return []
 
 
@@ -90,7 +90,12 @@ async def _run_gog_cli(start_date: str, end_date: str) -> str:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+    except TimeoutError:
+        proc.kill()
+        await proc.wait()
+        raise RuntimeError("gog CLI timed out after 30s") from None
     if proc.returncode != 0:
         raise RuntimeError(f"gog CLI failed: {stderr.decode()}")
     return stdout.decode()

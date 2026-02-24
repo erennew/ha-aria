@@ -6,12 +6,15 @@ summarizes activity within a time window (default 15 min).
 """
 
 import json
+import logging
 import math
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from aria.shared.entity_graph import EntityGraph
 from aria.shared.event_store import EventStore
+
+logger = logging.getLogger(__name__)
 
 
 class SegmentBuilder:
@@ -86,7 +89,7 @@ class SegmentBuilder:
                         if parsed.get("device_class") == "motion":
                             count += 1
                     except (json.JSONDecodeError, TypeError):
-                        pass
+                        logger.debug("Failed to parse attributes_json for motion detection")
         return count
 
     @staticmethod

@@ -529,8 +529,11 @@ class IntelligenceModule(Module):
             return None
         try:
             return json.loads(path.read_text())
+        except FileNotFoundError:
+            self.logger.debug(f"File not found (race condition): {path}")
+            return None
         except Exception as e:
-            self.logger.debug(f"Failed to read {path}: {e}")
+            self.logger.warning(f"Failed to read {path}: {e}")
             return None
 
     def _count_source_files(self) -> int:

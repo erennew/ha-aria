@@ -30,6 +30,12 @@ from aria.hub.core import IntelligenceHub
 
 logger = logging.getLogger(__name__)
 
+
+def _log_task_exception(task):
+    if not task.cancelled() and task.exception():
+        logger.error("Unhandled exception in background task: %s", task.exception())
+
+
 # --- Optional API key authentication ---
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 _ARIA_API_KEY = os.environ.get("ARIA_API_KEY")
@@ -630,7 +636,8 @@ def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             raise HTTPException(status_code=404, detail="Organic discovery module not loaded")
         import asyncio
 
-        asyncio.create_task(module.run_discovery())
+        task = asyncio.create_task(module.run_discovery())
+        task.add_done_callback(_log_task_exception)
         return {"status": "started"}
 
     @router.get("/api/discovery/status")
