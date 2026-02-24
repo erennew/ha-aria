@@ -653,16 +653,17 @@ class DiscoveryModule(Module):
         total_window_seconds = 0
         unique_states = set()
 
+        # Seed with the entity's current state if available
+        current_state = entity_data.get("state")
+        if current_state is not None:
+            unique_states.add(current_state)
+
         for window in activity_windows:
             by_entity = window.get("by_entity", {})
             if entity_id in by_entity:
                 total_events += by_entity[entity_id]
             total_window_seconds += 900  # 15-min windows
-            for event in window.get("events", []):
-                if event.get("entity_id") == entity_id:
-                    to_state = event.get("to")
-                    if to_state is not None:
-                        unique_states.add(to_state)
+            self._collect_unique_states(window, entity_id, unique_states)
 
         event_rate_day = (total_events / total_window_seconds) * 86400 if total_window_seconds > 0 else 0.0
 
@@ -690,6 +691,20 @@ class DiscoveryModule(Module):
             "area_id": area_id,
             "device_class": device_class,
         }
+
+    @staticmethod
+    def _collect_unique_states(window: dict[str, Any], entity_id: str, unique_states: set) -> None:
+        """Collect unique state values for an entity from a window's events and notable_changes."""
+        for event in window.get("events", []):
+            if event.get("entity_id") == entity_id:
+                for key in ("from", "to"):
+                    if event.get(key):
+                        unique_states.add(event[key])
+        for change in window.get("notable_changes", []):
+            if change.get("entity") == entity_id:
+                for key in ("from", "to"):
+                    if change.get(key):
+                        unique_states.add(change[key])
 
     def _classify(  # noqa: PLR0913, PLR0911
         self,

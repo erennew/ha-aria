@@ -13,8 +13,12 @@ export default function PipelineStatusBar() {
   const connected = wsConnected.value;
 
   useEffect(() => {
-    fetchJson('/health').then(setHealth).catch(() => {});
-    fetchJson('/api/pipeline').then(setPipeline).catch(() => {});
+    const safeFetch = (url, setter) =>
+      fetchJson(url).then(setter).catch(err => {
+        if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
+      });
+    safeFetch('/health', setHealth);
+    safeFetch('/api/pipeline', setPipeline);
   }, []);
 
   const pipelineStage = pipeline?.current_stage || 'starting';

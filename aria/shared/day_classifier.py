@@ -16,6 +16,7 @@ from aria.automation.models import DayContext
 logger = logging.getLogger(__name__)
 
 DEFAULT_HOLIDAY_KEYWORDS = ["holiday", "vacation", "PTO", "trip", "out of office", "off"]
+DEFAULT_VACATION_KEYWORDS = ["vacation", "trip"]
 DEFAULT_WFH_KEYWORDS = ["WFH", "remote", "work from home"]
 
 
@@ -39,6 +40,7 @@ def classify_days(
         List of DayContext, one per day in the range.
     """
     holiday_keywords = [k.lower() for k in config.get("calendar.holiday_keywords", DEFAULT_HOLIDAY_KEYWORDS)]
+    vacation_keywords = [k.lower() for k in config.get("calendar.vacation_keywords", DEFAULT_VACATION_KEYWORDS)]
     wfh_keywords = [k.lower() for k in config.get("calendar.wfh_keywords", DEFAULT_WFH_KEYWORDS)]
 
     start = _parse_date(start_date)
@@ -59,7 +61,7 @@ def classify_days(
         summaries = day_events.get(day_str, [])
         away = day_str in person_away_days
 
-        keywords = {"holiday": holiday_keywords, "wfh": wfh_keywords}
+        keywords = {"holiday": holiday_keywords, "vacation": vacation_keywords, "wfh": wfh_keywords}
         day_type = _classify_single_day(is_weekend, summaries, away, keywords)
         results.append(
             DayContext(
@@ -95,6 +97,7 @@ def _classify_single_day(
         return "vacation"
 
     holiday_keywords = keywords.get("holiday", [])
+    vacation_keywords = keywords.get("vacation", ["vacation", "trip"])
     wfh_keywords = keywords.get("wfh", [])
 
     has_vacation = False
@@ -103,7 +106,7 @@ def _classify_single_day(
 
     for summary in summaries:
         lower = summary.lower()
-        if any(kw in lower for kw in ["vacation", "trip"]):
+        if any(kw in lower for kw in vacation_keywords):
             has_vacation = True
         if any(kw in lower for kw in holiday_keywords):
             has_holiday = True

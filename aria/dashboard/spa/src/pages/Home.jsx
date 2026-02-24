@@ -24,10 +24,14 @@ export default function Home() {
   const [pipeline, setPipeline] = useState(null);
 
   useEffect(() => {
-    fetchJson('/health').then(setHealth).catch(() => {});
-    fetchJson('/api/ml/anomalies').then(setAnomalies).catch(() => {});
-    fetchJson('/api/shadow/accuracy').then(setShadowAccuracy).catch(() => {});
-    fetchJson('/api/pipeline').then(setPipeline).catch(() => {});
+    const safeFetch = (url, setter) =>
+      fetchJson(url).then(setter).catch(err => {
+        if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
+      });
+    safeFetch('/health', setHealth);
+    safeFetch('/api/ml/anomalies', setAnomalies);
+    safeFetch('/api/shadow/accuracy', setShadowAccuracy);
+    safeFetch('/api/pipeline', setPipeline);
   }, []);
 
   const loading = intelligence.loading;

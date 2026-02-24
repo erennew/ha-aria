@@ -45,7 +45,9 @@ export default function Discovery() {
         const val = Number(cfg?.value ?? 0);
         if (val > 0) setHideUnavailable(true);
       })
-      .catch(() => {});
+      .catch(err => {
+        if (err?.status !== 404) console.error('Failed to fetch curation config:', err);
+      });
   }, []);
 
   const cacheLoading = entities.loading || devices.loading || areas.loading || capabilities.loading;

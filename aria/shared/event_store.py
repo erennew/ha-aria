@@ -5,8 +5,24 @@ Uses WAL mode for concurrent read access during analysis queries.
 """
 
 import os
+from typing import TypedDict
 
 import aiosqlite
+
+
+class StateChangeEvent(TypedDict, total=False):
+    """Row dict returned by EventStore query methods."""
+
+    id: int
+    timestamp: str
+    entity_id: str
+    domain: str
+    old_state: str | None
+    new_state: str | None
+    device_id: str | None
+    area_id: str | None
+    attributes_json: str | None
+    context_parent_id: str | None
 
 
 class EventStore:

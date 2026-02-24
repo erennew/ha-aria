@@ -90,10 +90,14 @@ export default function Understand() {
   const [shadowAccuracy, setShadowAccuracy] = useState(null);
 
   useEffect(() => {
-    fetchJson('/api/ml/anomalies').then(setAnomalies).catch(() => {});
-    fetchJson('/api/ml/drift').then(setDrift).catch(() => {});
-    fetchJson('/api/ml/shap').then(setShap).catch(() => {});
-    fetchJson('/api/shadow/accuracy').then(setShadowAccuracy).catch(() => {});
+    const safeFetch = (url, setter) =>
+      fetchJson(url).then(setter).catch(err => {
+        if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
+      });
+    safeFetch('/api/ml/anomalies', setAnomalies);
+    safeFetch('/api/ml/drift', setDrift);
+    safeFetch('/api/ml/shap', setShap);
+    safeFetch('/api/shadow/accuracy', setShadowAccuracy);
   }, []);
 
   const intel = useComputed(() => {

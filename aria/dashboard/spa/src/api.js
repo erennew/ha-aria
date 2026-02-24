@@ -30,7 +30,9 @@ export function fetchJson(path) {
   const promise = fetch(`${baseUrl}${path}`)
     .then((res) => {
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const err = new Error(`HTTP ${res.status}: ${res.statusText}`);
+        err.status = res.status;
+        throw err;
       }
       return res.json();
     })

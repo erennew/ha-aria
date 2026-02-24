@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from aria.automation.condition_builder import SAFETY_CONDITIONS, build_conditions
+from aria.automation.condition_builder import build_conditions
 from aria.automation.models import ChainLink, DetectionResult
 
 
@@ -120,12 +120,8 @@ class TestIlluminanceCondition:
         assert len(illum_conds) == 0
 
 
-class TestSafetyConditions:
-    """Test safety condition defaults."""
-
-    def test_safety_conditions_dict_exists(self):
-        assert isinstance(SAFETY_CONDITIONS, dict)
-        assert "light.turn_on" in SAFETY_CONDITIONS
+class TestConditionsStructure:
+    """Test condition output structure."""
 
     def test_conditions_list_returned(self):
         conditions = build_conditions(_detection(), _mock_entity_graph())

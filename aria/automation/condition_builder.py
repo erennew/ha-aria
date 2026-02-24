@@ -11,21 +11,6 @@ from aria.automation.trigger_builder import _quote_state
 
 logger = logging.getLogger(__name__)
 
-# Safety conditions injected by default per action service domain.
-# Each entry: (condition_type, description) used to generate condition dicts.
-SAFETY_CONDITIONS = {
-    "light.turn_on": [
-        ("presence", "person.* == home"),
-        ("illuminance", "sensor.*_illuminance < 50"),
-    ],
-    "notify.*": [
-        ("quiet_hours", "time NOT between 23:00-07:00"),
-    ],
-    "climate.*": [
-        ("presence", "person.* == home"),
-    ],
-}
-
 # Weekday mappings for day_type conditions
 DAY_TYPE_WEEKDAYS = {
     "workday": ["mon", "tue", "wed", "thu", "fri"],

@@ -65,7 +65,13 @@ async def refine_automation(
     prompt = _REFINE_PROMPT.format(automation_json=json.dumps(automation, indent=2))
 
     try:
-        raw_response = await asyncio.to_thread(ollama_chat, prompt, config)
+        raw_response = await asyncio.wait_for(
+            asyncio.to_thread(ollama_chat, prompt, config),
+            timeout=timeout,
+        )
+    except TimeoutError:
+        logger.warning("LLM refiner timed out after %ds, using template output", timeout)
+        return automation
     except Exception:
         logger.warning("LLM refiner call failed, using template output", exc_info=True)
         return automation

@@ -82,6 +82,9 @@ class IntelligenceHub:
             cache_path: Path to SQLite cache database
         """
         self.cache = CacheManager(cache_path)
+        # NOTE: modules, module_status, and subscribers are public for read access
+        # but should be treated as read-only by external callers. Use register_module(),
+        # mark_module_running/failed(), subscribe(), and unsubscribe() for mutations.
         self.modules: dict[str, Module] = {}
         self.module_status: dict[str, str] = {}  # module_id -> "running" | "failed"
         self.subscribers: dict[str, set[Callable]] = {}

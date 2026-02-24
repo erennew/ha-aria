@@ -10,11 +10,26 @@ import logging
 import math
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
+from typing import TypedDict
 
 from aria.shared.entity_graph import EntityGraph
 from aria.shared.event_store import EventStore
 
 logger = logging.getLogger(__name__)
+
+
+class SegmentFeatures(TypedDict):
+    """Feature dict returned by SegmentBuilder.build_segment()."""
+
+    start: str
+    end: str
+    event_count: int
+    light_transitions: int
+    motion_events: int
+    unique_entities_active: int
+    per_area_activity: dict[str, int]
+    domain_entropy: float
+    per_domain_counts: dict[str, int]
 
 
 class SegmentBuilder:
@@ -34,12 +49,12 @@ class SegmentBuilder:
         self.event_store = event_store
         self.entity_graph = entity_graph
 
-    async def build_segment(self, start: str, end: str) -> dict:
+    async def build_segment(self, start: str, end: str) -> SegmentFeatures:
         """Build a single feature segment for the [start, end) window."""
         events = await self.event_store.query_events(start, end)
         return self._compute_features(events, start, end)
 
-    async def build_segments(self, start: str, end: str, interval_minutes: int = 15) -> list[dict]:
+    async def build_segments(self, start: str, end: str, interval_minutes: int = 15) -> list[SegmentFeatures]:
         """Build consecutive segments covering [start, end)."""
         start_dt = datetime.fromisoformat(start)
         end_dt = datetime.fromisoformat(end)
@@ -52,7 +67,7 @@ class SegmentBuilder:
             current = window_end
         return segments
 
-    def _compute_features(self, events: list[dict], start: str, end: str) -> dict:
+    def _compute_features(self, events: list[dict], start: str, end: str) -> SegmentFeatures:
         """Extract all feature values from a list of events."""
         return {
             "start": start,

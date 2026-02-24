@@ -89,11 +89,15 @@ export default function Intelligence() {
   const [shap, setShap] = useState(null);
 
   useEffect(() => {
-    fetchJson('/api/shadow/accuracy').then(setShadowAccuracy).catch(() => {});
-    fetchJson('/api/pipeline').then(setPipeline).catch(() => {});
-    fetchJson('/api/ml/drift').then(setDrift).catch(() => {});
-    fetchJson('/api/ml/anomalies').then(setAnomalies).catch(() => {});
-    fetchJson('/api/ml/shap').then(setShap).catch(() => {});
+    const safeFetch = (url, setter) =>
+      fetchJson(url).then(setter).catch(err => {
+        if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
+      });
+    safeFetch('/api/shadow/accuracy', setShadowAccuracy);
+    safeFetch('/api/pipeline', setPipeline);
+    safeFetch('/api/ml/drift', setDrift);
+    safeFetch('/api/ml/anomalies', setAnomalies);
+    safeFetch('/api/ml/shap', setShap);
   }, []);
 
   const intel = useComputed(() => {
