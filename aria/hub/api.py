@@ -1576,11 +1576,16 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
 
         return response
 
-    # Subscribe to hub events for WebSocket broadcasting
+    # Subscribe to hub events for WebSocket broadcasting (store ref for unsubscribe)
     async def broadcast_cache_update(data: dict[str, Any]):
         await ws_manager.broadcast({"type": "cache_updated", "data": data})
 
     hub.subscribe("cache_updated", broadcast_cache_update)
+    hub._broadcast_callback = broadcast_cache_update
+
+    @app.on_event("shutdown")
+    async def _unsubscribe_on_shutdown():
+        hub.unsubscribe("cache_updated", broadcast_cache_update)
 
     # Mount SPA dashboard — static files + catch-all for client-side routing
     spa_dist = Path(__file__).parent.parent / "dashboard" / "spa" / "dist"

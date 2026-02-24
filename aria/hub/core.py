@@ -94,6 +94,7 @@ class IntelligenceHub:
         self._audit_logger = None
         self._capability_registry = None  # Cached capability registry (created on first access)
         self.logger = logging.getLogger("hub")
+        self._broadcast_callback: Callable | None = None  # Stored for unsubscribe on shutdown
         self.entity_graph = EntityGraph()
         # EventStore lives alongside hub.db (same directory)
         events_db_path = str(Path(cache_path).parent / "events.db")
@@ -152,6 +153,11 @@ class IntelligenceHub:
 
         self._start_time = datetime.now(tz=UTC)
         self.logger.info("Hub initialized successfully")
+
+    def _log_task_exception(self, task: asyncio.Task) -> None:
+        """Done callback that logs unhandled exceptions from fire-and-forget tasks."""
+        if not task.cancelled() and task.exception():
+            self.logger.error("Unhandled exception in background task: %s", task.exception())
 
     def set_audit_logger(self, audit_logger):
         """Attach audit logger to hub."""
@@ -219,7 +225,7 @@ class IntelligenceHub:
         """
         if module.module_id in self.modules:
             if self._audit_logger:
-                asyncio.create_task(
+                t = asyncio.create_task(
                     self._audit_logger.log(
                         event_type="module.collision",
                         source="hub",
@@ -232,6 +238,7 @@ class IntelligenceHub:
                         severity="warning",
                     )
                 )
+                t.add_done_callback(self._log_task_exception)
             raise ValueError(f"Module {module.module_id} already registered")
 
         self.modules[module.module_id] = module
@@ -239,12 +246,13 @@ class IntelligenceHub:
         self.logger.info(f"Registered module: {module.module_id}")
 
         # Log event
-        asyncio.create_task(
+        t = asyncio.create_task(
             self.cache.log_event(event_type="module_registered", metadata={"module_id": module.module_id})
         )
+        t.add_done_callback(self._log_task_exception)
 
         if self._audit_logger:
-            asyncio.create_task(
+            t2 = asyncio.create_task(
                 self._audit_logger.log(
                     event_type="module.register",
                     source="hub",
@@ -253,6 +261,7 @@ class IntelligenceHub:
                     detail={"class": type(module).__name__},
                 )
             )
+            t2.add_done_callback(self._log_task_exception)
 
     async def on_config_updated(self, config: dict[str, Any]):
         """Propagate a config_updated event to all registered modules.
@@ -295,7 +304,10 @@ class IntelligenceHub:
         self.logger.info(f"Unregistered module: {module_id}")
 
         # Log event
-        asyncio.create_task(self.cache.log_event(event_type="module_unregistered", metadata={"module_id": module_id}))
+        t = asyncio.create_task(
+            self.cache.log_event(event_type="module_unregistered", metadata={"module_id": module_id})
+        )
+        t.add_done_callback(self._log_task_exception)
 
         return True
 
@@ -357,9 +369,9 @@ class IntelligenceHub:
 
         dispatch_start = time.monotonic()
 
-        # Dispatch path 1: explicit subscribers
+        # Dispatch path 1: explicit subscribers (snapshot to avoid mutation during await)
         if event_type in self.subscribers:
-            for callback in self.subscribers[event_type]:
+            for callback in list(self.subscribers[event_type]):
                 cb_start = time.monotonic()
                 try:
                     await callback(data)
@@ -373,8 +385,8 @@ class IntelligenceHub:
                         cb_elapsed_ms,
                     )
 
-        # Dispatch path 2: broadcast to all modules via on_event()
-        for module in self.modules.values():
+        # Dispatch path 2: broadcast to all modules via on_event() (snapshot to avoid mutation during await)
+        for module in list(self.modules.values()):
             mod_start = time.monotonic()
             try:
                 await module.on_event(event_type, data)
