@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -277,7 +277,8 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             intel = await hub.cache.get("intelligence")
             if not intel:
                 return {"metrics": {}, "needs_retrain": False, "method": "none", "days_analyzed": 0}
-            drift = intel.get("drift_status", {})
+            data = intel.get("data", {})
+            drift = data.get("drift_status", {})
             return {
                 "needs_retrain": drift.get("needs_retrain", False),
                 "reason": drift.get("reason", "no data"),
@@ -300,7 +301,8 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             intel = await hub.cache.get("intelligence")
             if not intel:
                 return {"selected": [], "total": 0, "method": "none"}
-            features = intel.get("feature_selection", {})
+            data = intel.get("data", {})
+            features = data.get("feature_selection", {})
             return {
                 "selected": features.get("selected_features", []),
                 "total": features.get("total_features", 0),
@@ -319,11 +321,12 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             intel = await hub.cache.get("intelligence")
             if not intel:
                 return {"reference": None, "incremental": None, "forecaster": None, "ml_models": None}
+            data = intel.get("data", {})
             return {
-                "reference": intel.get("reference_model", None),
-                "incremental": intel.get("incremental_training", None),
-                "forecaster": intel.get("forecaster_backend", None),
-                "ml_models": intel.get("ml_models", None),
+                "reference": data.get("reference_model", None),
+                "incremental": data.get("incremental_training", None),
+                "forecaster": data.get("forecaster_backend", None),
+                "ml_models": data.get("ml_models", None),
             }
         except Exception:
             logger.exception("Error getting ML models")
@@ -336,10 +339,11 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             intel = await hub.cache.get("intelligence")
             if not intel:
                 return {"anomalies": [], "autoencoder": {"enabled": False}, "isolation_forest": {}}
+            data = intel.get("data", {})
             return {
-                "anomalies": intel.get("anomaly_alerts", []),
-                "autoencoder": intel.get("autoencoder_status", {"enabled": False}),
-                "isolation_forest": intel.get("isolation_forest_status", {}),
+                "anomalies": data.get("anomaly_alerts", []),
+                "autoencoder": data.get("autoencoder_status", {"enabled": False}),
+                "isolation_forest": data.get("isolation_forest_status", {}),
             }
         except Exception:
             logger.exception("Error getting ML anomalies")
@@ -352,7 +356,8 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
             intel = await hub.cache.get("intelligence")
             if not intel:
                 return {"attributions": [], "available": False}
-            shap_data = intel.get("shap_attributions", {})
+            data = intel.get("data", {})
+            shap_data = data.get("shap_attributions", {})
             return {
                 "available": bool(shap_data),
                 "attributions": shap_data.get("attributions", []),
@@ -367,7 +372,8 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
     async def get_ml_pipeline():
         """Aggregate ML pipeline state for the Pipeline Overview UI."""
         try:
-            intel = await hub.cache.get("intelligence") or {}
+            intel_raw = await hub.cache.get("intelligence") or {}
+            intel = intel_raw.get("data", {})
             training_meta = await hub.cache.get("ml_training_metadata")
             training_data = (training_meta or {}).get("data", training_meta or {})
             presence = await hub.cache.get("presence")
@@ -565,10 +571,10 @@ def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         if capability_name not in caps:
             raise HTTPException(status_code=404, detail=f"Unknown capability: {capability_name}")
         caps[capability_name]["status"] = "promoted"
-        caps[capability_name]["promoted_at"] = datetime.now().strftime("%Y-%m-%d")
+        caps[capability_name]["promoted_at"] = datetime.now(UTC).strftime("%Y-%m-%d")
         await hub.set_cache("capabilities", caps)
-        if hub.audit_logger:
-            await hub.audit_logger.log(
+        if hub._audit_logger:
+            await hub._audit_logger.log(
                 event_type="capability_status_change",
                 source="api",
                 action="promote",
@@ -589,8 +595,8 @@ def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         old_status = caps[capability_name].get("status", "unknown")
         caps[capability_name]["status"] = "archived"
         await hub.set_cache("capabilities", caps)
-        if hub.audit_logger:
-            await hub.audit_logger.log(
+        if hub._audit_logger:
+            await hub._audit_logger.log(
                 event_type="capability_status_change",
                 source="api",
                 action="archive",
@@ -753,7 +759,7 @@ def _register_feedback_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         feedback_data["suggestions"][suggestion_id] = {
             "capability_source": capability_source,
             "user_action": user_action,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Update per-capability counters
@@ -1038,7 +1044,7 @@ def _register_pipeline_routes(router: APIRouter, hub: IntelligenceHub) -> None:
                     )
 
             next_stage = PIPELINE_STAGES[idx + 1]
-            now = datetime.now().isoformat()
+            now = datetime.now(UTC).isoformat()
             await hub.cache.update_pipeline_state(
                 current_stage=next_stage,
                 stage_entered_at=now,
@@ -1069,7 +1075,7 @@ def _register_pipeline_routes(router: APIRouter, hub: IntelligenceHub) -> None:
                 raise HTTPException(status_code=400, detail="Already at first stage")
 
             prev_stage = PIPELINE_STAGES[idx - 1]
-            now = datetime.now().isoformat()
+            now = datetime.now(UTC).isoformat()
             await hub.cache.update_pipeline_state(
                 current_stage=prev_stage,
                 stage_entered_at=now,
@@ -1103,7 +1109,7 @@ def _register_pipeline_routes(router: APIRouter, hub: IntelligenceHub) -> None:
                     "layer": getattr(module, "LAYER", "unknown"),
                 }
             )
-        return {"modules": sorted(modules, key=lambda m: m["id"]), "timestamp": datetime.now().isoformat()}
+        return {"modules": sorted(modules, key=lambda m: m["id"]), "timestamp": datetime.now(UTC).isoformat()}
 
 
 def _compute_stage_health(stats: dict) -> dict:
@@ -1133,9 +1139,9 @@ def _compute_stage_health(stats: dict) -> dict:
             recent_avg = sum(recent) / len(recent)
             earlier_avg = sum(earlier) / len(earlier)
             delta = recent_avg - earlier_avg
-            if delta > 2:
+            if delta > 0.02:
                 stage_health["trend_direction"] = "improving"
-            elif delta < -2:
+            elif delta < -0.02:
                 stage_health["trend_direction"] = "degrading"
             else:
                 stage_health["trend_direction"] = "stable"
@@ -1187,6 +1193,9 @@ def _register_config_routes(router: APIRouter, hub: IntelligenceHub, ws_manager:
             config = await hub.cache.get_config(key)
             if config is None:
                 raise HTTPException(status_code=404, detail=f"Config key '{key}' not found")
+            if _is_sensitive_key(key):
+                config = dict(config)
+                config["value"] = "***REDACTED***"
             return config
         except HTTPException:
             raise
@@ -1216,6 +1225,12 @@ def _register_config_routes(router: APIRouter, hub: IntelligenceHub, ws_manager:
         """Get configuration change history."""
         try:
             history = await hub.cache.get_config_history(key=key, limit=limit)
+            for entry in history:
+                if _is_sensitive_key(entry.get("key", "")):
+                    if "old_value" in entry:
+                        entry["old_value"] = "***REDACTED***"
+                    if "new_value" in entry:
+                        entry["new_value"] = "***REDACTED***"
             return {"history": history, "count": len(history)}
         except Exception:
             logger.exception("Error getting config history")
@@ -1578,9 +1593,9 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         Real static files (bundle.js, bundle.css) are served by the mount below.
         This catch-all only fires for paths that don't match a real file.
         """
-        # Serve real files directly (JS, CSS, etc.)
+        # Serve real files directly (JS, CSS, etc.) with path traversal guard
         real_file = spa_dist / path
-        if real_file.is_file():
+        if real_file.is_file() and real_file.resolve().is_relative_to(spa_dist.resolve()):
             return FileResponse(real_file)
         # Everything else gets index.html for the client-side router
         return FileResponse(spa_index)
