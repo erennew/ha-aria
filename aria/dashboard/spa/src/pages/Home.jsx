@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
 import useCache from '../hooks/useCache.js';
 import useComputed from '../hooks/useComputed.js';
-import { fetchJson } from '../api.js';
+import { fetchJson, safeFetch } from '../api.js';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import AriaLogo from '../components/AriaLogo.jsx';
@@ -24,10 +24,6 @@ export default function Home() {
   const [pipeline, setPipeline] = useState(null);
 
   useEffect(() => {
-    const safeFetch = (url, setter) =>
-      fetchJson(url).then(setter).catch(err => {
-        if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
-      });
     safeFetch('/health', setHealth);
     safeFetch('/api/ml/anomalies', setAnomalies);
     safeFetch('/api/shadow/accuracy', setShadowAccuracy);

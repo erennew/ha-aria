@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import useCache from '../hooks/useCache.js';
 import useComputed from '../hooks/useComputed.js';
-import { fetchJson } from '../api.js';
+import { fetchJson, safeFetch } from '../api.js';
 import { SIGNIFICANCE_PCT } from '../constants.js';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
@@ -89,10 +89,6 @@ export default function Intelligence() {
   const [shap, setShap] = useState(null);
 
   useEffect(() => {
-    const safeFetch = (url, setter) =>
-      fetchJson(url).then(setter).catch(err => {
-        if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
-      });
     safeFetch('/api/shadow/accuracy', setShadowAccuracy);
     safeFetch('/api/pipeline', setPipeline);
     safeFetch('/api/ml/drift', setDrift);

@@ -159,10 +159,12 @@ class IntelligenceHub:
         self._start_time = datetime.now(tz=UTC)
         self.logger.info("Hub initialized successfully")
 
-    def _log_task_exception(self, task: asyncio.Task) -> None:
+    @staticmethod
+    def _log_task_exception(task: asyncio.Task) -> None:
         """Done callback that logs unhandled exceptions from fire-and-forget tasks."""
-        if not task.cancelled() and task.exception():
-            self.logger.error("Unhandled exception in background task: %s", task.exception())
+        from aria.shared.utils import log_task_exception
+
+        log_task_exception(task)
 
     def set_audit_logger(self, audit_logger):
         """Attach audit logger to hub."""

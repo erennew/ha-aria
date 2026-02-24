@@ -685,7 +685,6 @@ class TestTelegramProbe:
         mock_hub.subscribe = MagicMock()
         mock_hub._request_count = 0
         mock_hub._audit_logger = None
-        mock_hub.audit_logger = None
         mock_hub.set_cache = AsyncMock()
         mock_hub.get_uptime_seconds = MagicMock(return_value=100)
         mock_hub.health_check = AsyncMock(

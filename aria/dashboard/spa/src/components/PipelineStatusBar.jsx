@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { wsConnected } from '../store.js';
-import { fetchJson } from '../api.js';
+import { fetchJson, safeFetch } from '../api.js';
 
 /**
  * Compact one-line pipeline status bar for the Home page.
@@ -13,10 +13,6 @@ export default function PipelineStatusBar() {
   const connected = wsConnected.value;
 
   useEffect(() => {
-    const safeFetch = (url, setter) =>
-      fetchJson(url).then(setter).catch(err => {
-        if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
-      });
     safeFetch('/health', setHealth);
     safeFetch('/api/pipeline', setPipeline);
   }, []);

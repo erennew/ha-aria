@@ -23,6 +23,7 @@ from typing import Any
 from aria.capabilities import Capability, DemandSignal
 from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ACTIVITY_SUMMARY
 from aria.hub.core import IntelligenceHub, Module
+from aria.shared.utils import log_task_exception as _log_task_exception
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +59,6 @@ ROOM_INDICATOR_DOMAINS = {
     "media_player",
     "fan",
 }
-
-
-def _log_task_exception(task):
-    if not task.cancelled() and task.exception():
-        logger.error("Unhandled exception in background task: %s", task.exception())
 
 
 class ThompsonSampler:

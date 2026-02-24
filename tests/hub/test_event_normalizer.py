@@ -180,6 +180,50 @@ class TestUserExclusion:
         result = normalizer.filter_user_exclusions(events)
         assert len(result) == 1
 
+    def test_area_exclusion_with_entity_graph(self):
+        """Entity without area_id excluded via entity_graph area resolution."""
+        from aria.shared.entity_graph import EntityGraph
+
+        graph = EntityGraph()
+        graph.update(
+            entities={
+                "light.garage_door": {"device_id": "dev_g", "area_id": None},
+            },
+            devices={
+                "dev_g": {"area_id": "garage"},
+            },
+            areas=[
+                {"area_id": "garage", "name": "Garage"},
+            ],
+        )
+
+        config = {
+            "filter.ignored_states": ["unavailable", "unknown"],
+            "filter.exclude_entities": [],
+            "filter.exclude_areas": ["garage"],
+            "filter.exclude_domains": [],
+            "filter.include_domains": [],
+            "filter.exclude_entity_patterns": [],
+            "filter.min_availability_pct": 80,
+        }
+        normalizer_with_graph = EventNormalizer(config, entity_graph=graph)
+
+        events = [
+            {
+                "entity_id": "light.garage_door",
+                "domain": "light",
+                "area_id": None,  # No direct area_id — graph resolves to "garage"
+                "timestamp": "t",
+                "old_state": "off",
+                "new_state": "on",
+                "device_id": None,
+                "context_parent_id": None,
+                "attributes_json": None,
+            },
+        ]
+        result = normalizer_with_graph.filter_user_exclusions(events)
+        assert len(result) == 0, "Entity in excluded area (via graph) should be filtered"
+
 
 class TestDayTypeSegmentation:
     def test_segment_workday_and_weekend(self, normalizer):

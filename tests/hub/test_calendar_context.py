@@ -1,7 +1,7 @@
 """Tests for calendar context fetch — Google Calendar (gog) and HA calendar sources."""
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -129,6 +129,32 @@ class TestHACalendarFetch:
                 entity_id="calendar.holidays",
             )
         assert events == []
+
+
+class TestGogTimeout:
+    @pytest.mark.asyncio
+    async def test_timeout_kills_subprocess(self):
+        """gog CLI timeout must call proc.kill() and raise RuntimeError."""
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(side_effect=TimeoutError)
+        mock_proc.kill = MagicMock()
+        mock_proc.wait = AsyncMock()
+
+        with (
+            patch(
+                "aria.shared.calendar_context.asyncio.create_subprocess_exec",
+                new_callable=AsyncMock,
+                return_value=mock_proc,
+            ),
+            pytest.raises(RuntimeError, match="gog CLI timed out"),
+        ):
+            from aria.shared.calendar_context import _run_gog_cli
+
+            await _run_gog_cli("2026-02-20", "2026-02-21")
+
+        mock_proc.kill.assert_called_once()
+        mock_proc.wait.assert_awaited_once()
 
 
 class TestDisabledCalendar:

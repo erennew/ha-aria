@@ -203,3 +203,68 @@ class TestDualDispatch:
         await hub.publish("other_event", {"y": 2})
 
         assert not wrong_calls, "subscribe() callback fired for a non-matching event type — should not happen"
+
+
+# ---------------------------------------------------------------------------
+# C4 — Subscriber snapshot concurrent modification safety
+# ---------------------------------------------------------------------------
+
+
+class TestSubscriberSnapshotSafety:
+    """publish() must snapshot subscribers before iterating to avoid RuntimeError."""
+
+    @pytest.mark.asyncio
+    async def test_publish_snapshot_safety(self, hub):
+        """Unsubscribing inside a callback must not raise RuntimeError."""
+        call_count = 0
+
+        async def self_removing_callback(data: dict) -> None:
+            nonlocal call_count
+            call_count += 1
+            # Unsubscribe during iteration — would raise RuntimeError without snapshot
+            hub.unsubscribe("snapshot_test", self_removing_callback)
+
+        hub.subscribe("snapshot_test", self_removing_callback)
+
+        # Should not raise RuntimeError: Set changed size during iteration
+        await hub.publish("snapshot_test", {"marker": "snapshot"})
+        assert call_count == 1
+
+        # Second publish should not call the unsubscribed callback
+        await hub.publish("snapshot_test", {"marker": "snapshot2"})
+        assert call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# C8 — create_task done callback logs exceptions
+# ---------------------------------------------------------------------------
+
+
+class TestCreateTaskDoneCallback:
+    """Background task exceptions must be logged via done_callback (lesson #43)."""
+
+    @pytest.mark.asyncio
+    async def test_create_task_logs_exception_via_callback(self, hub, caplog):
+        """A failing background task must produce an error log via done_callback."""
+
+        async def failing_coro():
+            raise ValueError("test task failure")
+
+        task = asyncio.get_event_loop().create_task(failing_coro())
+        task.add_done_callback(hub._log_task_exception)
+
+        # Wait for task to complete (and fail)
+        with pytest.raises(ValueError):
+            await task
+
+        # Allow event loop to process callbacks
+        await asyncio.sleep(0)
+
+        # Verify error was logged — the message contains the task name,
+        # the exception details are in exc_info (shown in full log text)
+        error_records = [
+            r for r in caplog.records if r.levelno >= logging.ERROR and "Unhandled exception in task" in r.message
+        ]
+        assert error_records, f"Expected error log about task exception, got: {[r.message for r in caplog.records]}"
+        # Verify exc_info was passed (full traceback available)
+        assert error_records[0].exc_info is not None, "exc_info should be set for full traceback"

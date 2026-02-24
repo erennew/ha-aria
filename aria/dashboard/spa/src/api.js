@@ -78,4 +78,17 @@ export function postJson(path, body) {
   });
 }
 
+/**
+ * Fetch JSON with silent 404 handling — use for dashboard data that may not exist yet.
+ * Non-404 errors are logged to console.
+ *
+ * @param {string} url - API path
+ * @param {function} setter - State setter to call with the result
+ */
+export function safeFetch(url, setter) {
+  return fetchJson(url).then(setter).catch(err => {
+    if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
+  });
+}
+
 export { baseUrl };

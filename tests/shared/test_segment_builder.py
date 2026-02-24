@@ -292,6 +292,39 @@ class TestPerAreaActivity:
         )
         assert segment["per_area_activity"] == {}
 
+    @pytest.mark.asyncio
+    async def test_area_fallback_via_entity_graph(self, event_store):
+        """Entity without area_id resolved through entity graph fallback."""
+        graph = EntityGraph()
+        graph.update(
+            entities={
+                "light.hallway": {"device_id": "dev_1", "area_id": None},
+            },
+            devices={
+                "dev_1": {"area_id": "hallway"},
+            },
+            areas=[
+                {"area_id": "hallway", "name": "Hallway"},
+            ],
+        )
+        builder = SegmentBuilder(event_store, graph)
+
+        now = datetime.now(tz=UTC)
+        ts = (now - timedelta(minutes=5)).isoformat()
+        await event_store.insert_event(
+            timestamp=ts,
+            entity_id="light.hallway",
+            domain="light",
+            old_state="off",
+            new_state="on",
+            # No area_id — must resolve via entity_graph
+        )
+        segment = await builder.build_segment(
+            (now - timedelta(minutes=15)).isoformat(),
+            now.isoformat(),
+        )
+        assert segment["per_area_activity"].get("hallway") == 1
+
 
 class TestBuildSegments:
     @pytest.mark.asyncio

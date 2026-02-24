@@ -1,6 +1,8 @@
-"""Tests for API fixes — can-predict cache bypass (#27)."""
+"""Tests for API fixes — can-predict cache bypass (#27), trend direction (#C5)."""
 
 from unittest.mock import AsyncMock
+
+from aria.hub.api import _compute_stage_health
 
 # ============================================================================
 # #27: Toggle can-predict uses hub.set_cache (not hub.cache.set)
@@ -73,3 +75,60 @@ class TestToggleCanPredictCacheBypass:
         )
 
         assert response.status_code == 400
+
+
+# ============================================================================
+# C5: Trend direction uses 0.02 threshold
+# ============================================================================
+
+
+class TestTrendDirectionThreshold:
+    """_compute_stage_health trend_direction uses 0.02 delta threshold."""
+
+    def test_small_delta_is_stable(self):
+        """A delta of 0.01 (below 0.02 threshold) should be 'stable'."""
+        stats = {
+            "total_resolved": 100,
+            "total_correct": 70,
+            "total_attempted": 100,
+            "predictions": [{"confidence": 0.7, "correct": True}] * 70 + [{"confidence": 0.3, "correct": False}] * 30,
+            "daily_trend": [{"accuracy": 0.70} for _ in range(3)] + [{"accuracy": 0.71} for _ in range(3)],
+        }
+        result = _compute_stage_health(stats)
+        assert result["trend_direction"] == "stable"
+
+    def test_large_positive_delta_is_improving(self):
+        """A delta > 0.02 should be 'improving'."""
+        stats = {
+            "total_resolved": 100,
+            "total_correct": 70,
+            "total_attempted": 100,
+            "predictions": [{"confidence": 0.7, "correct": True}] * 70 + [{"confidence": 0.3, "correct": False}] * 30,
+            "daily_trend": [{"accuracy": 0.60} for _ in range(3)] + [{"accuracy": 0.70} for _ in range(3)],
+        }
+        result = _compute_stage_health(stats)
+        assert result["trend_direction"] == "improving"
+
+    def test_large_negative_delta_is_degrading(self):
+        """A delta < -0.02 should be 'degrading'."""
+        stats = {
+            "total_resolved": 100,
+            "total_correct": 70,
+            "total_attempted": 100,
+            "predictions": [{"confidence": 0.7, "correct": True}] * 70 + [{"confidence": 0.3, "correct": False}] * 30,
+            "daily_trend": [{"accuracy": 0.75} for _ in range(3)] + [{"accuracy": 0.65} for _ in range(3)],
+        }
+        result = _compute_stage_health(stats)
+        assert result["trend_direction"] == "degrading"
+
+    def test_insufficient_data(self):
+        """Fewer than 3 trend points should be 'insufficient_data'."""
+        stats = {
+            "total_resolved": 10,
+            "total_correct": 7,
+            "total_attempted": 10,
+            "predictions": [{"confidence": 0.7, "correct": True}] * 7 + [{"confidence": 0.3, "correct": False}] * 3,
+            "daily_trend": [{"accuracy": 0.7}],
+        }
+        result = _compute_stage_health(stats)
+        assert result["trend_direction"] == "insufficient_data"

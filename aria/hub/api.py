@@ -27,13 +27,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from aria.hub.core import IntelligenceHub
+from aria.shared.utils import log_task_exception as _log_task_exception
 
 logger = logging.getLogger(__name__)
-
-
-def _log_task_exception(task):
-    if not task.cancelled() and task.exception():
-        logger.error("Unhandled exception in background task: %s", task.exception())
 
 
 # --- Optional API key authentication ---
@@ -46,7 +42,7 @@ if not _ARIA_API_KEY:
     )
 
 # --- Sensitive config key redaction (#43) ---
-_SENSITIVE_KEY_PATTERNS = {"password", "token", "secret", "credential", "api_key"}
+_SENSITIVE_KEY_PATTERNS = {"password", "token", "secret", "credential", "api_key", "auth", "private_key"}
 
 
 def _is_sensitive_key(key: str) -> bool:
@@ -1215,7 +1211,8 @@ def _register_config_routes(router: APIRouter, hub: IntelligenceHub, ws_manager:
         """Update a configuration parameter value."""
         try:
             config = await hub.cache.set_config(key, body.value, changed_by=body.changed_by)
-            await hub.publish("config_updated", {"key": key, "value": body.value})
+            publish_value = "***REDACTED***" if _is_sensitive_key(key) else body.value
+            await hub.publish("config_updated", {"key": key, "value": publish_value})
             await ws_manager.broadcast({"type": "config_updated", "data": {"key": key}})
             return config
         except ValueError as e:

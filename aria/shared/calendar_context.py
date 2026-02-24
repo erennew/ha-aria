@@ -8,6 +8,7 @@ Degrades gracefully: any failure returns an empty list, never breaks the pipelin
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -93,7 +94,8 @@ async def _run_gog_cli(start_date: str, end_date: str) -> str:
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
     except TimeoutError:
-        proc.kill()
+        with contextlib.suppress(ProcessLookupError):
+            proc.kill()
         await proc.wait()
         raise RuntimeError("gog CLI timed out after 30s") from None
     if proc.returncode != 0:
