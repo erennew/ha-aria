@@ -5,7 +5,7 @@ import logging
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +66,8 @@ class FaceEmbeddingStore:
                     ON face_review_queue(priority DESC, reviewed_at);
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_embeddings_event_live
                     ON face_embeddings(event_id) WHERE source = 'live';
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_embeddings_event_bootstrap
+                    ON face_embeddings(event_id) WHERE source = 'bootstrap';
             """)
             conn.commit()
 
@@ -175,7 +177,7 @@ class FaceEmbeddingStore:
                 """UPDATE face_review_queue
                    SET reviewed_at = ?, person_name = ?
                    WHERE id = ?""",
-                (datetime.utcnow().isoformat(), person_name, queue_id),
+                (datetime.now(UTC).isoformat(), person_name, queue_id),
             )
             conn.commit()
             if cur.rowcount == 0:

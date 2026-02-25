@@ -120,8 +120,7 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
 
             async def _run():
                 pipeline = BootstrapPipeline(clips_dir=clips_dir, store=store)
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, pipeline.run)
+                await asyncio.to_thread(pipeline.run)
 
             from aria.shared.utils import log_task_exception
 

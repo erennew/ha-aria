@@ -1,5 +1,6 @@
 """Bootstrap pipeline: batch-process Frigate clips → DBSCAN clusters."""
 
+import hashlib
 import logging
 from pathlib import Path
 
@@ -92,17 +93,25 @@ class BootstrapPipeline:
 
         labels = self.cluster_embeddings(embeddings)
 
-        # Persist all embeddings as unidentified (person_name=None)
+        # Persist all embeddings as unidentified (person_name=None).
+        # Use a short hash of the image path as event_id so re-runs are
+        # idempotent — the partial unique index only covers source='live',
+        # so without a stable per-image key, re-running doubles the rows.
         for path, embedding, _label in zip(valid_paths, embeddings, labels, strict=False):
-            self.store.add_embedding(
-                person_name=None,
-                embedding=embedding,
-                event_id="bootstrap",
-                image_path=path,
-                confidence=0.0,
-                source="bootstrap",
-                verified=False,
-            )
+            path_id = "bs_" + hashlib.sha1(path.encode()).hexdigest()[:12]
+            try:
+                self.store.add_embedding(
+                    person_name=None,
+                    embedding=embedding,
+                    event_id=path_id,
+                    image_path=path,
+                    confidence=0.0,
+                    source="bootstrap",
+                    verified=False,
+                )
+            except Exception:
+                # Duplicate on re-run — skip silently (image already stored)
+                logger.debug("Bootstrap: skipping duplicate %s", path_id)
 
         clusters = self.build_clusters(valid_paths, labels)
         logger.info(

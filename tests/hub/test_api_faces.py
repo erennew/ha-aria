@@ -72,9 +72,9 @@ class TestFacesPeopleAPI:
         assert response.json()["people"] == []
 
     def test_get_people_with_data(self, api_client, api_hub):
-        for _ in range(3):
+        for i in range(3):
             api_hub.faces_store.add_embedding(
-                "justin", np.random.rand(512).astype(np.float32), "evt", "/tmp/x.jpg", 0.9, "bootstrap", True
+                "justin", np.random.rand(512).astype(np.float32), f"evt-{i}", f"/tmp/x{i}.jpg", 0.9, "bootstrap", True
             )
         response = api_client.get("/api/faces/people")
         assert response.status_code == 200

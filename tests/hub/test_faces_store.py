@@ -1,5 +1,7 @@
 """Tests for FaceEmbeddingStore — SQLite CRUD for embeddings and review queue."""
 
+import sqlite3
+
 import numpy as np
 import pytest
 
@@ -50,23 +52,25 @@ class TestFaceEmbeddingStoreCRUD:
 
     def test_get_all_named_embeddings(self, store):
         """Returns all embeddings with non-null person_name."""
-        for name in ["justin", "justin", "carter"]:
+        for i, name in enumerate(["justin", "justin", "carter"]):
             store.add_embedding(
-                name, np.random.rand(512).astype(np.float32), "evt", "/tmp/x.jpg", 0.9, "bootstrap", True
+                name, np.random.rand(512).astype(np.float32), f"evt-{i}", f"/tmp/x{i}.jpg", 0.9, "bootstrap", True
             )
-        store.add_embedding(None, np.random.rand(512).astype(np.float32), "evt", "/tmp/y.jpg", 0.5, "live", False)
+        store.add_embedding(
+            None, np.random.rand(512).astype(np.float32), "evt-live-1", "/tmp/y.jpg", 0.5, "live", False
+        )
         all_named = store.get_all_named_embeddings()
         assert len(all_named) == 3
         assert all(e["person_name"] is not None for e in all_named)
 
     def test_get_known_people(self, store):
         """Returns list of unique person names with counts."""
-        for _ in range(3):
+        for i in range(3):
             store.add_embedding(
-                "justin", np.random.rand(512).astype(np.float32), "evt", "/tmp/x.jpg", 0.9, "bootstrap", True
+                "justin", np.random.rand(512).astype(np.float32), f"evt-j{i}", f"/tmp/x{i}.jpg", 0.9, "bootstrap", True
             )
         store.add_embedding(
-            "carter", np.random.rand(512).astype(np.float32), "evt", "/tmp/y.jpg", 0.9, "bootstrap", True
+            "carter", np.random.rand(512).astype(np.float32), "evt-c0", "/tmp/y.jpg", 0.9, "bootstrap", True
         )
         people = store.get_known_people()
         names = {p["person_name"] for p in people}
@@ -148,10 +152,9 @@ class TestLiveEventUniqueness:
         with pytest.raises(sqlite3.IntegrityError):
             store.add_embedding("justin", vec, "evt-dup", "/tmp/b.jpg", 0.9, "live", False)
 
-    def test_duplicate_bootstrap_event_allowed(self, store):
-        """Multiple bootstrap embeddings with same event_id are allowed."""
+    def test_duplicate_bootstrap_event_raises_integrity_error(self, store):
+        """Bootstrap embeddings with same event_id raise IntegrityError (prevents re-run doubling)."""
         vec = np.random.rand(512).astype(np.float32)
-        store.add_embedding("justin", vec.copy(), "bootstrap", "/tmp/a.jpg", 0.0, "bootstrap", False)
-        store.add_embedding("justin", vec.copy(), "bootstrap", "/tmp/b.jpg", 0.0, "bootstrap", False)
-        embeddings = store.get_embeddings_for_person("justin")
-        assert len(embeddings) == 2
+        store.add_embedding("justin", vec.copy(), "bs_abc123", "/tmp/a.jpg", 0.0, "bootstrap", False)
+        with pytest.raises(sqlite3.IntegrityError):
+            store.add_embedding("justin", vec.copy(), "bs_abc123", "/tmp/b.jpg", 0.0, "bootstrap", False)

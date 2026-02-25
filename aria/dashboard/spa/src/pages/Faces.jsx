@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'preact/hooks';
+import { postJson } from '../api.js';
+import PageBanner from '../components/PageBanner.jsx';
+import LoadingState from '../components/LoadingState.jsx';
+import ErrorState from '../components/ErrorState.jsx';
 
 export default function Faces() {
-  const [stats, setStats] = useState({ queue_depth: 0, known_people: 0 });
+  const [stats, setStats] = useState(null);
   const [queue, setQueue] = useState([]);
   const [people, setPeople] = useState([]);
   const [labelInput, setLabelInput] = useState({});
   const [bootstrapRunning, setBootstrapRunning] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   async function fetchData() {
@@ -15,13 +20,16 @@ export default function Faces() {
         fetch('/api/faces/queue?limit=20'),
         fetch('/api/faces/people'),
       ]);
-      setStats(await statsRes.json());
-      const queueData = await queueRes.json();
-      setQueue(queueData.items || []);
-      const peopleData = await peopleRes.json();
-      setPeople(peopleData.people || []);
+      if (!statsRes.ok || !queueRes.ok || !peopleRes.ok) throw new Error('API error');
+      const [s, q, p] = await Promise.all([statsRes.json(), queueRes.json(), peopleRes.json()]);
+      setStats(s);
+      setQueue(q.items || []);
+      setPeople(p.people || []);
+      setError(null);
     } catch (e) {
-      setError(e.message);
+      setError(e);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -30,98 +38,131 @@ export default function Faces() {
   async function handleLabel(queueId) {
     const name = labelInput[queueId]?.trim();
     if (!name) return;
-    await fetch('/api/faces/label', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queue_id: queueId, person_name: name }),
-    });
-    setLabelInput(prev => ({ ...prev, [queueId]: '' }));
-    fetchData();
+    try {
+      await postJson('/api/faces/label', { queue_id: queueId, person_name: name });
+      setLabelInput(prev => ({ ...prev, [queueId]: '' }));
+      fetchData();
+    } catch (e) {
+      setError(e);
+    }
   }
 
   async function handleBootstrap() {
     setBootstrapRunning(true);
-    await fetch('/api/faces/bootstrap', { method: 'POST' });
-    setTimeout(() => { setBootstrapRunning(false); fetchData(); }, 3000);
+    try {
+      await postJson('/api/faces/bootstrap', {});
+      setTimeout(() => { setBootstrapRunning(false); fetchData(); }, 3000);
+    } catch (e) {
+      setError(e);
+      setBootstrapRunning(false);
+    }
   }
 
   async function handleDeploy() {
-    await fetch('/api/faces/deploy', { method: 'POST' });
-    alert('Deployed to Frigate — restart Frigate to reload face library.');
+    try {
+      await postJson('/api/faces/deploy', {});
+      alert('Deployed to Frigate — restart Frigate to reload face library.');
+    } catch (e) {
+      setError(e);
+    }
   }
 
-  return (
-    <div class="p-4 max-w-4xl mx-auto">
-      <h1 class="text-2xl font-bold mb-4">Face Recognition</h1>
+  if (loading) return <LoadingState type="stats" />;
 
-      {error && <div class="text-red-500 mb-4">{error}</div>}
+  return (
+    <div style="max-width: 56rem; margin: 0 auto;">
+      <PageBanner page="FACES" subtitle="Face recognition — bootstrap clusters, label identities, deploy to Frigate." />
+
+      {error && (
+        <div style="margin-bottom: 1.5rem;">
+          <ErrorState error={error} onRetry={fetchData} />
+        </div>
+      )}
 
       {/* Stats */}
-      <div class="grid grid-cols-2 gap-4 mb-6">
-        <div class="bg-gray-800 rounded p-4 text-center">
-          <div class="text-3xl font-bold text-yellow-400">{stats.queue_depth}</div>
-          <div class="text-sm text-gray-400">Pending review</div>
+      <div class="grid grid-cols-2 gap-4" style="margin-bottom: 1.5rem;">
+        <div class="t-card" style="padding: 1rem; text-align: center;">
+          <div style="font-size: 2rem; font-weight: 700; color: var(--status-active);">
+            {stats?.queue_depth ?? 0}
+          </div>
+          <div style="font-size: var(--type-label); color: var(--text-secondary); margin-top: 0.25rem;">
+            Pending review
+          </div>
         </div>
-        <div class="bg-gray-800 rounded p-4 text-center">
-          <div class="text-3xl font-bold text-green-400">{stats.known_people}</div>
-          <div class="text-sm text-gray-400">Known people</div>
+        <div class="t-card" style="padding: 1rem; text-align: center;">
+          <div style="font-size: 2rem; font-weight: 700; color: var(--status-healthy);">
+            {stats?.known_people ?? 0}
+          </div>
+          <div style="font-size: var(--type-label); color: var(--text-secondary); margin-top: 0.25rem;">
+            Known people
+          </div>
         </div>
       </div>
 
-      {/* Bootstrap */}
-      <div class="bg-gray-800 rounded p-4 mb-6">
-        <h2 class="text-lg font-semibold mb-2">Bootstrap from Frigate Clips</h2>
-        <p class="text-sm text-gray-400 mb-3">
-          Run once to extract and cluster faces from all existing snapshots.
-          Then label each cluster below.
+      {/* Bootstrap panel */}
+      <div class="t-frame" data-label="BOOTSTRAP" style="padding: 1rem; margin-bottom: 1.5rem;">
+        <p style="font-size: var(--type-label); color: var(--text-secondary); margin-bottom: 0.75rem;">
+          Run once to extract and cluster faces from all existing Frigate snapshots.
+          Label each cluster below, then deploy to train Frigate's recogniser.
         </p>
-        <div class="flex gap-2">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
           <button
+            class="t-btn t-btn-primary"
             onClick={handleBootstrap}
             disabled={bootstrapRunning}
-            class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded text-sm"
+            style="padding: 0.5rem 1rem; font-size: 0.875rem; opacity: bootstrapRunning ? 0.5 : 1;"
           >
-            {bootstrapRunning ? 'Running...' : 'Run Bootstrap'}
+            {bootstrapRunning ? 'Running…' : 'Run Bootstrap'}
           </button>
           <button
+            class="t-btn t-btn-secondary"
             onClick={handleDeploy}
-            class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-sm"
+            style="padding: 0.5rem 1rem; font-size: 0.875rem;"
           >
             Deploy to Frigate
           </button>
         </div>
       </div>
 
-      {/* Review Queue */}
+      {/* Review queue */}
       {queue.length > 0 && (
-        <div class="mb-6">
-          <h2 class="text-lg font-semibold mb-3">Review Queue ({stats.queue_depth})</h2>
-          <div class="space-y-3">
+        <div style="margin-bottom: 1.5rem;">
+          <div class="t-section-header" style="margin-bottom: 0.75rem;">
+            Review Queue ({stats?.queue_depth ?? queue.length})
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
             {queue.map(item => (
-              <div key={item.id} class="bg-gray-800 rounded p-3 flex gap-3 items-start">
+              <div key={item.id} class="t-card" style="padding: 0.75rem; display: flex; gap: 0.75rem; align-items: flex-start;">
                 <img
                   src={`/api/events/${item.event_id}/snapshot.jpg`}
-                  class="w-20 h-20 object-cover rounded"
+                  style="width: 5rem; height: 5rem; object-fit: cover; border-radius: var(--radius); flex-shrink: 0; background: var(--bg-inset);"
                   onError={e => { e.target.style.display = 'none'; }}
                 />
-                <div class="flex-1">
-                  <div class="text-xs text-gray-400 mb-1">Priority: {item.priority?.toFixed(2)}</div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: var(--type-label); color: var(--text-secondary); margin-bottom: 0.25rem;">
+                    Uncertainty: {item.priority?.toFixed(2)}
+                  </div>
                   {item.top_candidates?.map(cand => (
-                    <div key={cand.person_name} class="text-sm text-gray-300">
-                      {cand.person_name}: {(cand.confidence * 100).toFixed(0)}%
+                    <div key={cand.person_name} style="font-size: 0.875rem; color: var(--text-secondary);">
+                      {cand.person_name}
+                      <span style="color: var(--accent); margin-left: 0.5rem; font-weight: 600;">
+                        {(cand.confidence * 100).toFixed(0)}%
+                      </span>
                     </div>
                   ))}
-                  <div class="flex gap-2 mt-2">
+                  <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                     <input
+                      class="t-input"
                       type="text"
                       placeholder="Name or skip"
                       value={labelInput[item.id] || ''}
                       onInput={e => setLabelInput(prev => ({ ...prev, [item.id]: e.target.value }))}
-                      class="bg-gray-700 px-2 py-1 rounded text-sm flex-1"
+                      style="flex: 1; font-size: 0.875rem; padding: 0.25rem 0.5rem;"
                     />
                     <button
+                      class="t-btn t-btn-primary"
                       onClick={() => handleLabel(item.id)}
-                      class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm"
+                      style="padding: 0.25rem 0.75rem; font-size: 0.875rem;"
                     >
                       Label
                     </button>
@@ -133,18 +174,27 @@ export default function Faces() {
         </div>
       )}
 
-      {/* People Roster */}
+      {/* People roster */}
       {people.length > 0 && (
         <div>
-          <h2 class="text-lg font-semibold mb-3">Known People</h2>
+          <div class="t-section-header" style="margin-bottom: 0.75rem;">
+            Known People
+          </div>
           <div class="grid grid-cols-2 gap-2">
             {people.map(person => (
-              <div key={person.person_name} class="bg-gray-800 rounded p-3 flex justify-between">
-                <span class="font-medium">{person.person_name}</span>
-                <span class="text-gray-400 text-sm">{person.count} samples</span>
+              <div key={person.person_name} class="t-card" style="padding: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 500; color: var(--text-primary);">{person.person_name}</span>
+                <span style="font-size: var(--type-label); color: var(--text-secondary);">{person.count} samples</span>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && queue.length === 0 && people.length === 0 && (
+        <div class="t-card" style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+          No face data yet. Run bootstrap to get started.
         </div>
       )}
     </div>

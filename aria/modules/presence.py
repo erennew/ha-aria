@@ -15,7 +15,7 @@ import os
 import random
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import aiohttp
@@ -598,7 +598,7 @@ class PresenceModule(Module):
             if result["action"] == "auto_label":
                 person_name = result["person_name"]
                 confidence = result["confidence"]
-                now = datetime.now()
+                now = datetime.now(UTC)
                 self._identified_persons[person_name] = {
                     "room": room,
                     "last_seen": now.isoformat(),
