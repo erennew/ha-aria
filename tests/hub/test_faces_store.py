@@ -136,3 +136,22 @@ class TestReviewQueue:
         item = store.get_review_queue(limit=1)[0]
         store.mark_reviewed(item["id"], person_name="justin")
         assert store.get_queue_depth() == 2
+
+
+class TestLiveEventUniqueness:
+    def test_duplicate_live_event_raises_integrity_error(self, store):
+        """Inserting two live embeddings with the same event_id raises IntegrityError."""
+        import sqlite3
+
+        vec = np.random.rand(512).astype(np.float32)
+        store.add_embedding("justin", vec, "evt-dup", "/tmp/a.jpg", 0.9, "live", False)
+        with pytest.raises(sqlite3.IntegrityError):
+            store.add_embedding("justin", vec, "evt-dup", "/tmp/b.jpg", 0.9, "live", False)
+
+    def test_duplicate_bootstrap_event_allowed(self, store):
+        """Multiple bootstrap embeddings with same event_id are allowed."""
+        vec = np.random.rand(512).astype(np.float32)
+        store.add_embedding("justin", vec.copy(), "bootstrap", "/tmp/a.jpg", 0.0, "bootstrap", False)
+        store.add_embedding("justin", vec.copy(), "bootstrap", "/tmp/b.jpg", 0.0, "bootstrap", False)
+        embeddings = store.get_embeddings_for_person("justin")
+        assert len(embeddings) == 2

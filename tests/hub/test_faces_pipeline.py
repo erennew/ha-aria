@@ -72,3 +72,12 @@ class TestFacePipelineMatching:
 
         result = pipeline.process_embedding(vec, event_id="evt-unknown", image_path="/tmp/f.jpg")
         assert result["action"] == "queued"
+
+    def test_threshold_uses_only_verified_count(self, pipeline):
+        """Threshold count uses only verified embeddings — not auto-labels."""
+        # Get the count with 10 verified embeddings (seeded in fixture)
+        named = pipeline.store.get_all_named_embeddings()
+        verified_count = sum(1 for e in named if e.get("verified") and e["person_name"] == "justin")
+        threshold = pipeline.store.get_threshold_for_person("justin", labeled_count=verified_count)
+        # 10 verified embeddings → threshold = max(0.50, 0.85 - 0.005*10) = 0.80
+        assert abs(threshold - 0.80) < 0.001

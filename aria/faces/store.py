@@ -64,6 +64,8 @@ class FaceEmbeddingStore:
                     ON face_embeddings(person_name);
                 CREATE INDEX IF NOT EXISTS idx_queue_priority
                     ON face_review_queue(priority DESC, reviewed_at);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_embeddings_event_live
+                    ON face_embeddings(event_id) WHERE source = 'live';
             """)
             conn.commit()
 

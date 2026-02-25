@@ -59,20 +59,24 @@ class FacePipeline:
         confidence = top["confidence"]
 
         # Per-person adaptive threshold — tightens as sample count grows
-        count = sum(1 for e in named if e["person_name"] == person_name)
+        # Use only verified embeddings to avoid feedback loop from auto-labels
+        count = sum(1 for e in named if e["person_name"] == person_name and e.get("verified"))
         threshold = self.store.get_threshold_for_person(person_name, labeled_count=count)
 
         if confidence >= threshold:
             # Auto-label — save to grow training set
-            self.store.add_embedding(
-                person_name=person_name,
-                embedding=embedding,
-                event_id=event_id,
-                image_path=image_path,
-                confidence=confidence,
-                source="live",
-                verified=False,
-            )
+            try:
+                self.store.add_embedding(
+                    person_name=person_name,
+                    embedding=embedding,
+                    event_id=event_id,
+                    image_path=image_path,
+                    confidence=confidence,
+                    source="live",
+                    verified=False,
+                )
+            except Exception:
+                logger.debug("Face auto-label: duplicate event_id=%s, skipping insert", event_id)
             logger.debug("Face auto-labeled: %s (conf=%.3f, threshold=%.3f)", person_name, confidence, threshold)
             return {"action": "auto_label", "person_name": person_name, "confidence": confidence}
 
