@@ -224,6 +224,58 @@ class TestUserExclusion:
         result = normalizer_with_graph.filter_user_exclusions(events)
         assert len(result) == 0, "Entity in excluded area (via graph) should be filtered"
 
+    def test_include_domains_whitelist(self):
+        """include_domains whitelist takes precedence over exclude_domains (#129)."""
+        config = {
+            "filter.ignored_states": ["unavailable", "unknown"],
+            "filter.exclude_entities": [],
+            "filter.exclude_areas": [],
+            "filter.exclude_domains": [],
+            "filter.include_domains": ["light", "switch"],
+            "filter.exclude_entity_patterns": [],
+            "filter.min_availability_pct": 80,
+        }
+        normalizer = EventNormalizer(config)
+
+        events = [
+            {
+                "entity_id": "light.kitchen",
+                "domain": "light",
+                "area_id": None,
+                "timestamp": "t",
+                "old_state": "off",
+                "new_state": "on",
+                "device_id": None,
+                "context_parent_id": None,
+                "attributes_json": None,
+            },
+            {
+                "entity_id": "sensor.temp",
+                "domain": "sensor",
+                "area_id": None,
+                "timestamp": "t",
+                "old_state": "20",
+                "new_state": "21",
+                "device_id": None,
+                "context_parent_id": None,
+                "attributes_json": None,
+            },
+            {
+                "entity_id": "switch.fan",
+                "domain": "switch",
+                "area_id": None,
+                "timestamp": "t",
+                "old_state": "off",
+                "new_state": "on",
+                "device_id": None,
+                "context_parent_id": None,
+                "attributes_json": None,
+            },
+        ]
+        result = normalizer.filter_user_exclusions(events)
+        assert len(result) == 2
+        assert all(e["domain"] in ("light", "switch") for e in result)
+
 
 class TestDayTypeSegmentation:
     def test_segment_workday_and_weekend(self, normalizer):
