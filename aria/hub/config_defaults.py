@@ -3266,6 +3266,139 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
         "max_value": 180,
         "step": 10,
     },
+    # ── UniFi Integration ─────────────────────────────────────────────
+    {
+        "key": "unifi.enabled",
+        "default_value": "false",
+        "value_type": "boolean",
+        "label": "Enable UniFi Integration",
+        "description": "Enable UniFi Network and Protect presence signals.",
+        "description_layman": (
+            "Turn on WiFi device tracking and camera events from your"
+            " UniFi system to improve room-level presence detection."
+        ),
+        "description_technical": (
+            "When true, starts Network REST polling (every poll_interval_s)"
+            " and Protect WebSocket subscription. Requires UNIFI_HOST env var."
+            " Disabled by default — opt-in."
+        ),
+        "category": "UniFi",
+    },
+    {
+        "key": "unifi.host",
+        "default_value": "",
+        "value_type": "string",
+        "label": "UniFi Host",
+        "description": "UniFi controller hostname or IP (read from UNIFI_HOST env var).",
+        "description_layman": (
+            "The address of your UniFi Dream Machine or controller."
+            " Leave blank — set UNIFI_HOST in your environment file instead."
+        ),
+        "description_technical": (
+            "Overridden at runtime by UNIFI_HOST env var."
+            " If both are set, env var wins. ssl=False on all requests"
+            " (Dream Machine uses self-signed cert)."
+        ),
+        "category": "UniFi",
+    },
+    {
+        "key": "unifi.site",
+        "default_value": "default",
+        "value_type": "string",
+        "label": "UniFi Site",
+        "description": "UniFi site name (usually 'default').",
+        "description_layman": "Your UniFi site name — leave as 'default' unless you have multiple sites.",
+        "description_technical": "Used in Network API path: /proxy/network/api/s/{site}/stat/sta",
+        "category": "UniFi",
+    },
+    {
+        "key": "unifi.poll_interval_s",
+        "default_value": "30",
+        "value_type": "number",
+        "label": "Network Poll Interval (s)",
+        "description": "How often to poll UniFi Network for WiFi client state.",
+        "description_layman": "How frequently ARIA checks which devices are connected to your WiFi.",
+        "description_technical": (
+            "Interval in seconds between REST polls to /proxy/network/api/s/default/stat/sta."
+            " Range 10-300, default 30. Lower = faster home/away detection, more API load."
+        ),
+        "category": "UniFi",
+        "min_value": 10,
+        "max_value": 300,
+        "step": 5,
+    },
+    {
+        "key": "unifi.ap_rooms",
+        "default_value": "{}",
+        "value_type": "json",
+        "label": "AP → Room Mapping",
+        "description": "Map UniFi AP names to room names for room-level presence.",
+        "description_layman": (
+            "Tell ARIA which room each WiFi access point is in."
+            ' Format: {"office-ap": "office", "bedroom-ap": "bedroom"}'
+        ),
+        "description_technical": (
+            "Keys are UniFi AP hostnames or MAC addresses."
+            " Values are ARIA room names (must match area names in HA)."
+            " Room-level presence is only reliable when APs are physically per-room."
+        ),
+        "category": "UniFi",
+    },
+    {
+        "key": "unifi.device_people",
+        "default_value": "{}",
+        "value_type": "json",
+        "label": "Device → Person Mapping",
+        "description": "Map device MAC addresses to person names.",
+        "description_layman": (
+            'Tell ARIA which devices belong to which person. Format: {"aa:bb:cc:dd:ee:ff": "justin"}'
+        ),
+        "description_technical": (
+            "Overrides UniFi device alias for person resolution."
+            " MAC is lowercase colon-separated. Falls back to UniFi alias if not set."
+            " Only devices in this map + seen in last 24h contribute to home_away gate."
+        ),
+        "category": "UniFi",
+    },
+    {
+        "key": "unifi.rssi_room_threshold",
+        "default_value": "-75",
+        "value_type": "number",
+        "label": "RSSI Ambiguity Threshold (dBm)",
+        "description": "Below this RSSI, AP room assignment is considered ambiguous.",
+        "description_layman": (
+            "How weak a WiFi signal must be before ARIA reduces its confidence"
+            " in which room a device is in. -75 is a safe default."
+        ),
+        "description_technical": (
+            "When client RSSI < threshold, network_client_present signal weight"
+            " is halved (0.75 → 0.375). Range -90 to -50 dBm, default -75."
+            " Research basis: RSSI below -80 dBm has 3-8m indoor error."
+        ),
+        "category": "UniFi",
+        "min_value": -90,
+        "max_value": -50,
+        "step": 5,
+    },
+    {
+        "key": "unifi.device_active_kbps",
+        "default_value": "100",
+        "value_type": "number",
+        "label": "Active Device Threshold (kbps)",
+        "description": "Tx+Rx rate above which a device is considered actively in use.",
+        "description_layman": (
+            "How much data transfer makes a device 'active'. A phone streaming video should exceed 100 kbps easily."
+        ),
+        "description_technical": (
+            "Sum of tx_bytes_r + rx_bytes_r (bytes/s from UniFi API)"
+            " converted to kbps: (tx + rx) * 8 / 1000."
+            " When exceeded, adds device_active signal (weight 0.40, decay 2 min)."
+        ),
+        "category": "UniFi",
+        "min_value": 10,
+        "max_value": 10000,
+        "step": 10,
+    },
 ]
 
 
