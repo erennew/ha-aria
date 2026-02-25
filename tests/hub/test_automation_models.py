@@ -5,7 +5,6 @@ from aria.automation.models import (
     DayContext,
     DetectionResult,
     EntityHealth,
-    NormalizedEvent,
     ShadowResult,
 )
 
@@ -71,24 +70,6 @@ class TestDayContext:
             away_all_day=False,
         )
         assert ctx.day_type == "holiday"
-
-
-class TestNormalizedEvent:
-    def test_create(self):
-        evt = NormalizedEvent(
-            timestamp="2026-02-20T07:00:00",
-            entity_id="binary_sensor.bedroom_motion",
-            domain="binary_sensor",
-            normalized_state="positive",
-            raw_state="on",
-            area_id="bedroom",
-            device_id="device_123",
-            day_type="workday",
-            is_manual=True,
-            attributes_json=None,
-        )
-        assert evt.normalized_state == "positive"
-        assert evt.is_manual is True
 
 
 class TestEntityHealth:

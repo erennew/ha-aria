@@ -7,7 +7,8 @@ and produces DetectionResult objects for the automation generator.
 Phase 3 component. Uses simplified PrefixSpan for short sequences (2-5
 entities) — full algorithm is overkill for home automation chains.
 
-NOTE: Dead module — not registered in hub and not imported anywhere (#134).
+NOTE: Dormant module — not registered in hub module registry.
+Wire into cli._register_modules() when gap detection is needed.
 Wire into cli._register_modules() and AutomationGeneratorModule when gap detection is needed.
 """
 

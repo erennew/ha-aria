@@ -44,22 +44,6 @@ class DayContext:
 
 
 @dataclass
-class NormalizedEvent:
-    """Event after normalization pipeline — ready for detection engines."""
-
-    timestamp: str
-    entity_id: str
-    domain: str
-    normalized_state: str  # "positive" or "negative"
-    raw_state: str  # original state value
-    area_id: str | None
-    device_id: str | None
-    day_type: str
-    is_manual: bool  # True if context_parent_id is None
-    attributes_json: str | None = None
-
-
-@dataclass
 class EntityHealth:
     """Availability scoring for an entity over analysis window."""
 
