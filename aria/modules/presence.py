@@ -538,6 +538,94 @@ class PresenceModule(Module):
                 }
                 self.logger.info(f"Face recognized: {person_name} in {room} (conf={confidence:.2f})")
 
+            # Trigger ARIA face pipeline when snapshot is available (no sub_label required —
+            # ARIA may recognise faces that Frigate's own recogniser missed)
+            if event_id and after.get("has_snapshot", False):
+                snapshot_url = f"{self._frigate_url}/api/events/{event_id}/snapshot.jpg"
+                task = asyncio.create_task(self._process_face_async(event_id, snapshot_url, camera, room))
+                task.add_done_callback(
+                    lambda t: self.logger.exception("Face pipeline task raised an exception") if t.exception() else None
+                )
+
+    async def _process_face_async(self, event_id: str, snapshot_url: str, camera: str, room: str) -> None:
+        """Extract face from Frigate snapshot and run ARIA live pipeline.
+
+        Fire-and-forget — called via create_task from _handle_frigate_event.
+        Errors are logged but do not propagate to the caller.
+
+        Requires hub.faces_store to be wired (aria/hub/core.py).  If the
+        attribute is absent the method exits silently so that the rest of
+        presence tracking is unaffected.
+        """
+        import os
+        import tempfile
+
+        from aria.faces.pipeline import FacePipeline
+
+        if not hasattr(self.hub, "faces_store"):
+            return
+
+        pipeline = FacePipeline(
+            store=self.hub.faces_store,
+            frigate_url=self._frigate_url,
+        )
+        tmp_path = None
+        try:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(snapshot_url, timeout=aiohttp.ClientTimeout(total=10)) as resp,
+            ):
+                if resp.status != 200:
+                    self.logger.debug(
+                        "Face snapshot fetch failed: event=%s status=%d",
+                        event_id,
+                        resp.status,
+                    )
+                    return
+                img_data = await resp.read()
+
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+                f.write(img_data)
+                tmp_path = f.name
+
+            embedding = pipeline.extractor.extract_embedding(tmp_path)
+            if embedding is None:
+                # No face detected — expected for many person events
+                return
+
+            result = pipeline.process_embedding(embedding, event_id, image_path=tmp_path)
+
+            if result["action"] == "auto_label":
+                person_name = result["person_name"]
+                confidence = result["confidence"]
+                now = datetime.now()
+                self._identified_persons[person_name] = {
+                    "room": room,
+                    "last_seen": now.isoformat(),
+                    "confidence": min(round(confidence, 3), 0.99),
+                    "camera": camera,
+                }
+                self._add_signal(
+                    room,
+                    "camera_face",
+                    min(confidence, 0.99),
+                    f"{person_name} identified on {camera} via ARIA (conf={confidence:.2f})",
+                    now,
+                )
+                self.logger.debug(
+                    "Face auto-labeled: %s confidence=%.2f room=%s",
+                    person_name,
+                    confidence,
+                    room,
+                )
+
+        except Exception:
+            self.logger.exception("Face pipeline error for event %s", event_id)
+        finally:
+            if tmp_path:
+                with contextlib.suppress(OSError):
+                    os.unlink(tmp_path)
+
     async def _handle_person_count(self, camera: str, count):
         """Handle person count update for a camera."""
         await self._refresh_enabled_signals()

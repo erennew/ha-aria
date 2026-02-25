@@ -297,6 +297,115 @@ class TestFrigateEvents:
         await module._handle_mqtt_message("frigate/driveway/person", 1)
         assert "driveway" in module._room_signals
 
+    async def test_face_pipeline_triggered_on_person_snapshot(self, module):
+        """_process_face_async is scheduled when a person event has a snapshot."""
+        from unittest.mock import MagicMock, patch
+
+        tasks_created = []
+
+        def mock_create_task(coro, **kwargs):
+            tasks_created.append(coro.__name__ if hasattr(coro, "__name__") else str(coro))
+            # Close the coroutine immediately to avoid ResourceWarning
+            coro.close()
+            mock_task = MagicMock()
+            mock_task.exception.return_value = None
+            mock_task.add_done_callback = lambda cb: None
+            return mock_task
+
+        event = {
+            "after": {
+                "id": "evt-abc123",
+                "camera": "driveway",
+                "label": "person",
+                "score": 0.88,
+                "has_snapshot": True,
+            }
+        }
+
+        with patch("asyncio.create_task", side_effect=mock_create_task):
+            await module._handle_frigate_event(event)
+
+        # create_task must have been called once for the face pipeline
+        assert len(tasks_created) == 1
+
+    async def test_face_pipeline_not_triggered_without_snapshot(self, module):
+        """_process_face_async is NOT scheduled when has_snapshot is False."""
+        from unittest.mock import MagicMock, patch
+
+        tasks_created = []
+
+        def mock_create_task(coro, **kwargs):
+            tasks_created.append(coro)
+            coro.close()
+            return MagicMock()
+
+        event = {
+            "after": {
+                "id": "evt-xyz",
+                "camera": "driveway",
+                "label": "person",
+                "score": 0.88,
+                "has_snapshot": False,
+            }
+        }
+
+        with patch("asyncio.create_task", side_effect=mock_create_task):
+            await module._handle_frigate_event(event)
+
+        assert len(tasks_created) == 0
+
+    async def test_process_face_async_exits_without_faces_store(self, module):
+        """_process_face_async returns silently if hub.faces_store is absent."""
+        # hub is a MockHub with no faces_store attribute — should not raise
+        await module._process_face_async("evt-1", "http://localhost/snap.jpg", "cam", "room")
+
+    async def test_process_face_async_auto_label_updates_identified_persons(self, module):
+        """Auto-label result populates _identified_persons with correct structure."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import numpy as np
+
+        fake_store = MagicMock()
+        module.hub.faces_store = fake_store
+
+        fake_embedding = np.zeros(128)
+        fake_result = {"action": "auto_label", "person_name": "alice", "confidence": 0.95}
+
+        # Build a pipeline mock that returns the fake result
+        pipeline_instance = MagicMock()
+        pipeline_instance.extractor.extract_embedding = MagicMock(return_value=fake_embedding)
+        pipeline_instance.process_embedding = MagicMock(return_value=fake_result)
+
+        # Build mock aiohttp response returning a valid JPEG header
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.read = AsyncMock(return_value=b"\xff\xd8\xff")
+        mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+        mock_get = MagicMock()
+        mock_get.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_get.__aexit__ = AsyncMock(return_value=False)
+
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_get)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        # Patch FacePipeline at the source module (local import inside _process_face_async
+        # resolves through aria.faces.pipeline, so patch there)
+        with (
+            patch("aria.faces.pipeline.FacePipeline", return_value=pipeline_instance),
+            patch("aiohttp.ClientSession", return_value=mock_session),
+        ):
+            await module._process_face_async("evt-alice", "http://localhost/snap.jpg", "front_cam", "entryway")
+
+        assert "alice" in module._identified_persons
+        info = module._identified_persons["alice"]
+        assert info["room"] == "entryway"
+        assert info["camera"] == "front_cam"
+        assert info["confidence"] <= 0.99
+
 
 # ============================================================================
 # HA State Change Handling
