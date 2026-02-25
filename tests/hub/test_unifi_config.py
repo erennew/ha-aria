@@ -54,3 +54,23 @@ def test_unifi_rssi_threshold_exists():
 def test_unifi_device_active_kbps_exists():
     cfg = _get_key("unifi.device_active_kbps")
     assert cfg["default_value"] == "100"
+
+
+def test_unifi_sensor_config_entries():
+    from aria.engine.analysis.occupancy import SENSOR_CONFIG
+
+    assert "network_client_present" in SENSOR_CONFIG
+    assert SENSOR_CONFIG["network_client_present"]["weight"] == 0.75
+    assert SENSOR_CONFIG["network_client_present"]["decay_seconds"] == 300
+
+    assert "device_active" in SENSOR_CONFIG
+    assert SENSOR_CONFIG["device_active"]["weight"] == 0.40
+    assert SENSOR_CONFIG["device_active"]["decay_seconds"] == 120
+
+    assert "protect_person" in SENSOR_CONFIG
+    assert SENSOR_CONFIG["protect_person"]["weight"] == 0.85
+    assert SENSOR_CONFIG["protect_person"]["decay_seconds"] == 180
+
+    assert "protect_face" in SENSOR_CONFIG
+    assert SENSOR_CONFIG["protect_face"]["weight"] == 1.0
+    assert SENSOR_CONFIG["protect_face"]["decay_seconds"] == 0

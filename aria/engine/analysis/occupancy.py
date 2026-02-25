@@ -25,6 +25,11 @@ SENSOR_CONFIG = {
     "dimmer_press": {"weight": 0.85, "decay_seconds": 300},  # Physical button = definite presence
     "media_active": {"weight": 0.4, "decay_seconds": 1800},  # Media playing/paused, 30 min decay
     "media_inactive": {"weight": 0.1, "decay_seconds": 300},  # Media off/standby, low signal
+    # UniFi supplementary signals (cross-validate with Frigate + HA)
+    "network_client_present": {"weight": 0.75, "decay_seconds": 300},  # WiFi AP assoc, 5 min decay
+    "device_active": {"weight": 0.40, "decay_seconds": 120},  # tx+rx rate active, 2 min
+    "protect_person": {"weight": 0.85, "decay_seconds": 180},  # Protect smart detect, 3 min
+    "protect_face": {"weight": 1.0, "decay_seconds": 0},  # Protect face → FaceNet, no decay
 }
 
 # Prior probability of occupancy when no sensor data available
