@@ -156,7 +156,7 @@ class AuditLogger:
         severity: str = "info",
     ) -> None:
         """Buffer an audit event for batch insertion."""
-        if self._queue is None:
+        if self._queue is None or self._db is None:
             return
         timestamp = datetime.now(UTC).isoformat()
         checksum = _compute_checksum(timestamp, event_type, source, action, detail)
@@ -564,6 +564,8 @@ class AuditLogger:
         Backoff: 0.5s, 1s, 2s (0.5 * 2^attempt). On final failure, writes to dead-letter file.
         Non-OperationalError exceptions propagate immediately without retry.
         """
+        if self._db is None:
+            return
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):
             try:
