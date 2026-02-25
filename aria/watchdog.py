@@ -495,6 +495,50 @@ def check_disk_space(warn_threshold: float = 90.0) -> WatchdogResult:
         )
 
 
+def check_hub_rss(warn_mb: float = 1500.0) -> WatchdogResult:
+    """Check aria-hub.service RSS via systemd cgroup accounting.
+
+    Args:
+        warn_mb: MB threshold that triggers a WARNING (default 1500 = 75% of 2G MemoryMax).
+    """
+    try:
+        proc = subprocess.run(
+            ["systemctl", "--user", "show", "aria-hub.service", "--property=MemoryCurrent"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        line = proc.stdout.strip()  # e.g. "MemoryCurrent=123456789"
+        if "=" not in line or line.endswith("[not set]"):
+            return WatchdogResult(
+                check_name="hub-rss",
+                level="OK",
+                message="Memory accounting not available for aria-hub",
+            )
+        bytes_used = int(line.split("=", 1)[1])
+        mb_used = bytes_used / (1024 * 1024)
+
+        if mb_used >= warn_mb:
+            return WatchdogResult(
+                check_name="hub-rss",
+                level="WARNING",
+                message=f"Hub RSS at {mb_used:.0f} MB (threshold: {warn_mb:.0f} MB)",
+                details={"rss_mb": round(mb_used, 1), "threshold_mb": warn_mb},
+            )
+        return WatchdogResult(
+            check_name="hub-rss",
+            level="OK",
+            message=f"Hub RSS at {mb_used:.0f} MB",
+            details={"rss_mb": round(mb_used, 1)},
+        )
+    except Exception as e:
+        return WatchdogResult(
+            check_name="hub-rss",
+            level="WARNING",
+            message=f"RSS check failed: {e}",
+        )
+
+
 def check_ollama_health() -> WatchdogResult:
     """Check if Ollama API is reachable.
 
@@ -724,6 +768,7 @@ def _collect_results() -> list:
         )
     )
     all_results.append(check_disk_space())
+    all_results.append(check_hub_rss())
     all_results.append(check_ollama_health())
     return all_results
 
