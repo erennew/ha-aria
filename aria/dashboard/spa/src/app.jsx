@@ -16,6 +16,7 @@ import DataCuration from './pages/DataCuration.jsx';
 import Guide from './pages/Guide.jsx';
 import Validation from './pages/Validation.jsx';
 import DetailPage from './pages/DetailPage.jsx';
+import Faces from './pages/Faces.jsx';
 
 /**
  * Custom hash-based history for preact-router.
@@ -121,6 +122,7 @@ export default function App() {
               <Validation path="/validation" />
               <Settings path="/settings" />
               <Guide path="/guide" />
+              <Faces path="/faces" />
               <DetailPage path="/detail/:type/:id/:rest*" />
               {/* Redirects from old routes */}
               <Redirect path="/intelligence" to="/understand" />

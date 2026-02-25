@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { path: '/data-curation', label: 'Data Curation', icon: FilterIcon, system: true },
   { path: '/validation', label: 'Validation', icon: CheckIcon, system: true },
   { path: '/settings', label: 'Settings', icon: SlidersIcon, system: true },
+  { path: '/faces', label: 'Faces', icon: UserIcon, system: true },
 ];
 
 // The 5 primary tabs for the phone bottom bar
@@ -141,6 +142,15 @@ function FilterIcon() {
   return (
     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
     </svg>
   );
 }
