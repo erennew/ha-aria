@@ -542,10 +542,10 @@ class PresenceModule(Module):
             # ARIA may recognise faces that Frigate's own recogniser missed)
             if event_id and after.get("has_snapshot", False):
                 snapshot_url = f"{self._frigate_url}/api/events/{event_id}/snapshot.jpg"
+                from aria.shared.utils import log_task_exception
+
                 task = asyncio.create_task(self._process_face_async(event_id, snapshot_url, camera, room))
-                task.add_done_callback(
-                    lambda t: self.logger.exception("Face pipeline task raised an exception") if t.exception() else None
-                )
+                task.add_done_callback(log_task_exception)
 
     async def _process_face_async(self, event_id: str, snapshot_url: str, camera: str, room: str) -> None:
         """Extract face from Frigate snapshot and run ARIA live pipeline.
