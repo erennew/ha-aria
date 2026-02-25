@@ -31,8 +31,12 @@ class BootstrapPipeline:
         """Return all .jpg snapshot paths in clips_dir, sorted."""
         return sorted(str(p) for p in Path(self.clips_dir).glob("*.jpg"))
 
-    def extract_all(self, image_paths: list[str]) -> tuple[list[str], list[np.ndarray]]:
+    def extract_all(self, image_paths: list[str], progress=None) -> tuple[list[str], list[np.ndarray]]:
         """Extract embeddings from all images, skipping failures.
+
+        Args:
+            image_paths: Image file paths to process.
+            progress: Optional progress tracker with an ``update(processed)`` method.
 
         Returns:
             (valid_paths, embeddings) — only images where a face was detected
@@ -43,10 +47,14 @@ class BootstrapPipeline:
         for i, path in enumerate(image_paths):
             if i % 100 == 0:
                 logger.info("Bootstrap: %d/%d images processed", i, total)
+            if i % 10 == 0 and progress is not None:
+                progress.update(i)
             embedding = self.extractor.extract_embedding(path)
             if embedding is not None:
                 valid_paths.append(path)
                 embeddings.append(embedding)
+        if progress is not None:
+            progress.update(total)
         logger.info(
             "Bootstrap: %d/%d images had detectable faces",
             len(valid_paths),
@@ -76,17 +84,24 @@ class BootstrapPipeline:
             clusters.setdefault(key, []).append(path)
         return clusters
 
-    def run(self) -> dict[str, list[str]]:
+    def run(self, progress=None) -> dict[str, list[str]]:
         """Execute full bootstrap: scan → extract → cluster.
+
+        Args:
+            progress: Optional progress tracker with ``start(total)`` and
+                ``update(processed)`` methods called from this thread.
 
         Saves all embeddings to store with person_name=None (unidentified).
         Returns cluster dict for UI review.
         """
         logger.info("Bootstrap: scanning %s", self.clips_dir)
         image_paths = self.scan_clips()
-        logger.info("Bootstrap: found %d snapshots", len(image_paths))
+        total = len(image_paths)
+        logger.info("Bootstrap: found %d snapshots", total)
+        if progress is not None:
+            progress.start(total)
 
-        valid_paths, embeddings = self.extract_all(image_paths)
+        valid_paths, embeddings = self.extract_all(image_paths, progress)
         if not embeddings:
             logger.warning("Bootstrap: no faces detected in any snapshots")
             return {}

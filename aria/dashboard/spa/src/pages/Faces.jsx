@@ -4,12 +4,22 @@ import PageBanner from '../components/PageBanner.jsx';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 
+function formatAgo(isoStr) {
+  if (!isoStr) return 'Never';
+  const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
 export default function Faces() {
   const [stats, setStats] = useState(null);
   const [queue, setQueue] = useState([]);
   const [people, setPeople] = useState([]);
   const [labelInput, setLabelInput] = useState({});
-  const [bootstrapRunning, setBootstrapRunning] = useState(false);
+  const [bootstrapStatus, setBootstrapStatus] = useState({
+    running: false, processed: 0, total: 0, startedAt: null, lastRan: null,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -33,7 +43,35 @@ export default function Faces() {
     }
   }
 
-  useEffect(() => { fetchData(); }, []);
+  // Fetch initial data and bootstrap status on mount
+  useEffect(() => {
+    fetchData();
+    fetch('/api/faces/bootstrap/status')
+      .then(r => r.json())
+      .then(s => setBootstrapStatus({
+        running: s.running, processed: s.processed, total: s.total,
+        startedAt: s.started_at, lastRan: s.last_ran,
+      }))
+      .catch(() => {});
+  }, []);
+
+  // Poll bootstrap status every 2s while running; refresh data on completion
+  useEffect(() => {
+    if (!bootstrapStatus.running) return;
+    const id = setInterval(() => {
+      fetch('/api/faces/bootstrap/status')
+        .then(r => r.json())
+        .then(s => {
+          setBootstrapStatus({
+            running: s.running, processed: s.processed, total: s.total,
+            startedAt: s.started_at, lastRan: s.last_ran,
+          });
+          if (!s.running) fetchData();
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(id);
+  }, [bootstrapStatus.running]);
 
   async function handleLabel(queueId) {
     const name = labelInput[queueId]?.trim();
@@ -48,13 +86,11 @@ export default function Faces() {
   }
 
   async function handleBootstrap() {
-    setBootstrapRunning(true);
     try {
       await postJson('/api/faces/bootstrap', {});
-      setTimeout(() => { setBootstrapRunning(false); fetchData(); }, 3000);
+      setBootstrapStatus(prev => ({ ...prev, running: true }));
     } catch (e) {
       setError(e);
-      setBootstrapRunning(false);
     }
   }
 
@@ -66,6 +102,10 @@ export default function Faces() {
       setError(e);
     }
   }
+
+  const pct = bootstrapStatus.total > 0
+    ? Math.round(bootstrapStatus.processed / bootstrapStatus.total * 100)
+    : 0;
 
   if (loading) return <LoadingState type="stats" />;
 
@@ -109,10 +149,10 @@ export default function Faces() {
           <button
             class="t-btn t-btn-primary"
             onClick={handleBootstrap}
-            disabled={bootstrapRunning}
-            style="padding: 0.5rem 1rem; font-size: 0.875rem; opacity: bootstrapRunning ? 0.5 : 1;"
+            disabled={bootstrapStatus.running}
+            style={`padding: 0.5rem 1rem; font-size: 0.875rem; opacity: ${bootstrapStatus.running ? 0.5 : 1};`}
           >
-            {bootstrapRunning ? 'Running…' : 'Run Bootstrap'}
+            {bootstrapStatus.running ? 'Running…' : 'Run Bootstrap'}
           </button>
           <button
             class="t-btn t-btn-secondary"
@@ -122,6 +162,26 @@ export default function Faces() {
             Deploy to Frigate
           </button>
         </div>
+
+        {/* Progress bar */}
+        {bootstrapStatus.running && (
+          <div style="margin-top: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; font-size: var(--type-label); color: var(--text-secondary); margin-bottom: 0.25rem;">
+              <span>Processing images…</span>
+              <span>{bootstrapStatus.processed} / {bootstrapStatus.total}</span>
+            </div>
+            <div style="background: var(--bg-inset); border-radius: 2px; overflow: hidden; height: 4px;">
+              <div style={`background: var(--accent); width: ${pct}%; height: 100%; transition: width 0.5s ease;`} />
+            </div>
+          </div>
+        )}
+
+        {/* Last ran */}
+        {!bootstrapStatus.running && bootstrapStatus.lastRan && (
+          <div style="margin-top: 0.5rem; font-size: var(--type-label); color: var(--text-secondary);">
+            Last ran: {formatAgo(bootstrapStatus.lastRan)}
+          </div>
+        )}
       </div>
 
       {/* Review queue */}

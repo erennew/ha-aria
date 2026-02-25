@@ -2,6 +2,8 @@
 
 import logging
 import os
+import threading
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +11,44 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+class _BootstrapProgress:
+    """Thread-safe bootstrap progress tracker, attached to hub at runtime."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.running = False
+        self.processed = 0
+        self.total = 0
+        self.started_at: str | None = None
+        self.last_ran: str | None = None
+
+    def start(self, total: int) -> None:
+        with self._lock:
+            self.running = True
+            self.processed = 0
+            self.total = total
+            self.started_at = datetime.now(UTC).isoformat()
+
+    def update(self, processed: int) -> None:
+        with self._lock:
+            self.processed = processed
+
+    def finish(self) -> None:
+        with self._lock:
+            self.running = False
+            self.last_ran = datetime.now(UTC).isoformat()
+
+    def snapshot(self) -> dict:
+        with self._lock:
+            return {
+                "running": self.running,
+                "processed": self.processed,
+                "total": self.total,
+                "started_at": self.started_at,
+                "last_ran": self.last_ran,
+            }
 
 
 class LabelRequest(BaseModel):
@@ -107,6 +147,14 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
             logger.exception("Error fetching face stats")
             raise HTTPException(status_code=500, detail="Internal server error") from None
 
+    @router.get("/api/faces/bootstrap/status")
+    async def get_bootstrap_status():
+        """Return current bootstrap progress (running, processed, total, last_ran)."""
+        progress: _BootstrapProgress | None = getattr(hub, "_bootstrap_progress", None)
+        if progress is None:
+            return {"running": False, "processed": 0, "total": 0, "started_at": None, "last_ran": None}
+        return progress.snapshot()
+
     @router.post("/api/faces/bootstrap")
     async def trigger_bootstrap():
         """Kick off bootstrap batch extraction as a background task."""
@@ -118,9 +166,17 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
             store = _store()
             clips_dir = os.environ.get("FRIGATE_CLIPS_DIR", str(Path.home() / "frigate/media/clips"))
 
+            # Idempotent: create progress tracker once, reuse across runs
+            if not hasattr(hub, "_bootstrap_progress"):
+                hub._bootstrap_progress = _BootstrapProgress()
+            progress: _BootstrapProgress = hub._bootstrap_progress
+
             async def _run():
-                pipeline = BootstrapPipeline(clips_dir=clips_dir, store=store)
-                await asyncio.to_thread(pipeline.run)
+                try:
+                    pipeline = BootstrapPipeline(clips_dir=clips_dir, store=store)
+                    await asyncio.to_thread(pipeline.run, progress)
+                finally:
+                    progress.finish()
 
             from aria.shared.utils import log_task_exception
 
