@@ -27,9 +27,24 @@ class BootstrapPipeline:
         self.store = store
         self.extractor = FaceExtractor()
 
-    def scan_clips(self) -> list[str]:
-        """Return all .jpg snapshot paths in clips_dir, sorted."""
-        return sorted(str(p) for p in Path(self.clips_dir).glob("*.jpg"))
+    def scan_clips(self, max_clips: int | None = None) -> list[str]:
+        """Return .jpg snapshot paths in clips_dir, sorted by mtime (newest last).
+
+        If max_clips is set, the oldest files beyond the limit are deleted to
+        reclaim disk space before processing begins. This prevents unbounded
+        growth in the Frigate clips directory.
+        """
+        paths = sorted(Path(self.clips_dir).glob("*.jpg"), key=lambda p: p.stat().st_mtime)
+        if max_clips is not None and len(paths) > max_clips:
+            to_delete = paths[: len(paths) - max_clips]
+            for p in to_delete:
+                try:
+                    p.unlink()
+                    logger.debug("Evicted old clip: %s", p.name)
+                except OSError:
+                    logger.warning("Failed to evict clip %s", p)
+            paths = paths[len(paths) - max_clips :]
+        return [str(p) for p in paths]
 
     def extract_all(self, image_paths: list[str], progress=None) -> tuple[list[str], list[np.ndarray]]:
         """Extract embeddings from all images, skipping failures.
@@ -94,8 +109,12 @@ class BootstrapPipeline:
         Saves all embeddings to store with person_name=None (unidentified).
         Returns cluster dict for UI review.
         """
-        logger.info("Bootstrap: scanning %s", self.clips_dir)
-        image_paths = self.scan_clips()
+        import os
+
+        max_clips_env = os.environ.get("ARIA_FACES_MAX_CLIPS")
+        max_clips = int(max_clips_env) if max_clips_env else None
+        logger.info("Bootstrap: scanning %s (max_clips=%s)", self.clips_dir, max_clips or "unlimited")
+        image_paths = self.scan_clips(max_clips=max_clips)
         total = len(image_paths)
         logger.info("Bootstrap: found %d snapshots", total)
         if progress is not None:

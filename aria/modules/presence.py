@@ -16,6 +16,7 @@ import random
 import time
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -26,6 +27,22 @@ from aria.hub.constants import CACHE_PRESENCE, RECONNECT_STAGGER
 from aria.hub.core import IntelligenceHub, Module
 
 logger = logging.getLogger(__name__)
+
+
+def _evict_oldest_snapshots(snapshots_dir: Path, max_count: int) -> None:
+    """Delete oldest face snapshot JPEGs so the directory stays under max_count files.
+
+    Files are ranked by mtime (oldest first). Only files matching *.jpg are counted
+    and deleted — other files in the directory are left untouched.
+    """
+    jpgs = sorted(snapshots_dir.glob("*.jpg"), key=lambda p: p.stat().st_mtime)
+    over = len(jpgs) - max_count + 1  # +1 makes room for the file about to be written
+    for path in jpgs[:over]:
+        try:
+            path.unlink()
+        except OSError:
+            logger.warning("Failed to evict snapshot %s", path)
+
 
 # MQTT topics for Frigate events
 FRIGATE_EVENTS_TOPIC = "frigate/events"
@@ -583,9 +600,7 @@ class PresenceModule(Module):
         attribute is absent the method exits silently so that the rest of
         presence tracking is unaffected.
         """
-        import os
         import tempfile
-        from pathlib import Path
 
         pipeline = self._face_pipeline
         if pipeline is None:
@@ -634,6 +649,13 @@ class PresenceModule(Module):
             snapshots_dir.mkdir(parents=True, exist_ok=True)
             persistent_path = str(snapshots_dir / f"{event_id}.jpg")
             import shutil
+
+            # Enforce storage cap — evict oldest snapshots before writing new one.
+            # Cap is configurable via ARIA_FACES_MAX_SNAPSHOTS (default 1000 ≈ ~50 MB).
+            _evict_oldest_snapshots(
+                snapshots_dir,
+                max_count=int(os.environ.get("ARIA_FACES_MAX_SNAPSHOTS", "1000")),
+            )
 
             shutil.copy2(tmp_path, persistent_path)
 
