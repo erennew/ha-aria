@@ -20,6 +20,8 @@ from typing import Any
 
 import aiosqlite
 
+from aria.shared.utils import log_task_exception as _log_task_exception
+
 logger = logging.getLogger(__name__)
 
 _DEAD_LETTER_PATH = Path.home() / "ha-logs" / "intelligence" / "audit_dead_letter.jsonl"
@@ -140,6 +142,7 @@ class AuditLogger:
         self._queue = asyncio.Queue(maxsize=self._buffer_size)
         self._running = True
         self._flush_task = asyncio.create_task(self._flush_loop())
+        self._flush_task.add_done_callback(_log_task_exception)
 
     # ------------------------------------------------------------------
     # Write methods

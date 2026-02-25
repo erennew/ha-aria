@@ -19,6 +19,7 @@ import aiohttp
 from aria.capabilities import Capability
 from aria.hub.constants import CACHE_ACTIVITY_LOG, CACHE_ENTITIES, RECONNECT_STAGGER
 from aria.hub.core import IntelligenceHub, Module
+from aria.shared.utils import log_task_exception as _log_task_exception
 
 logger = logging.getLogger(__name__)
 
@@ -501,6 +502,7 @@ class DiscoveryModule(Module):
                 self.logger.error(f"Event-triggered discovery failed: {e}")
 
         self._debounce_task = asyncio.create_task(_delayed_discovery())
+        self._debounce_task.add_done_callback(_log_task_exception)
 
     async def schedule_periodic_discovery(self, interval_hours: int = 24):
         """Schedule periodic discovery runs.

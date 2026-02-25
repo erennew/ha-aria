@@ -13,6 +13,8 @@ from typing import Any
 
 import aiosqlite
 
+from aria.shared.utils import log_task_exception as _log_task_exception
+
 # Event buffer constants
 _EVENT_BUFFER_FLUSH_INTERVAL = 5.0  # seconds
 _EVENT_BUFFER_MAX_SIZE = 50
@@ -208,6 +210,7 @@ class CacheManager:
 
         # Start periodic event buffer flush
         self._event_flush_task = asyncio.create_task(self._event_flush_loop())
+        self._event_flush_task.add_done_callback(_log_task_exception)
 
     async def _event_flush_loop(self):
         """Periodically flush buffered events to the database."""

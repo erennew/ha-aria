@@ -379,7 +379,7 @@ class PresenceModule(Module):
                         name: len(images) if isinstance(images, list) else 0 for name, images in faces.items()
                     }
         except Exception as e:
-            self.logger.debug(f"Failed to fetch Frigate face config: {e}")
+            self.logger.warning(f"Failed to fetch Frigate face config: {e}")
 
     async def get_frigate_thumbnail(self, event_id: str) -> bytes | None:
         """Proxy a Frigate event thumbnail. Returns JPEG bytes or None."""
@@ -393,7 +393,7 @@ class PresenceModule(Module):
                 if resp.status == 200:
                     return await resp.read()
         except Exception:
-            logger.debug("Failed to fetch Frigate thumbnail for %s", event_id, exc_info=True)
+            logger.warning("Failed to fetch Frigate thumbnail for %s", event_id, exc_info=True)
         return None
 
     async def get_frigate_snapshot(self, event_id: str) -> bytes | None:
@@ -408,7 +408,7 @@ class PresenceModule(Module):
                 if resp.status == 200:
                     return await resp.read()
         except Exception:
-            logger.debug("Failed to fetch Frigate snapshot for %s", event_id, exc_info=True)
+            logger.warning("Failed to fetch Frigate snapshot for %s", event_id, exc_info=True)
         return None
 
     # ------------------------------------------------------------------
@@ -779,7 +779,7 @@ class PresenceModule(Module):
             else:
                 self._enabled_signals = None  # None means all enabled
         except Exception:
-            logger.debug("Failed to refresh enabled signals config", exc_info=True)
+            logger.warning("Failed to refresh enabled signals config", exc_info=True)
             self._enabled_signals = None  # On error, allow all
         self._enabled_signals_ts = now
 
