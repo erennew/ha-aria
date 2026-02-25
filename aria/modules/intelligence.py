@@ -39,6 +39,8 @@ def compare_model_accuracy(
         primary_acc: List of accuracy values over time for the primary model.
         reference_acc: List of accuracy values over time for the reference model.
         threshold_pct: Minimum delta magnitude to count as degradation.
+            Uses the same scale as the accuracy values (e.g., 5.0 for
+            0-100 percentage scale, 0.05 for 0-1 ratio scale).
 
     Returns:
         Dict with primary_trend, reference_trend, divergence_pct, and
