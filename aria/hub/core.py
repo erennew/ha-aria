@@ -109,13 +109,13 @@ class IntelligenceHub:
 
         faces_db_path = str(Path(cache_path).parent / "faces.db")
         self.faces_store = _FaceStore(faces_db_path)
-        self.faces_store.initialize()
 
     async def initialize(self):
         """Initialize hub and cache."""
         self.logger.info("Initializing ARIA Hub...")
         await self.cache.initialize()
         await self.event_store.initialize()
+        self.faces_store.initialize()
         self._running = True
 
         # Compute hardware profile once at startup — modules read from hub.hardware_profile

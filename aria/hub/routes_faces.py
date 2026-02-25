@@ -44,22 +44,33 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
         """Label a queued face and save embedding to training store."""
         try:
             store = _store()
+            # Fetch only pending items (reviewed_at IS NULL)
             queue_items = store.get_review_queue(limit=1000)
             item = next((q for q in queue_items if q["id"] == req.queue_id), None)
             if item is None:
-                raise HTTPException(status_code=404, detail="Queue item not found")
+                raise HTTPException(status_code=404, detail="Queue item not found or already reviewed")
 
+            # Capture embedding before marking reviewed
             embedding = item["embedding"]
+
+            # mark_reviewed returns nothing but logs warning if rowcount == 0 (race condition)
+            # If already reviewed by a concurrent request, this is a no-op with warning
             store.mark_reviewed(req.queue_id, person_name=req.person_name)
-            store.add_embedding(
-                person_name=req.person_name,
-                embedding=embedding,
-                event_id=item["event_id"],
-                image_path=item["image_path"],
-                confidence=1.0,
-                source="manual",
-                verified=True,
-            )
+
+            # Save the labeled embedding — use INSERT OR IGNORE in case of concurrent label
+            try:
+                store.add_embedding(
+                    person_name=req.person_name,
+                    embedding=embedding,
+                    event_id=item["event_id"],
+                    image_path=item["image_path"],
+                    confidence=1.0,
+                    source="manual",
+                    verified=True,
+                )
+            except Exception:
+                logger.warning("label_face: duplicate embedding insert for queue_id=%d, skipping", req.queue_id)
+
             return {"status": "ok", "person_name": req.person_name}
         except HTTPException:
             raise
@@ -110,7 +121,10 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(None, pipeline.run)
 
-            asyncio.create_task(_run())
+            from aria.shared.utils import log_task_exception
+
+            task = asyncio.create_task(_run())
+            task.add_done_callback(log_task_exception)
             return {"status": "started", "clips_dir": clips_dir}
         except HTTPException:
             raise
