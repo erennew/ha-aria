@@ -383,6 +383,10 @@ class CacheManager:
         if len(self._event_buffer) >= _EVENT_BUFFER_MAX_SIZE:
             await self._flush_event_buffer()
 
+        # Emergency trim — if flush is stalled, keep newest half
+        if len(self._event_buffer) >= _EVENT_BUFFER_MAX_SIZE * 2:
+            self._event_buffer = self._event_buffer[-_EVENT_BUFFER_MAX_SIZE:]
+
     async def get_events(
         self, event_type: str | None = None, category: str | None = None, limit: int = 100
     ) -> list[dict[str, Any]]:
