@@ -43,10 +43,13 @@ if not _ARIA_API_KEY:
 
 # --- Sensitive config key redaction (#43) ---
 _SENSITIVE_KEY_PATTERNS = {"password", "token", "secret", "credential", "api_key", "auth", "private_key"}
+_SENSITIVE_EXACT_KEYS = {"presence.mqtt_user", "presence.mqtt_password"}
 
 
 def _is_sensitive_key(key: str) -> bool:
     """Check if a config key name contains a sensitive pattern."""
+    if key in _SENSITIVE_EXACT_KEYS:
+        return True
     key_lower = key.lower()
     return any(p in key_lower for p in _SENSITIVE_KEY_PATTERNS)
 
@@ -1172,6 +1175,8 @@ def _register_config_routes(router: APIRouter, hub: IntelligenceHub, ws_manager:
             for config in configs:
                 if _is_sensitive_key(config.get("key", "")):
                     config["value"] = "***REDACTED***"
+                    if "default_value" in config:
+                        config["default_value"] = "***REDACTED***"
             return {"configs": configs}
         except Exception:
             logger.exception("Error getting all config")
@@ -1199,6 +1204,8 @@ def _register_config_routes(router: APIRouter, hub: IntelligenceHub, ws_manager:
             if _is_sensitive_key(key):
                 config = dict(config)
                 config["value"] = "***REDACTED***"
+                if "default_value" in config:
+                    config["default_value"] = "***REDACTED***"
             return config
         except HTTPException:
             raise
