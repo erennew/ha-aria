@@ -394,7 +394,7 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
                     "snapshot_count_daily": snapshot_log.get("daily_count", 0),
                     "last_snapshot": snapshot_log.get("last_snapshot"),
                     "health_guard": intel.get("health_guard", {}).get("status", "unknown"),
-                    "presence_connected": bool(presence_data.get("connected", False)),
+                    "presence_connected": bool(presence_data.get("mqtt_connected", False)),
                 },
                 "feature_engineering": {
                     "total_features": feature_sel.get("total_features", 0),
