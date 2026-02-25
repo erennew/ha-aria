@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class FallbackEvent:
     to_tier: int
     error: str
     memory_mb: float | None = None
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
 
 
 class FallbackTracker:
@@ -46,7 +46,7 @@ class FallbackTracker:
         event = self._events.get(model_name)
         if event is None:
             return False
-        if datetime.now() - event.timestamp > self.ttl:
+        if datetime.now(tz=UTC) - event.timestamp > self.ttl:
             del self._events[model_name]
             return False
         return True
@@ -57,7 +57,7 @@ class FallbackTracker:
         return original_tier
 
     def active_fallbacks(self) -> list[FallbackEvent]:
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
         expired = [k for k, v in self._events.items() if now - v.timestamp > self.ttl]
         for k in expired:
             del self._events[k]

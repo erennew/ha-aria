@@ -370,7 +370,7 @@ def _check_timer_last_run(unit: str, results: list):
             except ValueError:
                 return
 
-        age = (datetime.now() - last.replace(tzinfo=None)).total_seconds()
+        age = (datetime.now(tz=UTC) - last).total_seconds()
         timer_name = unit.replace(".timer", "")
 
         # Determine expected interval
@@ -868,7 +868,7 @@ def _print_report(results: list, passed: int, total: int, restart_result):
     """Print a human-readable report to stdout."""
     print("ARIA Watchdog Report")
     print("=" * 50)
-    print(f"  Time:    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Time:    {datetime.now(tz=UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}")
     print(f"  Checks:  {passed}/{total} passed")
     print()
 

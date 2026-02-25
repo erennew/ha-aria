@@ -21,7 +21,7 @@ Usage:
 import json
 import shutil
 import tempfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -70,7 +70,7 @@ class ReferenceModel:
         if len(X) < 14:
             return {"error": "insufficient training vectors"}
 
-        results = {"trained_at": datetime.now().isoformat(), "metrics": {}}
+        results = {"trained_at": datetime.now(tz=UTC).isoformat(), "metrics": {}}
 
         for metric in config.get("target_metrics", []):
             if metric not in targets:

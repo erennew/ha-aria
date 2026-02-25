@@ -6,7 +6,7 @@ import logging
 import sqlite3
 import statistics
 import urllib.request
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import aria.engine.collectors.extractors  # noqa: F401 — trigger decorator registration
@@ -138,7 +138,7 @@ def build_intraday_snapshot(hour: int | None, date_str: str | None, config: AppC
     hour-window (race condition fix — #22).  If another process already
     holds the lock the caller blocks until it completes.
     """
-    now = datetime.now()
+    now = datetime.now(tz=UTC)
     if date_str is None:
         date_str = now.strftime("%Y-%m-%d")
     if hour is None:
@@ -300,7 +300,7 @@ def aggregate_intraday_to_daily(date_str: str, store: DataStore) -> dict | None:
 def build_snapshot(date_str: str | None, config: AppConfig, store: DataStore) -> dict:
     """Build a complete daily snapshot from all sources."""
     if date_str is None:
-        date_str = datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
     snapshot = build_empty_snapshot(date_str, config.holidays)
 

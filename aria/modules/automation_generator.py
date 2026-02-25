@@ -8,7 +8,7 @@ the surviving suggestions in the automation_suggestions cache.
 
 import hashlib
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from aria.automation.llm_refiner import refine_automation
@@ -229,7 +229,7 @@ class AutomationGeneratorModule(Module):
                 "feedback_count": len(fb_data.get("suggestions", {})),
                 "generator_loaded": True,
                 "orchestrator_loaded": self.hub.get_module("orchestrator") is not None,
-                "last_generation": datetime.now().isoformat(),
+                "last_generation": datetime.now(tz=UTC).isoformat(),
             }
 
             await self.hub.set_cache(
@@ -366,7 +366,7 @@ class AutomationGeneratorModule(Module):
             "shadow_status": shadow_result.status,
             "shadow_reason": shadow_result.reason,
             "status": "pending",
-            "created_at": datetime.now().isoformat(),
+            "created_at": datetime.now(tz=UTC).isoformat(),
             "metadata": {
                 "trigger_entity": detection.trigger_entity,
                 "action_entities": detection.action_entities,

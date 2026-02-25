@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import pickle
-from datetime import datetime
+from datetime import UTC, datetime
 
 from aria.engine.config import AppConfig, PathConfig
 from aria.engine.storage.data_store import DataStore
@@ -87,7 +87,7 @@ def train_all_models(days=90, config=None, store=None):
     feature_config = store.load_feature_config()
     feature_names, X, targets = build_training_data(snapshots, feature_config)
 
-    results = {"trained_at": datetime.now().isoformat(), "models": {}}
+    results = {"trained_at": datetime.now(tz=UTC).isoformat(), "models": {}}
 
     # Train continuous models
     gb_model = GradientBoostingModel()

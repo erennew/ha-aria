@@ -9,7 +9,7 @@ import copy
 import hashlib
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
@@ -91,7 +91,7 @@ class HaAutomationSync:
             {
                 "automations": automations_list,
                 "count": len(automations_list),
-                "last_sync": datetime.now().isoformat(),
+                "last_sync": datetime.now(tz=UTC).isoformat(),
                 "changes_since_last": changes,
             },
             {"source": "ha_automation_sync"},
@@ -150,7 +150,7 @@ class HaAutomationSync:
             {
                 "automations": automations,
                 "count": len(automations),
-                "last_sync": datetime.now().isoformat(),
+                "last_sync": datetime.now(tz=UTC).isoformat(),
                 "changes_since_last": 1,
             },
             {"source": "ha_automation_sync"},

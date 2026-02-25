@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -23,12 +23,12 @@ class EnsembleWeightTuner:
                 "model": model,
                 "prediction": prediction,
                 "actual": actual,
-                "timestamp": datetime.now(),
+                "timestamp": datetime.now(tz=UTC),
             }
         )
 
     def _prune_old_records(self) -> None:
-        cutoff = datetime.now() - self.window
+        cutoff = datetime.now(tz=UTC) - self.window
         self._records = [r for r in self._records if r["timestamp"] > cutoff]
 
     def compute_weights(self) -> dict[str, float]:

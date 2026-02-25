@@ -10,7 +10,7 @@ Degrades gracefully — works with whatever sensors are available.
 
 import math
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 
 # Sensor type weights and decay rates (seconds)
 SENSOR_CONFIG = {
@@ -78,7 +78,7 @@ class BayesianOccupancy:
             }
         """
         if timestamp is None:
-            timestamp = datetime.now()
+            timestamp = datetime.now(tz=UTC)
 
         results = {}
 

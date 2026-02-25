@@ -6,7 +6,7 @@ manages approval flow, and creates virtual sensors for pattern detection events.
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import aiohttp
@@ -187,7 +187,7 @@ class OrchestratorModule(Module):
 
             # 4. Update suggestion status
             suggestion["status"] = "approved"
-            suggestion["approved_at"] = datetime.now().isoformat()
+            suggestion["approved_at"] = datetime.now(tz=UTC).isoformat()
             suggestion["automation_id"] = automation_id
 
             # 5. Save updated suggestions
@@ -245,7 +245,7 @@ class OrchestratorModule(Module):
 
         # 2. Update status
         suggestion["status"] = "rejected"
-        suggestion["rejected_at"] = datetime.now().isoformat()
+        suggestion["rejected_at"] = datetime.now(tz=UTC).isoformat()
 
         # 3. Save updated suggestions
         await self.hub.set_cache("automation_suggestions", {"suggestions": suggestions, "count": len(suggestions)})
@@ -339,7 +339,10 @@ class OrchestratorModule(Module):
         if "automations" not in pending_data:
             pending_data["automations"] = {}
 
-        pending_data["automations"][automation_id] = {"yaml": automation_yaml, "created_at": datetime.now().isoformat()}
+        pending_data["automations"][automation_id] = {
+            "yaml": automation_yaml,
+            "created_at": datetime.now(tz=UTC).isoformat(),
+        }
 
         await self.hub.set_cache("pending_automations", pending_data)
 
@@ -363,7 +366,7 @@ class OrchestratorModule(Module):
 
         tracking_data["automations"][automation_id] = {
             "suggestion_id": suggestion_id,
-            "created_at": datetime.now().isoformat(),
+            "created_at": datetime.now(tz=UTC).isoformat(),
             "status": "active",
         }
 
@@ -431,7 +434,7 @@ class OrchestratorModule(Module):
             "attributes": {
                 "pattern_id": pattern_id,
                 "confidence": confidence,
-                "last_triggered": datetime.now().isoformat(),
+                "last_triggered": datetime.now(tz=UTC).isoformat(),
                 "friendly_name": "HA Hub Pattern Detected",
                 "icon": "mdi:brain",
             },

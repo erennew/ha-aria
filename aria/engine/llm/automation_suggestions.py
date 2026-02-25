@@ -6,7 +6,7 @@ validated Home Assistant automation YAML via Ollama.
 
 import json
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 from aria.engine.config import AppConfig, OllamaConfig
 from aria.engine.llm.client import ollama_chat, strip_think_tags
@@ -168,9 +168,9 @@ def generate_automation_suggestions(config: AppConfig = None, store: DataStore =
     output_dir = config.paths.insights_dir / "automation-suggestions"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    timestamp = datetime.now(tz=UTC).strftime("%Y-%m-%d_%H%M")
     result = {
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": datetime.now(tz=UTC).isoformat(),
         "suggestions": suggestions,
         "entity_patterns_used": len(entity_corrs.get("top_co_occurrences", [])),
         "metric_correlations_used": len(metric_corrs) if metric_corrs else 0,

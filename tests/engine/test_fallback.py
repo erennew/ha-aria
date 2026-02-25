@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from aria.engine.fallback import FallbackTracker
 
@@ -13,7 +13,7 @@ class TestFallbackTracker:
         tracker = FallbackTracker(ttl_days=7)
         tracker.record("lgbm_power", from_tier=3, to_tier=2, error="OOM")
         # Simulate expiry
-        tracker._events["lgbm_power"].timestamp = datetime.now() - timedelta(days=8)
+        tracker._events["lgbm_power"].timestamp = datetime.now(tz=UTC) - timedelta(days=8)
         assert not tracker.is_fallen_back("lgbm_power")
 
     def test_get_effective_tier(self):

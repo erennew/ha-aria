@@ -48,11 +48,11 @@ class TestEnsembleWeightTuner:
 
     def test_window_pruning(self):
         """Records older than window_days should be pruned."""
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         tuner = EnsembleWeightTuner(window_days=7)
         # Manually add old records
-        old_time = datetime.now() - timedelta(days=8)
+        old_time = datetime.now(tz=UTC) - timedelta(days=8)
         tuner._records.append(
             {
                 "model": "gb",

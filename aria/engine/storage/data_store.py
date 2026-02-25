@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from aria.engine.config import PathConfig
@@ -73,7 +73,7 @@ class DataStore:
     def load_recent_snapshots(self, days: int = 30) -> list[dict]:
         """Load up to N days of recent daily snapshots."""
         snapshots = []
-        today = datetime.now()
+        today = datetime.now(tz=UTC)
         for i in range(days):
             date_str = (today - timedelta(days=i)).strftime("%Y-%m-%d")
             snap = self.load_snapshot(date_str)
@@ -111,7 +111,7 @@ class DataStore:
     def load_all_intraday_snapshots(self, days: int = 30) -> list[dict]:
         """Load all intra-day snapshots for the last N days."""
         all_snapshots = []
-        today = datetime.now()
+        today = datetime.now(tz=UTC)
         for i in range(days):
             date_str = (today - timedelta(days=i)).strftime("%Y-%m-%d")
             all_snapshots.extend(self.load_intraday_snapshots(date_str))

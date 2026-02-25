@@ -289,7 +289,7 @@ class DiscoveryModule(Module):
         except (ValueError, TypeError):
             ttl_hours = 72
 
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
         changed = False
 
         for _item_id, item_data in data.items():
@@ -302,6 +302,8 @@ class DiscoveryModule(Module):
                 continue
 
             stale_since = datetime.fromisoformat(stale_since_str)
+            if stale_since.tzinfo is None:
+                stale_since = stale_since.replace(tzinfo=UTC)
             if (now - stale_since) > timedelta(hours=ttl_hours):
                 lc["status"] = "archived"
                 lc["archived_at"] = now.isoformat()
@@ -320,7 +322,7 @@ class DiscoveryModule(Module):
         - capabilities: Detected capabilities (organic preservation)
         - discovery_metadata: Discovery run metadata
         """
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
 
         # Store entities with lifecycle merge
         entities = capabilities.get("entities", {})

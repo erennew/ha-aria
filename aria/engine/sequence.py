@@ -75,9 +75,9 @@ class SequenceClassifier:
             model.fit(windows, labels)
             self._model = model
             self._n_training_samples = len(labels)
-            from datetime import datetime
+            from datetime import UTC, datetime
 
-            self._trained_at = datetime.now().isoformat()
+            self._trained_at = datetime.now(tz=UTC).isoformat()
             logger.info(f"Sequence classifier trained on {len(labels)} windows")
             return True
         except Exception as e:

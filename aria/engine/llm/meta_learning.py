@@ -9,7 +9,7 @@ import json
 import re
 import shutil
 import tempfile
-from datetime import datetime
+from datetime import UTC, datetime
 
 from aria.engine.config import AppConfig, OllamaConfig
 from aria.engine.llm.client import ollama_chat
@@ -301,12 +301,12 @@ def _handle_revert(store, config, revert_check, recent_scores, week_str):
     print(f"  SAFETY: {revert_check['reason']}")
     print("  Reverting to default config and skipping new suggestions.")
     default_config = DEFAULT_FEATURE_CONFIG.copy()
-    default_config["last_modified"] = datetime.now().isoformat()
+    default_config["last_modified"] = datetime.now(tz=UTC).isoformat()
     store.save_feature_config(default_config)
 
     weekly_report = {
         "week": week_str,
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": datetime.now(tz=UTC).isoformat(),
         "suggestions": [],
         "applied_count": 0,
         "reverted": True,
@@ -333,7 +333,7 @@ def _apply_suggestions(suggestions, snapshots, feature_config, store):
             continue
 
         if improvement >= ACCEPT_IMPROVEMENT_PCT:
-            modified_config["last_modified"] = datetime.now().isoformat()
+            modified_config["last_modified"] = datetime.now(tz=UTC).isoformat()
             store.save_feature_config(modified_config)
             feature_config = modified_config
             applied_count += 1
@@ -393,7 +393,7 @@ def _finalize_meta_learning(  # noqa: PLR0913 — aggregates all meta-learning o
     """Save report, update history, and retrain if needed."""
     weekly_report = {
         "week": week_str,
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": datetime.now(tz=UTC).isoformat(),
         "suggestions": results,
         "applied_count": applied_count,
         "accuracy_context": recent_scores,
@@ -404,7 +404,7 @@ def _finalize_meta_learning(  # noqa: PLR0913 — aggregates all meta-learning o
         if r.get("applied"):
             applied_history["applied"].append(
                 {
-                    "date": datetime.now().isoformat(),
+                    "date": datetime.now(tz=UTC).isoformat(),
                     "suggestion": r["suggestion"],
                     "improvement": r["improvement"],
                 }
@@ -471,7 +471,7 @@ def run_meta_learning(config: AppConfig = None, store: DataStore = None):
     suggestions = parse_suggestions(response)
     print(f"Parsed {len(suggestions)} suggestions from LLM")
 
-    week_str = datetime.now().strftime("%Y-W%W")
+    week_str = datetime.now(tz=UTC).strftime("%Y-W%W")
 
     revert_check = check_revert_needed(accuracy_history, applied_history)
     if revert_check.get("revert_needed"):

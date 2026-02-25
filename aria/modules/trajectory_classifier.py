@@ -10,7 +10,7 @@ Tier 3+ only — self-gates on hardware tier.
 
 import logging
 from collections import deque
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -179,7 +179,7 @@ class TrajectoryClassifier(Module):
             {
                 "trajectory": trajectory,
                 "target": target,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
                 "window_size": ws,
                 "method": "dtw" if self.sequence_classifier.is_trained else "heuristic",
             },

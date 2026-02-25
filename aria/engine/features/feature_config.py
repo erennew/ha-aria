@@ -4,7 +4,7 @@ Provides the canonical default config, load/save via DataStore, and validation.
 """
 
 import copy
-from datetime import datetime
+from datetime import UTC, datetime
 
 # Re-exported from shared constants for backward compatibility
 from aria.shared.constants import DEFAULT_FEATURE_CONFIG  # noqa: F401
@@ -82,5 +82,5 @@ def save_feature_config(config, store):
         config: Feature config dict to save.
         store: DataStore instance (required — I/O is the storage layer's job).
     """
-    config["last_modified"] = datetime.now().isoformat()
+    config["last_modified"] = datetime.now(tz=UTC).isoformat()
     store.save_feature_config(config)

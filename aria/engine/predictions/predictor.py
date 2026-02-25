@@ -5,7 +5,7 @@ blend_predictions (lines 1173-1186).
 """
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 
 from aria.engine.config import PathConfig
 
@@ -141,7 +141,7 @@ def generate_predictions(  # noqa: PLR0913 — prediction requires all context i
     predictions = {
         "target_date": target_date,
         "day_of_week": dow,
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": datetime.now(tz=UTC).isoformat(),
         "prediction_method": "blended" if ml_predictions else "statistical",
         "days_of_data": days,
     }
