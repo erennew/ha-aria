@@ -1,6 +1,7 @@
 """Face embedding store — SQLite CRUD for embeddings and review queue."""
 
 import json
+import logging
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
@@ -9,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -160,19 +163,21 @@ class FaceEmbeddingStore:
         for r in rows:
             d = dict(r)
             d["top_candidates"] = json.loads(d["top_candidates"] or "[]")
-            d["embedding"] = np.frombuffer(d["embedding"], dtype=np.float32)
+            d["embedding"] = np.frombuffer(d["embedding"], dtype=np.float32).copy()
             result.append(d)
         return result
 
     def mark_reviewed(self, queue_id: int, person_name: str | None = None) -> None:
         with closing(sqlite3.connect(self.db_path)) as conn:
-            conn.execute(
+            cur = conn.execute(
                 """UPDATE face_review_queue
                    SET reviewed_at = ?, person_name = ?
                    WHERE id = ?""",
                 (datetime.utcnow().isoformat(), person_name, queue_id),
             )
             conn.commit()
+            if cur.rowcount == 0:
+                logger.warning("mark_reviewed: queue_id %d not found", queue_id)
 
     def get_queue_depth(self) -> int:
         with closing(sqlite3.connect(self.db_path)) as conn:
@@ -182,5 +187,5 @@ class FaceEmbeddingStore:
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     d = dict(row)
     if "embedding" in d and d["embedding"]:
-        d["embedding"] = np.frombuffer(d["embedding"], dtype=np.float32)
+        d["embedding"] = np.frombuffer(d["embedding"], dtype=np.float32).copy()
     return d

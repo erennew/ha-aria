@@ -18,10 +18,10 @@ class TestFaceEmbeddingStoreSchema:
     def test_initializes_tables(self, store):
         """Both tables exist after initialize()."""
         import sqlite3
+        from contextlib import closing as _closing
 
-        conn = sqlite3.connect(store.db_path)
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
-        conn.close()
+        with _closing(sqlite3.connect(store.db_path)) as conn:
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
         assert "face_embeddings" in tables
         assert "face_review_queue" in tables
 
@@ -126,3 +126,13 @@ class TestReviewQueue:
         store.mark_reviewed(item["id"], person_name="justin")
         queue = store.get_review_queue(limit=10)
         assert len(queue) == 0
+
+    def test_get_queue_depth(self, store):
+        """queue_depth counts only unreviewed items."""
+        assert store.get_queue_depth() == 0
+        for i in range(3):
+            store.add_to_review_queue(f"evt-{i}", "/tmp/x.jpg", np.random.rand(512).astype(np.float32), [], 0.5)
+        assert store.get_queue_depth() == 3
+        item = store.get_review_queue(limit=1)[0]
+        store.mark_reviewed(item["id"], person_name="justin")
+        assert store.get_queue_depth() == 2
