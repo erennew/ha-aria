@@ -268,3 +268,19 @@ class TestCreateTaskDoneCallback:
         assert error_records, f"Expected error log about task exception, got: {[r.message for r in caplog.records]}"
         # Verify exc_info was passed (full traceback available)
         assert error_records[0].exc_info is not None, "exc_info should be set for full traceback"
+
+
+class TestConcurrentSubscription:
+    """publish() must be safe against concurrent subscribe/unsubscribe (#154)."""
+
+    async def test_publish_safe_during_concurrent_subscribe(self, hub):
+        """publish() must not crash if subscribe() is called during dispatch (#154)."""
+        called = []
+
+        async def callback_that_subscribes(data):
+            called.append("first")
+            hub.subscribe("other_event", lambda d: None)
+
+        hub.subscribe("test_event", callback_that_subscribes)
+        await hub.publish("test_event", {"key": "value"})
+        assert "first" in called

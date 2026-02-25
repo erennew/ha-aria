@@ -377,8 +377,9 @@ class IntelligenceHub:
         dispatch_start = time.monotonic()
 
         # Dispatch path 1: explicit subscribers (snapshot to avoid mutation during await)
-        if event_type in self.subscribers:
-            for callback in list(self.subscribers[event_type]):
+        subscriber_set = self.subscribers.get(event_type)
+        if subscriber_set is not None:
+            for callback in list(subscriber_set):
                 cb_start = time.monotonic()
                 try:
                     await callback(data)
