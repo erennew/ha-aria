@@ -66,23 +66,23 @@ class FaceEmbeddingStore:
 
     # --- Embeddings ---
 
-    def add_embedding(self, record: EmbeddingRecord) -> int:
-        """Insert a face embedding. Accepts an EmbeddingRecord dataclass."""
-        blob = record.embedding.astype(np.float32).tobytes()
+    def add_embedding(  # noqa: PLR0913
+        self,
+        person_name: str | None,
+        embedding: np.ndarray,
+        event_id: str,
+        image_path: str,
+        confidence: float,
+        source: str,
+        verified: bool = False,
+    ) -> int:
+        blob = embedding.astype(np.float32).tobytes()
         with closing(sqlite3.connect(self.db_path)) as conn:
             cur = conn.execute(
                 """INSERT INTO face_embeddings
                    (person_name, embedding, event_id, image_path, confidence, source, verified)
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    record.person_name,
-                    blob,
-                    record.event_id,
-                    record.image_path,
-                    record.confidence,
-                    record.source,
-                    int(record.verified),
-                ),
+                (person_name, blob, event_id, image_path, confidence, source, int(verified)),
             )
             conn.commit()
             return cur.lastrowid

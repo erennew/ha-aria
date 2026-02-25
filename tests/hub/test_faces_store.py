@@ -3,21 +3,7 @@
 import numpy as np
 import pytest
 
-from aria.faces.store import EmbeddingRecord, FaceEmbeddingStore
-
-_REC_DEFAULTS = {
-    "event_id": "evt",
-    "image_path": "/tmp/x.jpg",
-    "confidence": 0.9,
-    "source": "bootstrap",
-    "verified": True,
-}
-
-
-def _rec(person_name, embedding, **overrides):
-    """Helper: build an EmbeddingRecord with defaults."""
-    fields = {**_REC_DEFAULTS, **overrides}
-    return EmbeddingRecord(person_name=person_name, embedding=embedding, **fields)
+from aria.faces.store import FaceEmbeddingStore
 
 
 @pytest.fixture
@@ -49,15 +35,13 @@ class TestFaceEmbeddingStoreCRUD:
         """Can store and retrieve a named embedding."""
         embedding = np.random.rand(512).astype(np.float32)
         store.add_embedding(
-            EmbeddingRecord(
-                person_name="justin",
-                embedding=embedding,
-                event_id="evt-001",
-                image_path="/tmp/test.jpg",
-                confidence=0.92,
-                source="bootstrap",
-                verified=True,
-            )
+            person_name="justin",
+            embedding=embedding,
+            event_id="evt-001",
+            image_path="/tmp/test.jpg",
+            confidence=0.92,
+            source="bootstrap",
+            verified=True,
         )
         embeddings = store.get_embeddings_for_person("justin")
         assert len(embeddings) == 1
@@ -67,10 +51,10 @@ class TestFaceEmbeddingStoreCRUD:
     def test_get_all_named_embeddings(self, store):
         """Returns all embeddings with non-null person_name."""
         for name in ["justin", "justin", "carter"]:
-            store.add_embedding(_rec(name, np.random.rand(512).astype(np.float32)))
-        store.add_embedding(
-            _rec(None, np.random.rand(512).astype(np.float32), confidence=0.5, source="live", verified=False)
-        )
+            store.add_embedding(
+                name, np.random.rand(512).astype(np.float32), "evt", "/tmp/x.jpg", 0.9, "bootstrap", True
+            )
+        store.add_embedding(None, np.random.rand(512).astype(np.float32), "evt", "/tmp/y.jpg", 0.5, "live", False)
         all_named = store.get_all_named_embeddings()
         assert len(all_named) == 3
         assert all(e["person_name"] is not None for e in all_named)
@@ -78,8 +62,12 @@ class TestFaceEmbeddingStoreCRUD:
     def test_get_known_people(self, store):
         """Returns list of unique person names with counts."""
         for _ in range(3):
-            store.add_embedding(_rec("justin", np.random.rand(512).astype(np.float32)))
-        store.add_embedding(_rec("carter", np.random.rand(512).astype(np.float32), image_path="/tmp/y.jpg"))
+            store.add_embedding(
+                "justin", np.random.rand(512).astype(np.float32), "evt", "/tmp/x.jpg", 0.9, "bootstrap", True
+            )
+        store.add_embedding(
+            "carter", np.random.rand(512).astype(np.float32), "evt", "/tmp/y.jpg", 0.9, "bootstrap", True
+        )
         people = store.get_known_people()
         names = {p["person_name"] for p in people}
         assert names == {"justin", "carter"}
