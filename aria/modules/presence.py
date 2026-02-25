@@ -128,6 +128,11 @@ class PresenceModule(Module):
         self._enabled_signals: list[str] | None = None
         self._enabled_signals_ts: float = 0
 
+        # Cached FacePipeline (lazy-initialized in initialize())
+        self._face_pipeline: FacePipeline | None = None  # type: ignore[name-defined]  # noqa: F821
+        self._face_last_processed: str | None = None  # exposed to hub for /api/faces/stats
+        self._face_pipeline_errors: int = 0
+
     async def _discover_camera_rooms(self) -> dict[str, str]:
         """Build camera->room mapping from HA entity/device registry cache.
 
@@ -278,6 +283,18 @@ class PresenceModule(Module):
 
         # Create shared HTTP session for all outbound requests
         self._http_session = aiohttp.ClientSession()
+
+        # Cache FacePipeline once (avoids reconstructing TF model per event)
+        if hasattr(self.hub, "faces_store"):
+            from aria.faces.pipeline import FacePipeline
+
+            self._face_pipeline = FacePipeline(
+                store=self.hub.faces_store,
+                frigate_url=self._frigate_url,
+            )
+            # Expose health metrics on hub for /api/faces/stats
+            self.hub._face_last_processed = None
+            self.hub._face_pipeline_errors = 0
 
         await self._seed_presence_from_ha()
 
@@ -490,7 +507,7 @@ class PresenceModule(Module):
         sub_label = after.get("sub_label")  # Face recognition result
         score = after.get("score", 0)
         room = self.camera_rooms.get(camera, camera)
-        now = datetime.now()
+        now = datetime.now(UTC)
 
         if label == "person":
             # Person detected in camera
@@ -530,13 +547,20 @@ class PresenceModule(Module):
                     f"{person_name} identified on {camera} (conf={confidence:.2f})",
                     now,
                 )
-                self._identified_persons[person_name] = {
-                    "room": room,
-                    "last_seen": now.isoformat(),
-                    "confidence": round(confidence, 3),
-                    "camera": camera,
-                }
+                # Highest-confidence wins — don't overwrite a more confident sighting
+                existing = self._identified_persons.get(person_name, {})
+                if confidence > existing.get("confidence", 0):
+                    self._identified_persons[person_name] = {
+                        "room": room,
+                        "last_seen": now.isoformat(),
+                        "confidence": round(confidence, 3),
+                        "camera": camera,
+                    }
                 self.logger.info(f"Face recognized: {person_name} in {room} (conf={confidence:.2f})")
+                task = asyncio.create_task(self._record_face_sighting(person_name, room, confidence, now))
+                from aria.shared.utils import log_task_exception
+
+                task.add_done_callback(log_task_exception)
 
             # Trigger ARIA face pipeline when snapshot is available (no sub_label required —
             # ARIA may recognise faces that Frigate's own recogniser missed)
@@ -547,7 +571,9 @@ class PresenceModule(Module):
                 task = asyncio.create_task(self._process_face_async(event_id, snapshot_url, camera, room))
                 task.add_done_callback(log_task_exception)
 
-    async def _process_face_async(self, event_id: str, snapshot_url: str, camera: str, room: str) -> None:
+    async def _process_face_async(  # noqa: PLR0915
+        self, event_id: str, snapshot_url: str, camera: str, room: str
+    ) -> None:
         """Extract face from Frigate snapshot and run ARIA live pipeline.
 
         Fire-and-forget — called via create_task from _handle_frigate_event.
@@ -559,17 +585,23 @@ class PresenceModule(Module):
         """
         import os
         import tempfile
+        from pathlib import Path
 
-        from aria.faces.pipeline import FacePipeline
+        pipeline = self._face_pipeline
+        if pipeline is None:
+            # Lazy fallback: faces_store may have been attached after initialize()
+            if not hasattr(self.hub, "faces_store"):
+                return
+            from aria.faces.pipeline import FacePipeline
 
-        if not hasattr(self.hub, "faces_store"):
-            return
+            pipeline = FacePipeline(
+                store=self.hub.faces_store,
+                frigate_url=self._frigate_url,
+            )
+            self._face_pipeline = pipeline
 
-        pipeline = FacePipeline(
-            store=self.hub.faces_store,
-            frigate_url=self._frigate_url,
-        )
         tmp_path = None
+        persistent_path = None
         try:
             async with (
                 aiohttp.ClientSession() as session,
@@ -588,23 +620,39 @@ class PresenceModule(Module):
                 f.write(img_data)
                 tmp_path = f.name
 
-            embedding = pipeline.extractor.extract_embedding(tmp_path)
+            # extract_embedding is CPU-bound (DeepFace/TF inference) — run off event loop
+            embedding = await asyncio.to_thread(pipeline.extractor.extract_embedding, tmp_path)
             if embedding is None:
-                # No face detected — expected for many person events
+                # No face detected — expected for many person events; discard temp file
                 return
 
-            result = pipeline.process_embedding(embedding, event_id, image_path=tmp_path)
+            # Save a persistent copy so the review queue can display the image.
+            # Temp file is deleted in finally; persistent copy survives for labeling.
+            snapshots_dir = Path(
+                os.environ.get("ARIA_FACES_SNAPSHOTS_DIR", str(Path.home() / ".local/share/aria/faces/snapshots"))
+            )
+            snapshots_dir.mkdir(parents=True, exist_ok=True)
+            persistent_path = str(snapshots_dir / f"{event_id}.jpg")
+            import shutil
+
+            shutil.copy2(tmp_path, persistent_path)
+
+            # process_embedding does SQLite I/O — run off event loop
+            result = await asyncio.to_thread(pipeline.process_embedding, embedding, event_id, persistent_path)
 
             if result["action"] == "auto_label":
                 person_name = result["person_name"]
                 confidence = result["confidence"]
                 now = datetime.now(UTC)
-                self._identified_persons[person_name] = {
-                    "room": room,
-                    "last_seen": now.isoformat(),
-                    "confidence": min(round(confidence, 3), 0.99),
-                    "camera": camera,
-                }
+                # Highest-confidence wins — don't overwrite a more confident sighting
+                existing = self._identified_persons.get(person_name, {})
+                if confidence > existing.get("confidence", 0):
+                    self._identified_persons[person_name] = {
+                        "room": room,
+                        "last_seen": now.isoformat(),
+                        "confidence": min(round(confidence, 3), 0.99),
+                        "camera": camera,
+                    }
                 self._add_signal(
                     room,
                     "camera_face",
@@ -618,13 +666,44 @@ class PresenceModule(Module):
                     confidence,
                     room,
                 )
+                task = asyncio.create_task(self._record_face_sighting(person_name, room, confidence, now))
+                from aria.shared.utils import log_task_exception
+
+                task.add_done_callback(log_task_exception)
+
+            # Update pipeline health metrics
+            now_iso = datetime.now(UTC).isoformat()
+            self._face_last_processed = now_iso
+            self.hub._face_last_processed = now_iso
 
         except Exception:
             self.logger.exception("Face pipeline error for event %s", event_id)
+            self._face_pipeline_errors += 1
+            self.hub._face_pipeline_errors = self._face_pipeline_errors
         finally:
             if tmp_path:
                 with contextlib.suppress(OSError):
                     os.unlink(tmp_path)
+
+    async def _record_face_sighting(self, person_name: str, room: str, confidence: float, ts) -> None:
+        """Write face sighting to EventStore for intelligence module consumption."""
+        import json as _json
+
+        if not hasattr(self.hub, "event_store"):
+            return
+        try:
+            await self.hub.event_store.insert_event(
+                timestamp=ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
+                entity_id=f"person.{person_name.lower().replace(' ', '_')}",
+                domain="person",
+                old_state=None,
+                new_state=room,
+                device_id=None,
+                area_id=room,
+                attributes_json=_json.dumps({"confidence": round(confidence, 3), "source": "face_recognition"}),
+            )
+        except Exception as e:
+            self.logger.debug("Failed to record face sighting to EventStore: %s", e)
 
     async def _handle_person_count(self, camera: str, count):
         """Handle person count update for a camera."""
@@ -1002,6 +1081,9 @@ class PresenceModule(Module):
                 "config": self._face_config or {},
                 "labeled_faces": self._labeled_faces,
                 "labeled_count": len(self._labeled_faces),
+                "aria_known_people": len(await asyncio.to_thread(self.hub.faces_store.get_known_people))
+                if hasattr(self.hub, "faces_store")
+                else 0,
             },
             "recent_detections": list(reversed(self._recent_detections)),
         }

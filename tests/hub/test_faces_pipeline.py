@@ -13,15 +13,15 @@ from aria.faces.store import FaceEmbeddingStore
 def store(tmp_path):
     s = FaceEmbeddingStore(str(tmp_path / "faces.db"))
     s.initialize()
-    # Seed with one known person — 10 verified embeddings
+    # Seed with one known person — 10 verified embeddings (unique event_id per row)
     vec = np.ones(512, dtype=np.float32)
     vec /= np.linalg.norm(vec)
-    for _ in range(10):
+    for i in range(10):
         s.add_embedding(
             person_name="justin",
             embedding=vec.copy(),
-            event_id="evt",
-            image_path="/tmp/x.jpg",
+            event_id=f"evt_{i}",
+            image_path=f"/tmp/x_{i}.jpg",
             confidence=0.95,
             source="bootstrap",
             verified=True,

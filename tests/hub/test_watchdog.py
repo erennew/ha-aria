@@ -524,19 +524,39 @@ class TestAuditAlerts:
 
 
 class TestRunWatchdog:
+    @patch("aria.watchdog.check_ollama_health")
+    @patch("aria.watchdog.check_hub_rss")
+    @patch("aria.watchdog.check_disk_space")
+    @patch("aria.watchdog.check_audit_alerts")
     @patch("aria.watchdog.check_timer_health")
     @patch("aria.watchdog.check_cache_freshness")
     @patch("aria.watchdog.check_api_endpoints")
     @patch("aria.watchdog.check_hub_health")
     @patch("aria.watchdog.check_service_status")
     @patch("aria.watchdog.setup_logging")
-    def test_all_passing(self, mock_log, mock_svc, mock_hub, mock_api, mock_cache, mock_timer):  # noqa: PLR0913
+    def test_all_passing(  # noqa: PLR0913
+        self,
+        mock_log,
+        mock_svc,
+        mock_hub,
+        mock_api,
+        mock_cache,
+        mock_timer,
+        mock_audit,
+        mock_disk,
+        mock_rss,
+        mock_ollama,
+    ):
         mock_log.return_value = MagicMock()
         mock_svc.return_value = [WatchdogResult("service-hub", "OK", "active")]
         mock_hub.return_value = [WatchdogResult("hub-liveness", "OK", "healthy")]
         mock_api.return_value = [WatchdogResult("api-core", "OK", "ok")]
         mock_cache.return_value = [WatchdogResult("cache-freshness", "OK", "fresh")]
         mock_timer.return_value = [WatchdogResult("timers", "OK", "ok")]
+        mock_audit.return_value = WatchdogResult("audit_alerts", "OK", "no alerts")
+        mock_disk.return_value = WatchdogResult("disk-space", "OK", "82%")
+        mock_rss.return_value = WatchdogResult("hub-rss", "OK", "250 MB")
+        mock_ollama.return_value = WatchdogResult("ollama-health", "OK", "reachable")
 
         ret = run_watchdog(quiet=True, no_alert=True)
         assert ret == 0
@@ -582,19 +602,40 @@ class TestRunWatchdog:
             mock_cache.assert_not_called()
             assert ret == 1
 
+    @patch("aria.watchdog.check_ollama_health")
+    @patch("aria.watchdog.check_hub_rss")
+    @patch("aria.watchdog.check_disk_space")
+    @patch("aria.watchdog.check_audit_alerts")
     @patch("aria.watchdog.check_timer_health")
     @patch("aria.watchdog.check_cache_freshness")
     @patch("aria.watchdog.check_api_endpoints")
     @patch("aria.watchdog.check_hub_health")
     @patch("aria.watchdog.check_service_status")
     @patch("aria.watchdog.setup_logging")
-    def test_json_output(self, mock_log, mock_svc, mock_hub, mock_api, mock_cache, mock_timer, capsys):  # noqa: PLR0913
+    def test_json_output(  # noqa: PLR0913
+        self,
+        mock_log,
+        mock_svc,
+        mock_hub,
+        mock_api,
+        mock_cache,
+        mock_timer,
+        mock_audit,
+        mock_disk,
+        mock_rss,
+        mock_ollama,
+        capsys,
+    ):
         mock_log.return_value = MagicMock()
         mock_svc.return_value = [WatchdogResult("service-hub", "OK", "active")]
         mock_hub.return_value = [WatchdogResult("hub-liveness", "OK", "healthy")]
         mock_api.return_value = [WatchdogResult("api-core", "OK", "ok")]
         mock_cache.return_value = [WatchdogResult("cache-freshness", "OK", "fresh")]
         mock_timer.return_value = [WatchdogResult("timers", "OK", "ok")]
+        mock_audit.return_value = WatchdogResult("audit_alerts", "OK", "no alerts")
+        mock_disk.return_value = WatchdogResult("disk-space", "OK", "82%")
+        mock_rss.return_value = WatchdogResult("hub-rss", "OK", "250 MB")
+        mock_ollama.return_value = WatchdogResult("ollama-health", "OK", "reachable")
 
         run_watchdog(quiet=False, no_alert=True, json_output=True)
         output = json.loads(capsys.readouterr().out)

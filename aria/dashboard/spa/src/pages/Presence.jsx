@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'preact/hooks';
 import useCache from '../hooks/useCache.js';
 import LoadingState from '../components/LoadingState.jsx';
 import ErrorState from '../components/ErrorState.jsx';
 import PageBanner from '../components/PageBanner.jsx';
 import { Section, Callout, relativeTime } from './intelligence/utils.jsx';
 import { confidenceBadgeStyle } from '../constants.js';
+import { fetchJson } from '../api.js';
 
 // Signal type labels and colors
 const SIGNAL_LABELS = {
@@ -219,6 +221,16 @@ function FaceRecognitionStatus({ faceConfig, labeledFaces }) {
   const labeledCount = faceConfig ? faceConfig.labeled_count || 0 : 0;
   const labeledNames = labeledFaces || {};
 
+  const [ariaKnownPeople, setAriaKnownPeople] = useState([]);
+  useEffect(() => {
+    fetchJson('/api/faces/people')
+      .then(d => setAriaKnownPeople(d.people || []))
+      .catch(() => {});
+  }, []);
+
+  const ariaNames = Object.fromEntries(ariaKnownPeople.map(p => [p.person_name, p.count]));
+  const mergedNames = { ...labeledNames, ...ariaNames };
+
   return (
     <div class="space-y-3">
       {/* Status indicators */}
@@ -233,9 +245,9 @@ function FaceRecognitionStatus({ faceConfig, labeledFaces }) {
           </div>
         </div>
         <div class="t-frame p-3 flex-1" style="min-width: 120px;">
-          <div class="text-xs" style="color: var(--text-tertiary)">Labeled Faces</div>
-          <div class="text-xl font-bold mt-1" style={`color: ${labeledCount > 0 ? 'var(--accent)' : 'var(--text-tertiary)'}`}>
-            {labeledCount}
+          <div class="text-xs" style="color: var(--text-tertiary)">Known People</div>
+          <div class="text-xl font-bold mt-1" style={`color: ${Object.keys(mergedNames).length > 0 ? 'var(--accent)' : 'var(--text-tertiary)'}`}>
+            {Object.keys(mergedNames).length}
           </div>
         </div>
         <div class="t-frame p-3 flex-1" style="min-width: 120px;">
@@ -253,11 +265,11 @@ function FaceRecognitionStatus({ faceConfig, labeledFaces }) {
       </div>
 
       {/* Labeled persons list */}
-      {Object.keys(labeledNames).length > 0 && (
+      {Object.keys(mergedNames).length > 0 && (
         <div>
           <div class="text-xs font-medium mb-1.5" style="color: var(--text-secondary)">Known Faces</div>
           <div class="flex flex-wrap gap-2">
-            {Object.entries(labeledNames).map(([name, count]) => (
+            {Object.entries(mergedNames).map(([name, count]) => (
               <span key={name} class="text-xs rounded px-2 py-1" style="background: var(--accent-glow); color: var(--accent); text-transform: capitalize;">
                 {name} ({count} sample{count !== 1 ? 's' : ''})
               </span>
@@ -267,13 +279,23 @@ function FaceRecognitionStatus({ faceConfig, labeledFaces }) {
       )}
 
       {/* Labeling guide when no faces labeled */}
-      {labeledCount === 0 && enabled && (
+      {ariaKnownPeople.length === 0 && labeledCount === 0 && enabled && (
         <Callout>
           No faces labeled yet. Frigate automatically collects face samples from person detections.
-          To enable face recognition: open Frigate UI, go to a person event, and assign a name to the detected face.
+          To enable face recognition: label faces in the <strong>ARIA Faces page</strong> — bootstrap clips, identify people, then deploy to Frigate.
           After labeling {config.min_faces || 2}+ samples per person, ARIA will identify them automatically across all cameras.
+          <a href="/ui/faces" style="display: inline-block; margin-top: 0.5rem; font-size: 0.8125rem; color: var(--accent); text-decoration: none;">
+            Open Face Manager →
+          </a>
         </Callout>
       )}
+
+      {/* Manage faces link */}
+      <div style="margin-top: 0.75rem;">
+        <a href="/ui/faces" style="font-size: 0.8125rem; color: var(--accent); text-decoration: none;">
+          Manage faces in ARIA →
+        </a>
+      </div>
     </div>
   );
 }

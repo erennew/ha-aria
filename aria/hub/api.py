@@ -1612,7 +1612,10 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         # Serve real files directly (JS, CSS, etc.) with path traversal guard
         real_file = spa_dist / path
         if real_file.is_file() and real_file.resolve().is_relative_to(spa_dist.resolve()):
-            return FileResponse(real_file)
+            # Prevent proxies (Tailscale Serve, nginx) from caching JS/CSS bundles
+            no_cache = real_file.suffix in {".js", ".css"}
+            headers = {"Cache-Control": "no-store"} if no_cache else {}
+            return FileResponse(real_file, headers=headers)
         # Everything else gets index.html for the client-side router
         return FileResponse(spa_index)
 

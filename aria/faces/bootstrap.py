@@ -143,7 +143,7 @@ class BootstrapPipeline:
                         priority=0.5,
                     )
                 except Exception:
-                    logger.debug("Bootstrap: queue insert skipped for %s", path_id)
+                    logger.warning("Bootstrap: queue insert failed for %s", path_id, exc_info=True)
 
         clusters = self.build_clusters(valid_paths, labels)
         logger.info(
