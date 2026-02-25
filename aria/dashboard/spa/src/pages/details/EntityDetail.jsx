@@ -24,7 +24,7 @@ export default function EntityDetail({ id, type }) {
 
     Promise.all([
       fetchJson('/api/cache/entities'),
-      fetchJson('/api/curation').catch(() => null),
+      fetchJson('/api/curation').catch(err => { console.warn('Optional fetch failed:', err.message); return null; }),
     ])
       .then(([entitiesResult, curationResult]) => {
         // Find entity in cache — could be nested in data or a flat array
@@ -60,7 +60,7 @@ export default function EntityDetail({ id, type }) {
         if (curationResult) {
           fetchJson(`/api/audit/curation/${encodeURIComponent(id)}`)
             .then((auditData) => setAudit(auditData))
-            .catch(() => null);
+            .catch(err => { console.warn('Optional fetch failed:', err.message); return null; });
         }
       })
       .catch((err) => setError(err))

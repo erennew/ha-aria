@@ -220,7 +220,8 @@ function DataFilteringSection() {
         }
       }
       setFilterLoaded(true);
-    }).catch(() => {
+    }).catch((err) => {
+      console.warn('Filter config load failed:', err.message);
       setFilterLoaded(true);
     });
   }, []);

@@ -24,7 +24,7 @@ export default function PredictionDetail({ id, type }) {
 
     Promise.all([
       fetchJson('/api/shadow/predictions'),
-      fetchJson('/api/shadow/accuracy').catch(() => null),
+      fetchJson('/api/shadow/accuracy').catch(err => { console.warn('Optional fetch failed:', err.message); return null; }),
     ])
       .then(([predResult, accResult]) => {
         const allPreds = Array.isArray(predResult)

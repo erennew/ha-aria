@@ -28,7 +28,7 @@ export default function CapabilityDetail({ id, type }) {
 
     Promise.all([
       fetchJson(`/api/capabilities/registry/${encodeURIComponent(id)}`),
-      fetchJson('/api/capabilities/history').catch(() => null),
+      fetchJson('/api/capabilities/history').catch(err => { console.warn('Optional fetch failed:', err.message); return null; }),
     ])
       .then(([capResult, histResult]) => {
         const data = capResult?.data || capResult || null;

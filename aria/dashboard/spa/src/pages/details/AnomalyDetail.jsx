@@ -33,7 +33,7 @@ export default function AnomalyDetail({ id, type }) {
 
     Promise.all([
       fetchJson('/api/ml/anomalies'),
-      fetchJson('/api/anomalies/explain').catch(() => null),
+      fetchJson('/api/anomalies/explain').catch(err => { console.warn('Optional fetch failed:', err.message); return null; }),
     ])
       .then(([anomalies, explain]) => {
         const list = Array.isArray(anomalies) ? anomalies : (anomalies?.anomalies || []);

@@ -97,7 +97,7 @@ def _classify_single_day(
         return "vacation"
 
     holiday_keywords = keywords.get("holiday", [])
-    vacation_keywords = keywords.get("vacation", ["vacation", "trip"])
+    vacation_keywords = keywords.get("vacation", [])
     wfh_keywords = keywords.get("wfh", [])
 
     has_vacation = False

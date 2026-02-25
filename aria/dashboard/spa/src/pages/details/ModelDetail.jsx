@@ -22,7 +22,7 @@ export default function ModelDetail({ id, type }) {
 
     Promise.all([
       fetchJson('/api/ml/models'),
-      fetchJson('/api/ml/drift').catch(() => null),
+      fetchJson('/api/ml/drift').catch(err => { console.warn('Optional fetch failed:', err.message); return null; }),
     ])
       .then(([modelsResult, driftResult]) => {
         const data = modelsResult?.data || modelsResult || {};

@@ -28,7 +28,7 @@ export default function SuggestionDetail({ id, type }) {
 
     Promise.all([
       fetchJson('/api/cache/automation_suggestions'),
-      fetchJson('/api/automations/feedback').catch(() => null),
+      fetchJson('/api/automations/feedback').catch(err => { console.warn('Optional fetch failed:', err.message); return null; }),
     ])
       .then(([suggestionsResult, feedbackResult]) => {
         const data = suggestionsResult?.data || suggestionsResult || {};

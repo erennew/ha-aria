@@ -22,7 +22,7 @@ export default function ConfigDetail({ id, type }) {
 
     Promise.all([
       fetchJson(`/api/config/${encodeURIComponent(id)}`),
-      fetchJson('/api/config-history').catch(() => null),
+      fetchJson('/api/config-history').catch(err => { console.warn('Optional fetch failed:', err.message); return null; }),
     ])
       .then(([configResult, histResult]) => {
         const data = configResult?.data || configResult || null;

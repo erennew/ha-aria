@@ -28,7 +28,7 @@ export default function CurationDetail({ id, type }) {
 
     Promise.all([
       fetchJson('/api/curation'),
-      fetchJson(`/api/audit/curation/${encodeURIComponent(id)}`).catch(() => null),
+      fetchJson(`/api/audit/curation/${encodeURIComponent(id)}`).catch(err => { console.warn('Optional fetch failed:', err.message); return null; }),
     ])
       .then(([curationResult, auditResult]) => {
         const data = curationResult?.data || curationResult || {};
