@@ -104,6 +104,12 @@ class IntelligenceHub:
         # EventStore lives alongside hub.db (same directory)
         events_db_path = str(Path(cache_path).parent / "events.db")
         self.event_store = EventStore(events_db_path)
+        # FaceEmbeddingStore lives alongside hub.db (same directory)
+        from aria.faces.store import FaceEmbeddingStore as _FaceStore
+
+        faces_db_path = str(Path(cache_path).parent / "faces.db")
+        self.faces_store = _FaceStore(faces_db_path)
+        self.faces_store.initialize()
 
     async def initialize(self):
         """Initialize hub and cache."""

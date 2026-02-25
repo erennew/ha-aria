@@ -1666,6 +1666,9 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
     _register_frigate_routes(router, hub)
     _register_audit_routes(router, hub)
     _register_event_store_routes(router, hub)
+    from aria.hub.routes_faces import _register_face_routes
+
+    _register_face_routes(router, hub)
 
     # WebSocket endpoint (auth handled inline — FastAPI dependency injection
     # doesn't apply to websocket routes on the main app)
