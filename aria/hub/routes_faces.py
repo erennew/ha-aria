@@ -1,6 +1,8 @@
 """FastAPI routes for face recognition pipeline."""
 
 import logging
+import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -114,7 +116,7 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
 
         try:
             store = _store()
-            clips_dir = "/home/justin/frigate/media/clips"
+            clips_dir = os.environ.get("FRIGATE_CLIPS_DIR", str(Path.home() / "frigate/media/clips"))
 
             async def _run():
                 pipeline = BootstrapPipeline(clips_dir=clips_dir, store=store)
@@ -140,7 +142,9 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
 
         try:
             store = _store()
-            frigate_faces = Path("/home/justin/frigate/media/clips/faces")
+            frigate_faces = (
+                Path(os.environ.get("FRIGATE_CLIPS_DIR", str(Path.home() / "frigate/media/clips"))) / "faces"
+            )
             people = store.get_known_people()
             deployed = []
             for person in people:

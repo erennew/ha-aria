@@ -107,8 +107,8 @@ export default function Faces() {
                 <div class="flex-1">
                   <div class="text-xs text-gray-400 mb-1">Priority: {item.priority?.toFixed(2)}</div>
                   {item.top_candidates?.map(cand => (
-                    <div key={cand.name} class="text-sm text-gray-300">
-                      {cand.name}: {(cand.confidence * 100).toFixed(0)}%
+                    <div key={cand.person_name} class="text-sm text-gray-300">
+                      {cand.person_name}: {(cand.confidence * 100).toFixed(0)}%
                     </div>
                   ))}
                   <div class="flex gap-2 mt-2">
