@@ -255,8 +255,10 @@ class AuditLogger:
 
     def remove_subscriber(self, queue: asyncio.Queue):
         """Unregister a WebSocket subscriber queue."""
-        with contextlib.suppress(ValueError):
+        try:
             self._subscribers.remove(queue)
+        except ValueError:
+            logger.warning("Attempted to remove subscriber queue not in list — possible double-remove")
 
     # ------------------------------------------------------------------
     # Query methods

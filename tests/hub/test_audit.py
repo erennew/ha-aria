@@ -1,6 +1,8 @@
 """Tests for AuditLogger — schema, write path, queries, integrity."""
 
+import asyncio
 import json
+import logging
 import os
 import sqlite3
 import sys
@@ -463,3 +465,22 @@ class TestBatchInsertRetry:
         # Only one attempt — no retries, no sleep
         assert call_count == 1
         mock_sleep.assert_not_called()
+
+
+class TestSubscriberLifecycle:
+    """WebSocket subscriber queue add/remove must not leak (#140)."""
+
+    async def test_remove_subscriber_cleans_dead_queues(self, audit_logger):
+        """Dead subscriber queues must not accumulate (#140)."""
+        q = asyncio.Queue()
+        audit_logger.add_subscriber(q)
+        assert len(audit_logger._subscribers) == 1
+        audit_logger.remove_subscriber(q)
+        assert len(audit_logger._subscribers) == 0
+
+    async def test_remove_nonexistent_subscriber_logs_warning(self, audit_logger, caplog):
+        """Removing a queue not in the list should log, not silently pass."""
+        q = asyncio.Queue()
+        with caplog.at_level(logging.WARNING):
+            audit_logger.remove_subscriber(q)
+        assert "not found" in caplog.text.lower() or "not in list" in caplog.text.lower()
