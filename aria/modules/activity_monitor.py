@@ -418,6 +418,12 @@ class ActivityMonitor(Module):
             except RuntimeError:
                 pass  # No running loop — buffer will flush on next scheduled interval
 
+        # Hard cap: if flush is stalled and buffer exceeds 10,000, drop oldest events
+        if len(self._activity_buffer) > 10_000:
+            dropped = len(self._activity_buffer) - 5000
+            self._activity_buffer = self._activity_buffer[-5000:]
+            self.logger.warning("Activity buffer exceeded 10,000 — dropped %d oldest events", dropped)
+
         # Emit to event bus for shadow engine (non-blocking — fire and forget)
         try:
             loop = asyncio.get_running_loop()
