@@ -65,3 +65,10 @@ aria/dashboard/spa/node_modules/
 # Claude Code (machine-specific)
 CLAUDE.md
 .worktrees
+
+# Autonomous Coding Toolkit (runtime state)
+tasks/
+logs/
+progress.txt
+.run-plan-state.json
+.worktrees/
