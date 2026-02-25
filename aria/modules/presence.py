@@ -29,17 +29,23 @@ from aria.hub.core import IntelligenceHub, Module
 logger = logging.getLogger(__name__)
 
 
-def _evict_oldest_snapshots(snapshots_dir: Path, max_count: int) -> None:
-    """Delete oldest face snapshot JPEGs so the directory stays under max_count files.
+def _evict_oldest_snapshots(snapshots_dir: Path, max_bytes: int) -> None:
+    """Delete oldest face snapshot JPEGs until the directory is under max_bytes.
 
-    Files are ranked by mtime (oldest first). Only files matching *.jpg are counted
-    and deleted — other files in the directory are left untouched.
+    Files are ranked by mtime (oldest first). Only *.jpg files are measured and
+    deleted — other files in the directory are left untouched.
     """
-    jpgs = sorted(snapshots_dir.glob("*.jpg"), key=lambda p: p.stat().st_mtime)
-    over = len(jpgs) - max_count + 1  # +1 makes room for the file about to be written
-    for path in jpgs[:over]:
+    stats = sorted(
+        ((p, p.stat()) for p in snapshots_dir.glob("*.jpg")),
+        key=lambda t: t[1].st_mtime,
+    )
+    total = sum(s.st_size for _, s in stats)
+    for path, st in stats:
+        if total <= max_bytes:
+            break
         try:
             path.unlink()
+            total -= st.st_size
         except OSError:
             logger.warning("Failed to evict snapshot %s", path)
 
@@ -651,11 +657,10 @@ class PresenceModule(Module):
             import shutil
 
             # Enforce storage cap — evict oldest snapshots before writing new one.
-            # Cap is configurable via ARIA_FACES_MAX_SNAPSHOTS (default 1000 ≈ ~50 MB).
-            _evict_oldest_snapshots(
-                snapshots_dir,
-                max_count=int(os.environ.get("ARIA_FACES_MAX_SNAPSHOTS", "1000")),
-            )
+            # Cap is configurable via ARIA_FACES_SNAPSHOTS_MAX_GB (default 20 GB).
+            _GB = 1024**3
+            max_gb = float(os.environ.get("ARIA_FACES_SNAPSHOTS_MAX_GB", "20"))
+            _evict_oldest_snapshots(snapshots_dir, max_bytes=int(max_gb * _GB))
 
             shutil.copy2(tmp_path, persistent_path)
 

@@ -27,24 +27,30 @@ class BootstrapPipeline:
         self.store = store
         self.extractor = FaceExtractor()
 
-    def scan_clips(self, max_clips: int | None = None) -> list[str]:
+    def scan_clips(self, max_bytes: int | None = None) -> list[str]:
         """Return .jpg snapshot paths in clips_dir, sorted by mtime (newest last).
 
-        If max_clips is set, the oldest files beyond the limit are deleted to
-        reclaim disk space before processing begins. This prevents unbounded
-        growth in the Frigate clips directory.
+        If max_bytes is set, the oldest files that push total size over the limit
+        are deleted before processing begins. This prevents unbounded growth in
+        the Frigate clips directory.
         """
-        paths = sorted(Path(self.clips_dir).glob("*.jpg"), key=lambda p: p.stat().st_mtime)
-        if max_clips is not None and len(paths) > max_clips:
-            to_delete = paths[: len(paths) - max_clips]
-            for p in to_delete:
+        stats = sorted(
+            ((p, p.stat()) for p in Path(self.clips_dir).glob("*.jpg")),
+            key=lambda t: t[1].st_mtime,
+        )
+        if max_bytes is not None:
+            total = sum(s.st_size for _, s in stats)
+            for p, st in stats[:]:
+                if total <= max_bytes:
+                    break
                 try:
                     p.unlink()
+                    total -= st.st_size
+                    stats.remove((p, st))
                     logger.debug("Evicted old clip: %s", p.name)
                 except OSError:
                     logger.warning("Failed to evict clip %s", p)
-            paths = paths[len(paths) - max_clips :]
-        return [str(p) for p in paths]
+        return [str(p) for p, _ in stats]
 
     def extract_all(self, image_paths: list[str], progress=None) -> tuple[list[str], list[np.ndarray]]:
         """Extract embeddings from all images, skipping failures.
@@ -111,10 +117,12 @@ class BootstrapPipeline:
         """
         import os
 
-        max_clips_env = os.environ.get("ARIA_FACES_MAX_CLIPS")
-        max_clips = int(max_clips_env) if max_clips_env else None
-        logger.info("Bootstrap: scanning %s (max_clips=%s)", self.clips_dir, max_clips or "unlimited")
-        image_paths = self.scan_clips(max_clips=max_clips)
+        _GB = 1024**3
+        max_gb_env = os.environ.get("ARIA_FACES_CLIPS_MAX_GB")
+        max_bytes = int(float(max_gb_env) * _GB) if max_gb_env else None
+        cap_label = f"{max_gb_env} GB" if max_gb_env else "unlimited"
+        logger.info("Bootstrap: scanning %s (clips_cap=%s)", self.clips_dir, cap_label)
+        image_paths = self.scan_clips(max_bytes=max_bytes)
         total = len(image_paths)
         logger.info("Bootstrap: found %d snapshots", total)
         if progress is not None:
