@@ -62,6 +62,7 @@ faces-gpu = [
     "tf-keras>=2.18.0",
     "tensorflow[and-cuda]>=2.20.0",
 ]
+unifi = ["uiprotect>=10.0"]
 dev = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0", "pytest-timeout>=2.3.0", "ruff>=0.4.0", "pre-commit>=4.0.0"]
 
 [project.urls]
