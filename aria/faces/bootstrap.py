@@ -112,8 +112,9 @@ class BootstrapPipeline:
         # Use a short hash of the image path as event_id so re-runs are
         # idempotent — the partial unique index only covers source='live',
         # so without a stable per-image key, re-running doubles the rows.
-        for path, embedding, _label in zip(valid_paths, embeddings, labels, strict=False):
+        for path, embedding, label in zip(valid_paths, embeddings, labels, strict=False):
             path_id = "bs_" + hashlib.sha1(path.encode()).hexdigest()[:12]
+            is_new = False
             try:
                 self.store.add_embedding(
                     person_name=None,
@@ -124,9 +125,25 @@ class BootstrapPipeline:
                     source="bootstrap",
                     verified=False,
                 )
+                is_new = True
             except Exception:
                 # Duplicate on re-run — skip silently (image already stored)
                 logger.debug("Bootstrap: skipping duplicate %s", path_id)
+
+            # Add new faces to review queue so the UI can display them for labeling.
+            # Cluster label becomes top candidate hint (unknown = -1).
+            if is_new:
+                cluster_hint = f"cluster_{label}" if label != -1 else "unknown"
+                try:
+                    self.store.add_to_review_queue(
+                        event_id=path_id,
+                        image_path=path,
+                        embedding=embedding,
+                        top_candidates=[{"person_name": cluster_hint, "confidence": 0.0}],
+                        priority=0.5,
+                    )
+                except Exception:
+                    logger.debug("Bootstrap: queue insert skipped for %s", path_id)
 
         clusters = self.build_clusters(valid_paths, labels)
         logger.info(
