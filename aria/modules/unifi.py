@@ -201,7 +201,7 @@ class UniFiModule(Module):
         self._home_away = len(seen_known) > 0 if known_macs else True
         return signals
 
-    # ── Stub loops (implemented in Tasks 5, 6) ────────────────────────
+    # ── Network poll loop ─────────────────────────────────────────────
 
     async def _network_poll_loop(self) -> None:
         """Poll UniFi Network for WiFi client state every poll_interval_s."""
@@ -242,6 +242,143 @@ class UniFiModule(Module):
 
             await asyncio.sleep(self._poll_interval)
 
+    # ── Protect pipeline ───────────────────────────────────────────────
+
+    async def _handle_protect_person(self, event: dict, room: str) -> None:
+        """Handle a parsed Protect SmartDetect person event.
+
+        1. Publish protect_person signal to hub cache.
+        2. Fetch thumbnail → feed into existing FacePipeline (best-effort).
+        """
+        ts = datetime.now(UTC)
+        signal = {
+            "room": room,
+            "signal_type": "protect_person",
+            "value": 0.85,
+            "detail": f"protect:{event.get('camera_name', '?')} score={event.get('score', 0):.2f}",
+            "ts": ts.isoformat(),
+            "event_id": event.get("event_id"),
+        }
+        await self.hub.set_cache("unifi_protect_signal", signal)
+        logger.debug("UniFi Protect: person in %s (event=%s)", room, event.get("event_id"))
+
+        # Fetch thumbnail and feed into face pipeline (non-fatal)
+        event_id = event.get("event_id")
+        if event_id:
+            try:
+                thumbnail_bytes = await self._fetch_protect_thumbnail(event_id)
+                if thumbnail_bytes:
+                    await self._feed_face_pipeline(thumbnail_bytes, room, event_id)
+            except Exception as e:
+                logger.debug("UniFi Protect: thumbnail fetch failed for %s — %s", event_id, e)
+
+    async def _fetch_protect_thumbnail(self, event_id: str) -> bytes | None:
+        """Fetch event thumbnail from UniFi Protect REST API."""
+        url = f"https://{self._host}/proxy/protect/api/events/{event_id}/thumbnail"
+        async with self._session.get(url) as resp:
+            if resp.status != 200:
+                return None
+            return await resp.read()
+
+    async def _feed_face_pipeline(self, thumbnail_bytes: bytes, room: str, event_id: str) -> None:
+        """Save thumbnail and feed into ARIA's existing FacePipeline.
+
+        Reuses the face snapshot directory + existing _process_face_async pipeline
+        in PresenceModule — UniFiModule does not duplicate face logic.
+        """
+        import os
+        from pathlib import Path
+
+        snapshots_dir_str = os.environ.get("ARIA_FACES_SNAPSHOTS_DIR", "")
+        if not snapshots_dir_str:
+            return
+
+        snapshots_dir = Path(snapshots_dir_str)
+        snapshots_dir.mkdir(parents=True, exist_ok=True)
+        img_path = snapshots_dir / f"protect_{event_id}.jpg"
+        img_path.write_bytes(thumbnail_bytes)
+
+        # Publish face_snapshot event — PresenceModule's FacePipeline subscriber picks it up
+        self.hub.publish(
+            "face_snapshot_available",
+            {
+                "image_path": str(img_path),
+                "room": room,
+                "source": "protect",
+                "event_id": event_id,
+            },
+        )
+        logger.debug("UniFi Protect: thumbnail saved → %s", img_path.name)
+
+    async def _dispatch_protect_event(self, msg: Any) -> None:
+        """Route a Protect WebSocket message to the correct handler."""
+        try:
+            # uiprotect delivers model objects; check for SmartDetect events
+            from uiprotect.data.nvr import Event
+
+            if not isinstance(msg, Event):
+                return
+            if msg.type.value != "smartDetectZone":
+                return
+            if "person" not in (msg.smart_detect_types or []):
+                return
+
+            camera_name = msg.camera.name if msg.camera else "unknown"
+            room = self._ap_rooms.get(camera_name, camera_name.lower().replace(" ", "_"))
+            event_dict = {
+                "type": "smartDetectZone",
+                "object_type": "person",
+                "camera_name": camera_name,
+                "event_id": msg.id,
+                "score": msg.score or 0.0,
+            }
+            await self._handle_protect_person(event_dict, room)
+        except Exception as e:
+            logger.debug("UniFi Protect: dispatch error — %s", e)
+
     async def _protect_ws_loop(self) -> None:
-        """Subscribe to UniFi Protect WebSocket for smart detect events."""
-        raise NotImplementedError  # implemented in Task 6
+        """Subscribe to UniFi Protect WebSocket via uiprotect library.
+
+        Uses exponential backoff on disconnect (same pattern as Frigate MQTT in presence.py).
+        """
+        try:
+            from uiprotect import ProtectApiClient
+        except ImportError:
+            logger.warning(
+                "uiprotect not installed — Protect pipeline disabled. Install with: pip install -e '.[unifi]'"
+            )
+            return
+
+        backoff = 5
+        while self.hub.is_running():
+            if not self._enabled:
+                break
+            try:
+                client = ProtectApiClient(
+                    self._host,
+                    0,
+                    "",
+                    "",
+                    use_ssl=False,
+                    override_connection_host=True,
+                )
+                # Inject API key auth via session override
+                client._api_key = self._api_key  # noqa: SLF001 — uiprotect internal
+                self._protect_client = client
+                await client.update()
+
+                async for msg in client.subscribe_websocket():
+                    if not self.hub.is_running():
+                        break
+                    await self._dispatch_protect_event(msg)
+                    backoff = 5  # reset on successful message
+
+            except Exception as e:
+                logger.warning("UniFi Protect WebSocket error: %s — retrying in %ds", e, backoff)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 60)
+            finally:
+                if self._protect_client:
+                    with contextlib.suppress(Exception):
+                        await self._protect_client.disconnect()
+                    self._protect_client = None

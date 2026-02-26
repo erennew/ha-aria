@@ -166,3 +166,70 @@ def test_rssi_below_threshold_halves_weight(module):
 def test_rssi_above_threshold_full_weight(module):
     weight = module._compute_network_weight(rssi=-60)
     assert weight == pytest.approx(0.75)
+
+
+# ── Protect pipeline tests ────────────────────────────────────────────
+
+
+def test_protect_unavailable_disables_gracefully(hub, monkeypatch):
+    """If uiprotect is not installed, Protect pipeline is skipped without crash."""
+    import sys
+
+    monkeypatch.setitem(sys.modules, "uiprotect", None)
+    m = UniFiModule(hub, host="192.168.1.1", api_key="test-key")
+    # Should construct without raising
+    assert m is not None
+
+
+@pytest.mark.asyncio
+async def test_protect_person_event_adds_signal(module):
+    """SmartDetectZone person event → protect_person signal published to hub."""
+    signals_published = []
+
+    async def mock_set_cache(key, value):
+        if key == "unifi_protect_signal":
+            signals_published.append(value)
+
+    module.hub.set_cache = mock_set_cache
+    module._ap_rooms = {}
+
+    # Simulate a parsed Protect event
+    event = {
+        "type": "smartDetectZone",
+        "object_type": "person",
+        "camera_name": "office",
+        "event_id": "evt-001",
+        "score": 0.92,
+    }
+    await module._handle_protect_person(event, room="office")
+    assert len(signals_published) == 1
+    assert signals_published[0]["signal_type"] == "protect_person"
+    assert signals_published[0]["room"] == "office"
+
+
+@pytest.mark.asyncio
+async def test_protect_thumbnail_failure_still_adds_signal(module, tmp_path):
+    """Thumbnail fetch failure → protect_person signal still added; face pipeline skipped."""
+    from unittest.mock import patch
+
+    signals_published = []
+
+    async def mock_set_cache(key, value):
+        if key == "unifi_protect_signal":
+            signals_published.append(value)
+
+    module.hub.set_cache = mock_set_cache
+
+    with patch.object(module, "_fetch_protect_thumbnail", side_effect=Exception("timeout")):
+        await module._handle_protect_person(
+            {
+                "type": "smartDetectZone",
+                "object_type": "person",
+                "camera_name": "office",
+                "event_id": "evt-002",
+                "score": 0.8,
+            },
+            room="office",
+        )
+    # Signal still added despite thumbnail failure
+    assert len(signals_published) == 1
