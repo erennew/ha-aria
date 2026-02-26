@@ -180,7 +180,8 @@ def _run_ml_predictions(config, store, baselines, weather, tomorrow):
     from aria.engine.models.training import predict_with_ml
 
     tomorrow_snap = _build_tomorrow_snapshot(tomorrow, baselines, weather, config)
-    ml_preds = predict_with_ml(tomorrow_snap, store=store, models_dir=str(config.paths.models_dir))
+    ml_result = predict_with_ml(tomorrow_snap, store=store, models_dir=str(config.paths.models_dir))
+    ml_preds = ml_result.get("predictions", {})
     if ml_preds:
         print(f"ML predictions available ({len(ml_preds)} metrics)")
 

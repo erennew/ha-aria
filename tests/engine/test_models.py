@@ -154,7 +154,9 @@ class TestSklearnTraining(unittest.TestCase):
             train_continuous_model("power_watts", names, X, targets["power_watts"], tmpdir)
 
             test_snap = snapshots[-1]
-            preds = predict_with_ml(test_snap, config, models_dir=tmpdir)
+            result = predict_with_ml(test_snap, config, models_dir=tmpdir)
+            preds = result["predictions"]
+            self.assertTrue(result["is_trained"])
             self.assertIn("power_watts", preds)
             self.assertIsInstance(preds["power_watts"], float)
         finally:

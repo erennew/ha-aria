@@ -135,17 +135,17 @@ def predict_with_ml(snapshot, config=None, prev_snapshot=None, rolling_stats=Non
         models_dir: Path to saved models. Defaults to PathConfig().models_dir.
         store: DataStore instance for loading feature config.
 
-    Returns dict of metric -> predicted value, or empty if no models.
+    Returns dict with keys 'predictions' (metric->value dict) and 'is_trained' (bool).
     """
     if not HAS_SKLEARN:
-        return {}
+        return {"predictions": {}, "is_trained": False}
 
     from aria.engine.features.vector_builder import build_feature_vector, get_feature_names
 
     if config is None:
         config = store.load_feature_config() if store is not None else DataStore(PathConfig()).load_feature_config()
     if config is None:
-        return {}
+        return {"predictions": {}, "is_trained": False}
 
     if models_dir is None:
         models_dir = str(PathConfig().models_dir)
@@ -166,12 +166,10 @@ def predict_with_ml(snapshot, config=None, prev_snapshot=None, rolling_stats=Non
         predictions[metric] = round(pred, 1)
 
     if not predictions:
-        import logging as _logging
+        logger.warning("predict_with_ml: no trained model files found in %s — returning empty predictions", models_dir)
+        return {"predictions": {}, "is_trained": False}
 
-        _logging.getLogger(__name__).warning(
-            "predict_with_ml: no trained model files found in %s — returning empty predictions", models_dir
-        )
-    return predictions
+    return {"predictions": predictions, "is_trained": True}
 
 
 def train_continuous_model(metric_name, feature_names, X, y, model_dir, config=None):  # noqa: PLR0913 — model training requires these distinct parameters

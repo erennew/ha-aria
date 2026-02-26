@@ -103,13 +103,14 @@ class PipelineRunner:
         ml_predictions = None
         if self._training_results and any("error" not in v for v in self._training_results.values()):
             # Use the last snapshot as input for ML prediction
-            ml_predictions = predict_with_ml(
+            ml_result = predict_with_ml(
                 self.snapshots[-1],
                 config=DEFAULT_FEATURE_CONFIG,
                 prev_snapshot=self.snapshots[-2] if len(self.snapshots) > 1 else None,
                 models_dir=str(self.paths.models_dir),
                 store=self.store,
             )
+            ml_predictions = ml_result.get("predictions") or None
 
         predictions = generate_predictions(
             target_date=target_date,
