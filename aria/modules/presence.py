@@ -1054,15 +1054,18 @@ class PresenceModule(Module):
         # Cross-validate with UniFi client state if module is available
         unifi_state = await self.hub.get_cache("unifi_client_state")
         if unifi_state and unifi_state.get("home") is False:
-            # All known devices absent — suppress all room signals
+            # All known devices absent — clear signal history for this cycle.
+            # Note: this destroys accumulated signals, not a temporary suppression.
+            # Recovery requires new _add_signal calls on the next flush cycle.
             for room in list(self._room_signals.keys()):
                 self._room_signals[room] = []
-            logger.debug("UniFi home/away gate: all devices away — suppressing room signals")
+            logger.debug("UniFi home/away gate: all devices away — clearing room signal history")
         elif unifi_state:
             # Apply cross-validation boost/suppression
             unifi_mod = self.hub.get_module("unifi") if hasattr(self.hub, "get_module") else None
             if unifi_mod is not None:
-                adjusted = unifi_mod.cross_validate_signals(self._room_signals)
+                # Pass a shallow copy to protect _room_signals from external mutation
+                adjusted = unifi_mod.cross_validate_signals(dict(self._room_signals))
                 # cross_validate_signals returns 2-tuples (sig_type, value).
                 # Reconstruct 4-tuples to preserve detail/ts for downstream consumers.
                 adjusted_values = {room: dict(tuples) for room, tuples in adjusted.items()}
