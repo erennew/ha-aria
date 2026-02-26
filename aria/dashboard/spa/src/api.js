@@ -4,6 +4,7 @@
  * - baseUrl derived from window.location.origin
  * - fetchJson() wrapper with error handling
  * - Request deduplication: concurrent fetches to the same path share one promise
+ * - X-API-Key injected from window.__ARIA_CONFIG__.apiKey when present (#267)
  */
 
 // Derive base URL from pathname to support both direct (:8001) and proxied (/aria) access.
@@ -11,6 +12,32 @@
 // At /aria/ui/  → pathname '/aria/ui/' → prefix '/aria' → baseUrl 'https://host/aria'
 const pathPrefix = window.location.pathname.replace(/\/ui(\/.*)?$/, '');
 const baseUrl = window.location.origin + pathPrefix;
+
+/**
+ * Resolve the API key for authenticated requests (#267).
+ *
+ * Resolution order:
+ *  1. window.__ARIA_CONFIG__.apiKey  — injected by backend HTML template
+ *  2. localStorage item 'aria_api_key' — user-configurable fallback
+ *
+ * Returns null when no key is configured (auth disabled).
+ */
+function getApiKey() {
+  return (
+    window.__ARIA_CONFIG__?.apiKey ||
+    localStorage.getItem('aria_api_key') ||
+    null
+  );
+}
+
+/**
+ * Build auth headers. Returns { 'X-API-Key': key } when a key is configured,
+ * otherwise returns an empty object.
+ */
+function authHeaders() {
+  const key = getApiKey();
+  return key ? { 'X-API-Key': key } : {};
+}
 
 /** In-flight request map for deduplication. Key = path, value = pending Promise. */
 const inflight = new Map();
@@ -27,7 +54,7 @@ export function fetchJson(path) {
     return inflight.get(path);
   }
 
-  const promise = fetch(`${baseUrl}${path}`)
+  const promise = fetch(`${baseUrl}${path}`, { headers: authHeaders() })
     .then((res) => {
       if (!res.ok) {
         const err = new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -53,7 +80,7 @@ export function fetchJson(path) {
 export function putJson(path, body) {
   return fetch(`${baseUrl}${path}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(body),
   }).then((res) => {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -70,7 +97,7 @@ export function putJson(path, body) {
 export function postJson(path, body) {
   return fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(body),
   }).then((res) => {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);

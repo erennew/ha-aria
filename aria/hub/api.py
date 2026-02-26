@@ -1608,6 +1608,9 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
 
         Real static files (bundle.js, bundle.css) are served by the mount below.
         This catch-all only fires for paths that don't match a real file.
+
+        When serving index.html, injects window.__ARIA_CONFIG__ so the frontend
+        can read auth configuration without a separate round-trip (#267).
         """
         # Serve real files directly (JS, CSS, etc.) with path traversal guard
         real_file = spa_dist / path
@@ -1616,7 +1619,20 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             no_cache = real_file.suffix in {".js", ".css"}
             headers = {"Cache-Control": "no-store"} if no_cache else {}
             return FileResponse(real_file, headers=headers)
-        # Everything else gets index.html for the client-side router
+
+        # Inject window.__ARIA_CONFIG__ into index.html (#267).
+        # authRequired=true signals the frontend to attach X-API-Key headers.
+        # The actual key is NOT injected — it must be supplied by the user
+        # (via localStorage or query param) to avoid leaking it in HTML.
+        if spa_index.is_file():
+            html = spa_index.read_text(encoding="utf-8")
+            config_script = (
+                f'<script>window.__ARIA_CONFIG__ = {{"authRequired": {str(bool(_ARIA_API_KEY)).lower()}}};</script>'
+            )
+            html = html.replace("</head>", f"{config_script}</head>", 1)
+            from fastapi.responses import HTMLResponse
+
+            return HTMLResponse(content=html, headers={"Cache-Control": "no-store"})
         return FileResponse(spa_index)
 
     app.mount("/ui", StaticFiles(directory=str(spa_dist), html=True), name="spa")
