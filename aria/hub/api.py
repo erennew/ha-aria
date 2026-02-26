@@ -1660,6 +1660,9 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
             except ImportError:
                 health_data["telegram_ok"] = False
 
+            # Expose auth status so monitoring can assert destructive endpoints are protected
+            health_data["auth_enabled"] = bool(_ARIA_API_KEY)
+
             return JSONResponse(content=health_data)
         except Exception:
             logger.exception("Health check failed")
