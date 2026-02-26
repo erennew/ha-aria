@@ -222,3 +222,17 @@ class TestIntradayPresenceValidation:
 
         assert result["presence_valid"] is True
         assert result["presence"]["overall_probability"] > 0
+
+
+# =============================================================================
+# #205 — build_empty_snapshot must include "presence" key
+# =============================================================================
+
+
+def test_build_empty_snapshot_has_presence_key():
+    """#205: build_empty_snapshot must include 'presence' key."""
+    from aria.engine.collectors.snapshot import build_empty_snapshot
+    from aria.engine.config import HolidayConfig
+
+    snap = build_empty_snapshot("2026-02-25", HolidayConfig())
+    assert "presence" in snap, f"Missing 'presence' key. Keys: {list(snap.keys())}"

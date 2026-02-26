@@ -101,6 +101,7 @@ def build_empty_snapshot(date_str: str, holidays_config: HolidayConfig) -> dict:
         "automations": {"on": 0, "off": 0, "unavailable": 0, "fired_24h": 0},
         "ev": {},
         "logbook_summary": {"total_events": 0, "useful_events": 0, "by_domain": {}, "hourly": {}},
+        "presence": {},
     }
 
 
