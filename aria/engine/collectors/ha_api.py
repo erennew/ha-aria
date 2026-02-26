@@ -137,10 +137,12 @@ def fetch_calendar_events() -> list:
         events = []
         for line in lines[1:]:
             parts = line.split("\t")
-            if len(parts) >= 4:
-                events.append({"start": parts[1], "end": parts[2], "summary": parts[3]})
-            elif len(parts) >= 5:
+            if len(parts) >= 5:
+                # 5+ columns: id, calendar, start, end, summary
                 events.append({"start": parts[2], "end": parts[3], "summary": parts[4]})
+            elif len(parts) >= 4:
+                # 4 columns: start, end, summary, extra
+                events.append({"start": parts[1], "end": parts[2], "summary": parts[3]})
         return events
     except Exception as e:
         logger.warning("Failed to fetch calendar events: %s", e)
