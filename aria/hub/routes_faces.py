@@ -112,8 +112,22 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
                         source="manual",
                         verified=True,
                     )
-                except Exception:
-                    logger.warning("label_face: duplicate embedding insert for queue_id=%d, skipping", req.queue_id)
+                except Exception as emb_exc:
+                    exc_str = str(emb_exc).lower()
+                    if "unique" in exc_str or "duplicate" in exc_str or "constraint" in exc_str:
+                        logger.warning(
+                            "label_face: duplicate embedding insert for queue_id=%d, person=%s — skipping",
+                            req.queue_id,
+                            req.person_name,
+                        )
+                    else:
+                        logger.error(
+                            "label_face: add_embedding failed for queue_id=%d, person=%s: %s",
+                            req.queue_id,
+                            req.person_name,
+                            emb_exc,
+                        )
+                        raise HTTPException(status_code=500, detail="Failed to store embedding") from emb_exc
             else:
                 logger.info("label_face: queue_id=%d already reviewed by concurrent request, skipping", req.queue_id)
 
