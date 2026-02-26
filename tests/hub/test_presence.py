@@ -1199,3 +1199,64 @@ class TestPresenceConfigWeights:
         # Signal should be nearly zero (decay_factor ~ 1 - 15/10 = -0.5, clamped to 0.1)
         assert len(active) == 1
         assert active[0][1] < 0.15  # heavily decayed
+
+
+# ============================================================================
+# UniFi Cross-Validation Integration
+# ============================================================================
+
+
+class TestFlushWithUnifiCrossValidation:
+    """Test that _flush_presence_state integrates UniFi cross-validation."""
+
+    @pytest.mark.asyncio
+    async def test_flush_with_unifi_cross_validation(self, module):
+        """_flush_presence_state() uses UniFi cross-validation when module available."""
+        hub = module.hub
+        # Simulate unifi_client_state present and home=True
+        hub._cache_data["unifi_client_state"] = {
+            "home": True,
+            "clients": {},
+            "signals": [],
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+        # Add a signal so there is something to cross-validate
+        now = datetime.now()
+        module._add_signal("living_room", "motion", 0.9, "motion detected", now)
+        # Should not raise — get_module("unifi") returns None on MockHub (graceful skip)
+        await module._flush_presence_state()
+        cached = hub.cache._cache.get(CACHE_PRESENCE)
+        assert cached is not None
+        assert "living_room" in cached["rooms"]
+
+    @pytest.mark.asyncio
+    async def test_flush_home_away_gate_clears_signals(self, module):
+        """When home=False (all devices away), room signals are suppressed before fusion."""
+        hub = module.hub
+        hub._cache_data["unifi_client_state"] = {
+            "home": False,
+            "clients": {},
+            "signals": [],
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+        now = datetime.now()
+        module._add_signal("living_room", "motion", 0.9, "motion detected", now)
+        await module._flush_presence_state()
+        cached = hub.cache._cache.get(CACHE_PRESENCE)
+        # With home=False, signals are cleared — room should show low/no probability
+        assert cached is not None
+        room_data = cached["rooms"].get("living_room", {})
+        # Either absent or probability is at baseline (0.1 — no signals)
+        assert room_data.get("probability", 0.0) <= 0.1
+
+    @pytest.mark.asyncio
+    async def test_flush_no_unifi_state_skips_cross_validation(self, module):
+        """When unifi_client_state is absent, flush proceeds without cross-validation."""
+        # hub._cache_data has no unifi_client_state key — get_cache returns None
+        now = datetime.now()
+        module._add_signal("living_room", "motion", 0.9, "motion detected", now)
+        # Should not raise and should still produce presence output
+        await module._flush_presence_state()
+        cached = module.hub.cache._cache.get(CACHE_PRESENCE)
+        assert cached is not None
+        assert cached["rooms"]["living_room"]["probability"] > 0.5
