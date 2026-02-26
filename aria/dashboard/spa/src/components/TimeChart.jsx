@@ -21,6 +21,9 @@ export default function TimeChart({ data, series, height, className, compact = f
 
   useEffect(() => {
     if (!containerRef.current || !data || data.length === 0) return;
+    if (!Array.isArray(series) || series.length === 0 || !Array.isArray(data[0]) || data[0].length === 0) {
+      return;
+    }
 
     // Get computed CSS variables for theme-aware colors
     const styles = getComputedStyle(document.documentElement);

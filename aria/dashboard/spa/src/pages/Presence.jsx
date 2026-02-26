@@ -5,7 +5,7 @@ import ErrorState from '../components/ErrorState.jsx';
 import PageBanner from '../components/PageBanner.jsx';
 import { Section, Callout, relativeTime } from './intelligence/utils.jsx';
 import { confidenceBadgeStyle } from '../constants.js';
-import { fetchJson } from '../api.js';
+import { fetchJson, API_BASE } from '../api.js';
 
 // Signal type labels and colors
 const SIGNAL_LABELS = {
@@ -178,7 +178,7 @@ function SignalFeed({ rooms }) {
 /** Recent person detection card with thumbnail from any camera */
 function DetectionCard({ detection }) {
   const hasThumbnail = detection.event_id && detection.has_snapshot;
-  const thumbnailUrl = hasThumbnail ? `/api/frigate/thumbnail/${detection.event_id}` : null;
+  const thumbnailUrl = hasThumbnail ? `${API_BASE}/api/frigate/thumbnail/${detection.event_id}` : null;
 
   return (
     <div class="t-frame p-2 flex gap-3" style="min-width: 0;">
@@ -210,7 +210,7 @@ function DetectionCard({ detection }) {
           </span>
         </div>
         <div class="text-xs mt-0.5" style="color: var(--text-tertiary); text-transform: capitalize;">
-          {detection.camera.replace(/_/g, ' ')} \u2192 {detection.room.replace(/_/g, ' ')}
+          {detection.camera?.replace(/_/g, ' ') ?? 'unknown'} \u2192 {detection.room?.replace(/_/g, ' ') ?? 'unknown'}
         </div>
         {detection.timestamp && (
           <div class="text-xs mt-0.5" style="color: var(--text-tertiary)">{relativeTime(detection.timestamp)}</div>

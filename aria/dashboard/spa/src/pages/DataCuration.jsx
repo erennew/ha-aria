@@ -186,6 +186,7 @@ export default function DataCuration() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
 
   async function fetchAll() {
     setLoading(true);
@@ -205,20 +206,24 @@ export default function DataCuration() {
   }
 
   async function handleOverride(entityId, status) {
+    setErrorMsg(null);
     try {
       await putJson(`/api/curation/${entityId}`, { status });
       await fetchAll();
     } catch (e) {
       console.error('Override failed:', e);
+      setErrorMsg(e.message || 'Save failed');
     }
   }
 
   async function handleBulk(entityIds, status) {
+    setErrorMsg(null);
     try {
       await postJson('/api/curation/bulk', { entity_ids: entityIds, status });
       await fetchAll();
     } catch (e) {
       console.error('Bulk update failed:', e);
+      setErrorMsg(e.message || 'Save failed');
     }
   }
 
@@ -266,6 +271,8 @@ export default function DataCuration() {
   return (
     <div class="space-y-6 animate-page-enter">
       <PageBanner page="CURATION" subtitle="Entity-level noise control and classification." />
+
+      {errorMsg && <p class="error-msg" style="color: var(--status-error); font-size: var(--type-label);">{errorMsg}</p>}
 
       {/* Hero — what feeds the pipeline */}
       <HeroCard

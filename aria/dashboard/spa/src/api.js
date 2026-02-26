@@ -113,9 +113,18 @@ export function postJson(path, body) {
  * @param {function} setter - State setter to call with the result
  */
 export function safeFetch(url, setter) {
-  return fetchJson(url).then(setter).catch(err => {
-    if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
-  });
+  return fetchJson(url)
+    .then(setter)
+    .catch(err => {
+      if (err?.status !== 404) console.error(`Failed to fetch ${url}:`, err);
+      return { error: true, status: err?.status, message: err?.message ?? err?.statusText };
+    });
 }
+
+export const EMPTY_CAPABILITIES = { capabilities: {}, entities: {}, devices: {} };
+export const EMPTY_INTELLIGENCE = { predictions: [], anomalies: [], correlations: [] };
+export const EMPTY_EVENTS = { events: [], total: 0 };
+
+export const API_BASE = baseUrl;
 
 export { baseUrl };

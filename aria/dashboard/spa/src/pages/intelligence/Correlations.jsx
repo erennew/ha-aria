@@ -100,6 +100,9 @@ export function Correlations({ correlations }) {
 }
 
 function MatrixHeatmap({ correlations }) {
+  if (!Array.isArray(correlations) || correlations.length === 0) {
+    return <div class="empty-state">No correlation data available</div>;
+  }
   const { entities, pairMap } = buildMatrix(correlations);
   const n = entities.length;
 

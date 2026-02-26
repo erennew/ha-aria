@@ -19,6 +19,7 @@ function groupByCategory(configs) {
 function ParamControl({ config, onUpdate, descMode }) {
   const [value, setValue] = useState(config.value);
   const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
   const timerRef = useRef(null);
   const isDefault = config.value === config.default_value;
 
@@ -29,11 +30,13 @@ function ParamControl({ config, onUpdate, descMode }) {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       setSaving(true);
+      setErrorMsg(null);
       try {
         await putJson(`/api/config/${config.key}`, { value: String(newVal) });
         onUpdate();
       } catch (e) {
         console.error('Config save failed:', e);
+        setErrorMsg(e.message || 'Save failed');
       } finally {
         setSaving(false);
       }
@@ -42,12 +45,14 @@ function ParamControl({ config, onUpdate, descMode }) {
 
   async function handleReset() {
     setSaving(true);
+    setErrorMsg(null);
     try {
       await postJson(`/api/config/reset/${config.key}`, {});
       setValue(config.default_value);
       onUpdate();
     } catch (e) {
       console.error('Config reset failed:', e);
+      setErrorMsg(e.message || 'Operation failed');
     } finally {
       setSaving(false);
     }
@@ -68,6 +73,7 @@ function ParamControl({ config, onUpdate, descMode }) {
             : (config.description_technical || config.description);
           return desc ? <p class="text-xs mt-0.5" style="color: var(--text-tertiary)">{desc}</p> : null;
         })()}
+        {errorMsg && <p class="error-msg text-xs mt-0.5" style="color: var(--status-error)">{errorMsg}</p>}
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
         {vtype === 'number' && (
