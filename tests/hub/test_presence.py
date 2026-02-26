@@ -1260,3 +1260,30 @@ class TestFlushWithUnifiCrossValidation:
         cached = module.hub.cache._cache.get(CACHE_PRESENCE)
         assert cached is not None
         assert cached["rooms"]["living_room"]["probability"] > 0.5
+
+    @pytest.mark.asyncio
+    async def test_flush_cross_validation_adjusts_signal_values(self, module):
+        """cross_validate_signals return values are merged back as 4-tuples into _room_signals."""
+        hub = module.hub
+        hub._cache_data["unifi_client_state"] = {
+            "home": True,
+            "clients": {},
+            "signals": [],
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+        now = datetime.now()
+        module._add_signal("living_room", "motion", 0.9, "motion detected", now)
+
+        # Return a suppressed value for the motion signal
+        unifi_mock = MagicMock()
+        unifi_mock.cross_validate_signals.return_value = {"living_room": [("motion", 0.1)]}
+        hub.get_module = MagicMock(return_value=unifi_mock)
+
+        await module._flush_presence_state()
+
+        # cross_validate_signals was called with the room signals
+        unifi_mock.cross_validate_signals.assert_called_once()
+        # Suppressed signal (0.1) → very low room probability
+        cached = hub.cache._cache.get(CACHE_PRESENCE)
+        assert cached is not None
+        assert cached["rooms"]["living_room"]["probability"] < 0.5
