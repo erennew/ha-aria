@@ -86,6 +86,7 @@ class DiscoveryModule(Module):
         self.ha_url = ha_url
         self.ha_token = ha_token
         self.discover_script = Path(__file__).parent.parent.parent / "bin" / "discover.py"
+        self._classify_lock = asyncio.Lock()  # guards deferred classification TOCTOU (#259)
 
         if not self.discover_script.exists():
             raise FileNotFoundError(f"Discovery script not found: {self.discover_script}")
@@ -123,7 +124,10 @@ class DiscoveryModule(Module):
         async def _on_cache_updated(data: dict[str, Any]):
             category = data.get("category", "")
             if category == CACHE_ENTITIES and self._classification_deferred:
-                self._classification_deferred = False
+                async with self._classify_lock:
+                    if not self._classification_deferred:
+                        return  # already handled by the other path
+                    self._classification_deferred = False
                 self.logger.info("Entity cache populated — running deferred classification")
                 try:
                     await self.run_classification()
@@ -134,13 +138,7 @@ class DiscoveryModule(Module):
         self.hub.subscribe("cache_updated", self._on_cache_updated_handler)
 
         # Also check if entities are already in cache (discovery may have populated them above)
-        entities_entry = await self.hub.get_cache(CACHE_ENTITIES)
-        if entities_entry and entities_entry.get("data"):
-            self._classification_deferred = False
-            try:
-                await self.run_classification()
-            except Exception as e:
-                self.logger.warning(f"Initial entity classification failed: {e}")
+        await self._maybe_classify_immediately()
 
         await self.hub.schedule_task(
             task_id="data_quality_reclassify",
@@ -148,6 +146,22 @@ class DiscoveryModule(Module):
             interval=RECLASSIFY_INTERVAL,
             run_immediately=False,
         )
+
+    async def _maybe_classify_immediately(self) -> None:
+        """Classify entities immediately if the cache was already populated during initialize()."""
+        entities_entry = await self.hub.get_cache(CACHE_ENTITIES)
+        if not entities_entry or not entities_entry.get("data"):
+            return
+        should_classify = False
+        async with self._classify_lock:
+            if self._classification_deferred:
+                self._classification_deferred = False
+                should_classify = True
+        if should_classify:
+            try:
+                await self.run_classification()
+            except Exception as e:
+                self.logger.warning(f"Initial entity classification failed: {e}")
 
     async def shutdown(self):
         """Clean up event subscriptions."""

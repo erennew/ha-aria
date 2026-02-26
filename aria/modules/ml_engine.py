@@ -220,6 +220,8 @@ class MLEngine(Module):
 
         if self.models:
             self.model_status = "ready"
+        else:
+            self.logger.warning("MLEngine: no trained model found — predictions will be empty until training completes")
         self.logger.info("ML Engine initialized (model_status=%s)", self.model_status)
 
     async def shutdown(self) -> None:

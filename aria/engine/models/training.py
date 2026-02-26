@@ -165,6 +165,12 @@ def predict_with_ml(snapshot, config=None, prev_snapshot=None, rolling_stats=Non
         pred = float(model.predict(X)[0])
         predictions[metric] = round(pred, 1)
 
+    if not predictions:
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "predict_with_ml: no trained model files found in %s — returning empty predictions", models_dir
+        )
     return predictions
 
 

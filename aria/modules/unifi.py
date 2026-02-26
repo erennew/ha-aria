@@ -274,6 +274,10 @@ class UniFiModule(Module):
         while self.hub.is_running():
             if not self._enabled:
                 break
+            if self._session is None:
+                logger.warning("UniFi._network_poll_loop: session not initialized — skipping")
+                await asyncio.sleep(self._poll_interval)
+                continue
             try:
                 async with self._session.get(url) as resp:
                     if resp.status == 401:
@@ -354,6 +358,9 @@ class UniFiModule(Module):
 
     async def _fetch_protect_thumbnail(self, event_id: str) -> bytes | None:
         """Fetch event thumbnail from UniFi Protect REST API."""
+        if self._session is None:
+            logger.warning("UniFi._fetch_protect_thumbnail: session not initialized — skipping")
+            return None
         url = f"https://{self._host}/proxy/protect/api/events/{event_id}/thumbnail"
         async with self._session.get(url) as resp:
             if resp.status != 200:

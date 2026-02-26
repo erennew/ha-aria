@@ -5,6 +5,18 @@ Centralizing them here eliminates cross-layer import coupling
 (e.g., hub importing directly from engine internals).
 """
 
+# Top-level section keys present in every ARIA snapshot dict.
+# Used to validate snapshot shape and iterate over all sections.
+SNAPSHOT_FIELDS = (
+    "power",
+    "lights",
+    "occupancy",
+    "entities",
+    "logbook_summary",
+    "weather",
+    "time_features",
+)
+
 # Trajectory classification labels — used by:
 #   - aria.engine.sequence.SequenceClassifier (heuristic + DTW labeling)
 #   - aria.modules.ml_engine (trajectory encoding for feature vectors)
@@ -18,6 +30,7 @@ TRAJECTORY_CLASSES: list[str] = ["stable", "ramping_up", "winding_down", "anomal
 #   - aria.engine.models.reference_model (clean reference training)
 #   - aria.modules.ml_engine (hub-side feature names)
 DEFAULT_FEATURE_CONFIG: dict = {
+    # increment this version on every field addition or schema change
     "version": 1,
     "last_modified": "",
     "modified_by": "initial",

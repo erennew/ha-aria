@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+import sqlite3
 from pathlib import Path
 
 import numpy as np
@@ -153,9 +154,11 @@ class BootstrapPipeline:
                     verified=False,
                 )
                 is_new = True
-            except Exception:
+            except sqlite3.IntegrityError:
                 # Duplicate on re-run — skip silently (image already stored)
                 logger.debug("Bootstrap: skipping duplicate %s", path_id)
+            except OSError as e:
+                logger.error("Bootstrap: file I/O error storing embedding %s — %s", path_id, e)
 
             # Add new faces to review queue so the UI can display them for labeling.
             # Cluster label becomes top candidate hint (unknown = -1).

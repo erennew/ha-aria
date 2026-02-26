@@ -7,7 +7,7 @@ expired window resolution, and event handling.
 import asyncio
 import contextlib
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, Mock
@@ -63,7 +63,7 @@ class MockHub:
         self._cache[category] = {
             "data": data,
             "metadata": metadata,
-            "last_updated": datetime.now().isoformat(),
+            "last_updated": datetime.now(tz=UTC).isoformat(),
         }
 
     async def get_cache(self, category: str) -> dict[str, Any] | None:
@@ -123,7 +123,7 @@ def make_state_changed_event(
         "from": from_state,
         "to": to_state,
         "friendly_name": friendly_name,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(tz=UTC).isoformat(),
     }
 
 
@@ -158,7 +158,7 @@ def make_activity_summary(
             "occupancy": {
                 "anyone_home": anyone_home,
                 "people": ["Justin"],
-                "since": datetime.now().isoformat(),
+                "since": datetime.now(tz=UTC).isoformat(),
             },
             "recent_activity": recent_activity,
             "event_predictions": event_predictions or {},
@@ -171,7 +171,7 @@ def make_activity_summary(
 def make_activity_log(windows=None):
     """Helper to create activity_log cache data."""
     if windows is None:
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
         windows = [
             {
                 "window_start": (now - timedelta(minutes=30)).isoformat(),
@@ -192,7 +192,7 @@ def make_activity_log(windows=None):
     return {
         "data": {
             "windows": windows,
-            "last_updated": datetime.now().isoformat(),
+            "last_updated": datetime.now(tz=UTC).isoformat(),
             "events_today": 50,
         }
     }
@@ -342,13 +342,13 @@ class TestContextCapture:
                 "entity_id": "light.kitchen",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
             {
                 "entity_id": "switch.hallway",
                 "domain": "switch",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
         ]
 
@@ -366,7 +366,7 @@ class TestContextCapture:
                 "entity_id": "light.kitchen",
                 "domain": "light",
                 "to": "on",
-                "timestamp": (datetime.now() - timedelta(seconds=30)).isoformat(),
+                "timestamp": (datetime.now(tz=UTC) - timedelta(seconds=30)).isoformat(),
             },
         ]
 
@@ -427,19 +427,19 @@ class TestPredictionGeneration:
                 "entity_id": "light.kitchen",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
             {
                 "entity_id": "light.bedroom",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
             {
                 "entity_id": "switch.hallway",
                 "domain": "switch",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
         ]
 
@@ -483,19 +483,19 @@ class TestPredictionGeneration:
                 "entity_id": "light.kitchen_main",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
             {
                 "entity_id": "light.kitchen_counter",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
             {
                 "entity_id": "light.bedroom_lamp",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
         ]
 
@@ -510,7 +510,7 @@ class TestPredictionGeneration:
     @pytest.mark.asyncio
     async def test_routine_trigger_from_patterns(self, engine, hub):
         """Should generate routine_trigger from cached patterns."""
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
         typical_time = f"{now.hour:02d}:{now.minute:02d}"
 
         await hub.set_cache(
@@ -542,7 +542,7 @@ class TestPredictionGeneration:
     @pytest.mark.asyncio
     async def test_no_routine_trigger_when_time_far(self, engine, hub):
         """Should not generate routine_trigger when current time is far from pattern."""
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
         # Set pattern time 3 hours away
         far_hour = (now.hour + 3) % 24
         typical_time = f"{far_hour:02d}:00"
@@ -593,7 +593,7 @@ class TestPredictionGeneration:
                 "entity_id": "light.kitchen",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
         ]
 
@@ -826,7 +826,7 @@ class TestEventHandling:
                 "entity_id": "light.bedroom",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
         ]
 
@@ -844,7 +844,7 @@ class TestEventHandling:
                 "entity_id": "light.bedroom",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
         ]
 
@@ -865,7 +865,7 @@ class TestEventHandling:
                 "entity_id": "light.bedroom",
                 "domain": "light",
                 "to": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
             },
         ]
 
@@ -874,7 +874,7 @@ class TestEventHandling:
         assert hub.cache.insert_prediction.call_count == 1
 
         # Simulate cooldown expiration
-        engine._last_prediction_time = datetime.now() - timedelta(seconds=PREDICTION_COOLDOWN_S + 1)
+        engine._last_prediction_time = datetime.now(tz=UTC) - timedelta(seconds=PREDICTION_COOLDOWN_S + 1)
 
         event2 = make_state_changed_event(entity_id="light.bedroom")
         await engine._on_state_changed(event2)
@@ -904,7 +904,7 @@ class TestEventHandling:
     async def test_recent_events_pruned(self, engine, hub):
         """Old events should be removed from the recent events buffer."""
         # Add an old event
-        old_time = (datetime.now() - timedelta(minutes=10)).isoformat()
+        old_time = (datetime.now(tz=UTC) - timedelta(minutes=10)).isoformat()
         engine._recent_events = [
             {
                 "entity_id": "light.old",
@@ -971,7 +971,7 @@ class TestExpiredWindowResolution:
         pending = [
             {
                 "id": "pred-001",
-                "timestamp": (datetime.now() - timedelta(minutes=15)).isoformat(),
+                "timestamp": (datetime.now(tz=UTC) - timedelta(minutes=15)).isoformat(),
                 "predictions": [
                     {"type": "next_domain_action", "predicted": "light"},
                 ],
@@ -1000,7 +1000,7 @@ class TestExpiredWindowResolution:
         pending = [
             {
                 "id": "pred-002",
-                "timestamp": (datetime.now() - timedelta(minutes=15)).isoformat(),
+                "timestamp": (datetime.now(tz=UTC) - timedelta(minutes=15)).isoformat(),
                 "predictions": [
                     {"type": "next_domain_action", "predicted": "light"},
                 ],
@@ -1026,7 +1026,7 @@ class TestExpiredWindowResolution:
         pending = [
             {
                 "id": "pred-003",
-                "timestamp": (datetime.now() - timedelta(minutes=15)).isoformat(),
+                "timestamp": (datetime.now(tz=UTC) - timedelta(minutes=15)).isoformat(),
                 "predictions": [
                     {"type": "next_domain_action", "predicted": "climate"},
                 ],
@@ -1061,7 +1061,7 @@ class TestExpiredWindowResolution:
         pending = [
             {
                 "id": "pred-004",
-                "timestamp": (datetime.now() - timedelta(minutes=15)).isoformat(),
+                "timestamp": (datetime.now(tz=UTC) - timedelta(minutes=15)).isoformat(),
                 "predictions": [
                     {"type": "next_domain_action", "predicted": "light"},
                 ],
@@ -1097,7 +1097,7 @@ class TestExpiredWindowResolution:
         pending = [
             {
                 "id": f"pred-{i}",
-                "timestamp": (datetime.now() - timedelta(minutes=15)).isoformat(),
+                "timestamp": (datetime.now(tz=UTC) - timedelta(minutes=15)).isoformat(),
                 "predictions": [
                     {"type": "next_domain_action", "predicted": "light"},
                 ],
@@ -1125,7 +1125,7 @@ class TestPredictionStorage:
     @pytest.mark.asyncio
     async def test_stores_prediction_with_correct_args(self, engine, hub):
         """Should call insert_prediction with correct arguments."""
-        context = {"timestamp": datetime.now().isoformat()}
+        context = {"timestamp": datetime.now(tz=UTC).isoformat()}
         predictions = [
             {
                 "type": "next_domain_action",
@@ -1150,7 +1150,7 @@ class TestPredictionStorage:
     @pytest.mark.asyncio
     async def test_average_confidence_multiple_predictions(self, engine, hub):
         """Confidence should be averaged across multiple predictions."""
-        context = {"timestamp": datetime.now().isoformat()}
+        context = {"timestamp": datetime.now(tz=UTC).isoformat()}
         predictions = [
             {"type": "next_domain_action", "confidence": 0.9, "window_seconds": 600},
             {"type": "room_activation", "confidence": 0.5, "window_seconds": 600},
@@ -1164,7 +1164,7 @@ class TestPredictionStorage:
     @pytest.mark.asyncio
     async def test_tracks_window_events(self, engine, hub):
         """Should create empty event list for tracking during window."""
-        context = {"timestamp": datetime.now().isoformat()}
+        context = {"timestamp": datetime.now(tz=UTC).isoformat()}
         predictions = [
             {"type": "next_domain_action", "confidence": 0.8, "window_seconds": 600},
         ]
@@ -1181,7 +1181,7 @@ class TestPredictionStorage:
         """Should handle insert_prediction errors gracefully."""
         hub.cache.insert_prediction = AsyncMock(side_effect=Exception("DB full"))
 
-        context = {"timestamp": datetime.now().isoformat()}
+        context = {"timestamp": datetime.now(tz=UTC).isoformat()}
         predictions = [
             {"type": "next_domain_action", "confidence": 0.8, "window_seconds": 600},
         ]
@@ -1300,7 +1300,7 @@ class TestActivityMonitorIntegration:
                     "device_class": "",
                     "from": "off",
                     "to": "on",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(tz=UTC).isoformat(),
                     "friendly_name": "Kitchen Light",
                 },
             )
@@ -1339,7 +1339,7 @@ class TestActivityMonitorIntegration:
                         "device_class": "",
                         "from": from_s,
                         "to": to_s,
-                        "timestamp": datetime.now().isoformat(),
+                        "timestamp": datetime.now(tz=UTC).isoformat(),
                         "friendly_name": name,
                     },
                 )
@@ -1373,7 +1373,7 @@ class TestActivityMonitorIntegration:
                     "device_class": "",
                     "from": "off",
                     "to": "on",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(tz=UTC).isoformat(),
                     "friendly_name": "Kitchen Light",
                 },
             )
@@ -1493,14 +1493,14 @@ class TestConfigStoreIntegration:
                 "domain": "light",
                 "entity": "light.kitchen",
                 "state": "on",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(tz=UTC).isoformat(),
                 "seconds_ago": 10,
             },
         ]
 
         # Build context and generate predictions
         context = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(tz=UTC).isoformat(),
             "time_features": {"hour_sin": 0, "hour_cos": 1, "dow_sin": 0, "dow_cos": 1},
             "presence": {"home": True, "rooms": ["kitchen"]},
             "recent_events": engine._recent_events,
@@ -1587,7 +1587,7 @@ class TestConfigStoreIntegration:
         )
 
         context = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(tz=UTC).isoformat(),
             "time_features": {"hour_sin": 0, "hour_cos": 1, "dow_sin": 0, "dow_cos": 1},
             "presence": {"home": True, "rooms": []},
             "recent_events": [],
@@ -1949,7 +1949,7 @@ class TestCapabilityFeedback:
         pending = [
             {
                 "id": "pred-feedback-1",
-                "timestamp": (datetime.now() - timedelta(minutes=15)).isoformat(),
+                "timestamp": (datetime.now(tz=UTC) - timedelta(minutes=15)).isoformat(),
                 "predictions": [
                     {"type": "next_domain_action", "predicted": "light"},
                 ],

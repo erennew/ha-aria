@@ -46,6 +46,14 @@ def classify_days(
     start = _parse_date(start_date)
     end = _parse_date(end_date)
 
+    if start is None or end is None:
+        logger.warning(
+            "day_classifier.classify_days: invalid date range start=%r end=%r — returning empty list",
+            start_date,
+            end_date,
+        )
+        return []
+
     # Build per-day event index
     day_events: dict[str, list[str]] = {}
     for event in calendar_events:
@@ -130,8 +138,12 @@ def _expand_event_to_days(event: dict, range_start: date, range_end: date) -> li
     """Expand a calendar event to per-day (day_str, summary) tuples."""
     summary = event.get("summary", "")
     event_start = _parse_date(event.get("start", ""))
+    if event_start is None:
+        return []
     event_end_raw = event.get("end", "")
     event_end = _parse_date(event_end_raw) if event_end_raw else event_start + timedelta(days=1)
+    if event_end is None:
+        event_end = event_start + timedelta(days=1)
 
     # For intra-day events (end same day as start), ensure at least the start day is included
     if event_end <= event_start:
@@ -154,10 +166,14 @@ def _expand_event_to_days(event: dict, range_start: date, range_end: date) -> li
     return result
 
 
-def _parse_date(date_str: str) -> date:
-    """Parse YYYY-MM-DD or ISO datetime to date."""
+def _parse_date(date_str: str) -> date | None:
+    """Parse YYYY-MM-DD or ISO datetime to date.
+
+    Returns None for empty/None input — callers must guard against None.
+    """
     if not date_str:
-        return date.today()
+        logger.warning("day_classifier._parse_date: empty date string — returning None")
+        return None
     # Handle full ISO datetime
     if "T" in date_str:
         return datetime.fromisoformat(date_str).date()

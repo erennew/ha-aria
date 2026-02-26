@@ -25,7 +25,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from aria.hub.core import IntelligenceHub
 from aria.shared.utils import log_task_exception as _log_task_exception
@@ -41,6 +41,14 @@ if not _ARIA_API_KEY:
     logger.warning(
         "ARIA_API_KEY not set — API authentication disabled. Set ARIA_API_KEY env var to enable authentication."
     )
+
+# --- Retrain rate limiting (#298) ---
+_retrain_lock = asyncio.Lock()
+_last_retrain: float = 0.0
+RETRAIN_COOLDOWN = 60.0  # seconds
+
+# --- Data label allow-list (#297) ---
+ALLOWED_LABELS = {"normal", "anomaly", "routine", "unusual"}
 
 # --- Sensitive config key redaction (#43) ---
 _SENSITIVE_KEY_PATTERNS = {"password", "token", "secret", "credential", "api_key", "auth", "private_key"}
@@ -67,16 +75,41 @@ class ConfigUpdate(BaseModel):
     changed_by: str = "user"
 
 
+_ALLOWED_CURATION_STATUSES = {"included", "excluded", "auto_excluded", "promoted", "pending", "archived"}
+_ALLOWED_CURATION_TIERS = {1, 2, 3}
+
+
 class CurationUpdate(BaseModel):
     status: str
     tier: int = 3
     decided_by: str = "user"
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        if v not in _ALLOWED_CURATION_STATUSES:
+            raise ValueError(f"Invalid status '{v}'. Allowed: {sorted(_ALLOWED_CURATION_STATUSES)}")
+        return v
+
+    @field_validator("tier")
+    @classmethod
+    def validate_tier(cls, v: int) -> int:
+        if v not in _ALLOWED_CURATION_TIERS:
+            raise ValueError(f"Invalid tier '{v}'. Allowed: {sorted(_ALLOWED_CURATION_TIERS)}")
+        return v
 
 
 class BulkCurationUpdate(BaseModel):
     entity_ids: list[str]
     status: str
     decided_by: str = "user"
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        if v not in _ALLOWED_CURATION_STATUSES:
+            raise ValueError(f"Invalid status '{v}'. Allowed: {sorted(_ALLOWED_CURATION_STATUSES)}")
+        return v
 
 
 class WebSocketManager:
@@ -544,6 +577,57 @@ def _register_ml_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         except Exception:
             logger.exception("Error fetching anomaly explanations")
             raise HTTPException(status_code=500, detail="Internal server error") from None
+
+    @router.post("/api/models/retrain")
+    async def trigger_model_retrain():
+        """Trigger an ML model retrain. Rate-limited to once per 60 seconds (#298)."""
+        global _last_retrain
+        if time.monotonic() - _last_retrain < RETRAIN_COOLDOWN:
+            raise HTTPException(
+                status_code=429,
+                detail="Retrain already in progress or called too recently — wait 60 seconds between requests",
+            )
+        if _retrain_lock.locked():
+            raise HTTPException(status_code=429, detail="Retrain already in progress")
+        async with _retrain_lock:
+            _last_retrain = time.monotonic()
+            ml_module = hub.modules.get("ml_engine")
+            if not ml_module:
+                raise HTTPException(status_code=503, detail="ML engine module not loaded")
+            try:
+                await ml_module.train_models()
+                return {"status": "retrain_triggered", "timestamp": datetime.now(UTC).isoformat()}
+            except Exception:
+                logger.exception("Error triggering ML retrain")
+                raise HTTPException(status_code=500, detail="Internal server error") from None
+
+    @router.post("/api/data/label")
+    async def post_data_label(body: dict = Body(...)):  # noqa: B008
+        """Label a data snapshot with a quality/type label (#297).
+
+        Validates label against allowed values before storing.
+        """
+        label = body.get("label")
+        if label not in ALLOWED_LABELS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid label '{label}'. Allowed: {sorted(ALLOWED_LABELS)}",
+            )
+        snapshot_id = body.get("snapshot_id", "")
+        entry = await hub.get_cache("data_labels")
+        labels_data = entry.get("data", {}) if entry else {}
+        labels_list = labels_data.get("labels", [])
+        labels_list.append(
+            {
+                "snapshot_id": snapshot_id,
+                "label": label,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "source": body.get("source", "user"),
+            }
+        )
+        labels_data["labels"] = labels_list
+        await hub.set_cache("data_labels", labels_data, {"source": "data_label_api"})
+        return {"status": "labeled", "snapshot_id": snapshot_id, "label": label}
 
 
 def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:

@@ -17,7 +17,7 @@ import math
 import random
 import uuid
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from aria.capabilities import Capability, DemandSignal
@@ -334,7 +334,7 @@ class ShadowEngine(Module):
         Buffers the event, records it against open prediction windows,
         and generates new predictions if cooldown has elapsed.
         """
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
 
         entity_id = data.get("entity_id", "")
         domain = entity_id.split(".")[0] if "." in entity_id else ""
@@ -413,7 +413,7 @@ class ShadowEngine(Module):
         Returns:
             Context snapshot dictionary.
         """
-        now = datetime.now()
+        now = datetime.now(tz=UTC)
 
         # Time features (sin/cos encoding for cyclical patterns)
         time_features = self._compute_time_features(now)
@@ -594,7 +594,7 @@ class ShadowEngine(Module):
             }
 
         # Filter to last 1 hour
-        cutoff = (datetime.now() - timedelta(hours=1)).isoformat()
+        cutoff = (datetime.now(tz=UTC) - timedelta(hours=1)).isoformat()
         recent = [w for w in windows if w.get("window_start", "") >= cutoff]
 
         if not recent:
@@ -812,7 +812,7 @@ class ShadowEngine(Module):
         if not patterns:
             return None
 
-        current_minutes = datetime.now().hour * 60 + datetime.now().minute
+        current_minutes = datetime.now(tz=UTC).hour * 60 + datetime.now(tz=UTC).minute
 
         best_match = None
         best_confidence = 0.0
@@ -867,7 +867,7 @@ class ShadowEngine(Module):
         window_seconds = max(p.get("window_seconds", DEFAULT_WINDOW_SECONDS) for p in predictions)
 
         prediction_id = uuid.uuid4().hex
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
 
         try:
             await self.hub.cache.insert_prediction(
@@ -1167,7 +1167,7 @@ class ShadowEngine(Module):
         if not hit_rates:
             return
 
-        now = datetime.now().isoformat()
+        now = datetime.now(tz=UTC).isoformat()
         updated = False
 
         for cap_name, rates in hit_rates.items():

@@ -102,7 +102,14 @@ def _register_shadow_info_routes(router: APIRouter, hub: IntelligenceHub) -> Non
             ha_cache = await hub.get_cache("ha_automations")
 
             suggestions = suggestions_cache.get("data", {}).get("suggestions", []) if suggestions_cache else []
-            ha_automations = ha_cache.get("data", {}).get("automations", {}) if ha_cache else {}
+            ha_automations_raw = ha_cache.get("data", {}).get("automations", []) if ha_cache else []
+            if not isinstance(ha_automations_raw, list):
+                logger.warning(
+                    "intelligence: ha_automations was %s — normalizing to []",
+                    type(ha_automations_raw).__name__,
+                )
+                ha_automations_raw = []
+            ha_automations = ha_automations_raw
 
             comparisons = []
             status_counts: dict[str, int] = {}

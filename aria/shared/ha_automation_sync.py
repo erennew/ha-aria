@@ -174,8 +174,9 @@ class HaAutomationSync:
         Returns:
             List of automation dicts or None on failure.
         """
-        if not self._session:
-            return None
+        if self._session is None:
+            logger.warning("HaAutomationSync: session not initialized — returning empty list")
+            return []
 
         url = f"{self.ha_url}/api/config/automation/config"
         headers = {

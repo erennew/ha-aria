@@ -9,6 +9,7 @@ enriched fields (entity_chain, trigger_entity, first/last_seen, etc.).
 """
 
 import asyncio
+import contextlib
 import logging
 import re
 from collections import defaultdict
@@ -64,6 +65,7 @@ class PatternRecognition(Module):
         self.min_confidence = min_confidence
         self.max_areas = max_areas
         self.analysis_days = analysis_days
+        self._task: asyncio.Task | None = None  # tracks in-flight asyncio.to_thread LLM call
 
     async def initialize(self):
         """Schedule periodic pattern detection via hub timer."""
@@ -470,7 +472,9 @@ Label:"""
 
         try:
             config = OllamaConfig(model="qwen2.5:7b")
-            response = await asyncio.to_thread(ollama_chat, prompt, config)
+            self._task = asyncio.ensure_future(asyncio.to_thread(ollama_chat, prompt, config))
+            response = await self._task
+            self._task = None
             text = self._strip_think_tags(response.strip())
             text = text.strip().strip('"').strip("'")
             if len(text) > 50:
@@ -509,6 +513,15 @@ Label:"""
         await self._store_cache([], [])
 
     # ── Event Handler ────────────────────────────────────────────────
+
+    async def shutdown(self) -> None:
+        """Cancel in-flight asyncio.to_thread LLM task if active."""
+        if self._task is not None:
+            self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
+            self._task = None
+        self.logger.debug("Patterns shutdown complete")
 
     async def on_event(self, event_type: str, data: dict[str, Any]):
         """Handle hub events — pattern detection runs on schedule, not per-event."""

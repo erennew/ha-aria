@@ -488,14 +488,17 @@ class IntelligenceHub:
 
     async def _prune_stale_data(self):
         """Prune old events, resolved predictions, and snapshot log entries."""
-        events_deleted = await self.cache.prune_events(retention_days=7)
-        preds_deleted = await self.cache.prune_predictions(retention_days=30)
-        snapshot_log_pruned = await self._prune_snapshot_log(retention_days=90)
-        if events_deleted or preds_deleted or snapshot_log_pruned:
-            self.logger.info(
-                f"Retention pruning: {events_deleted} events, {preds_deleted} predictions deleted"
-                f", {snapshot_log_pruned} snapshot log entries pruned"
-            )
+        try:
+            events_deleted = await self.cache.prune_events(retention_days=7)
+            preds_deleted = await self.cache.prune_predictions(retention_days=30)
+            snapshot_log_pruned = await self._prune_snapshot_log(retention_days=90)
+            if events_deleted or preds_deleted or snapshot_log_pruned:
+                self.logger.info(
+                    f"Retention pruning: {events_deleted} events, {preds_deleted} predictions deleted"
+                    f", {snapshot_log_pruned} snapshot log entries pruned"
+                )
+        except Exception as e:
+            logger.warning("IntelligenceHub._prune_stale_data: failed — %s", e, exc_info=True)
 
     async def _prune_snapshot_log(self, retention_days: int = 90) -> int:
         """Prune snapshot_log.jsonl entries older than retention_days.

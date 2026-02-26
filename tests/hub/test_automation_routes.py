@@ -180,7 +180,7 @@ class TestShadowCompare:
             if cat == "automation_suggestions":
                 return {"data": {"suggestions": suggestions}}
             if cat == "ha_automations":
-                return {"data": {"automations": {"a1": {}}}}
+                return {"data": {"automations": [{"id": "a1"}]}}
             return None
 
         api_hub.get_cache = AsyncMock(side_effect=_get_cache)
@@ -235,7 +235,7 @@ class TestAutomationsHealth:
             if cat == "automation_suggestions":
                 return {"data": {"suggestions": suggestions}}
             if cat == "ha_automations":
-                return {"data": {"automations": {"a1": {}}}}
+                return {"data": {"automations": [{"id": "a1"}]}}
             if cat == "automation_feedback":
                 return {"data": {"suggestions": {"s1": {}, "s2": {}}}}
             return None

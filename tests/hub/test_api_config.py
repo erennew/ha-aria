@@ -207,7 +207,7 @@ class TestGetAllCuration:
     def test_get_all_curation_with_data(self, api_hub, api_client):
         """Returns curation records."""
         curations = [
-            {"entity_id": "light.living_room", "status": "tracked", "tier": "primary"},
+            {"entity_id": "light.living_room", "status": "included", "tier": "primary"},
             {"entity_id": "sensor.temp", "status": "excluded", "tier": "noise"},
         ]
         api_hub.cache.get_all_curation = AsyncMock(return_value=curations)
@@ -256,7 +256,7 @@ class TestPutCuration:
 
         response = api_client.put(
             "/api/curation/light.living_room",
-            json={"status": "tracked", "decided_by": "user"},
+            json={"status": "included", "decided_by": "user"},
         )
         assert response.status_code == 200
 
@@ -265,7 +265,7 @@ class TestPutCuration:
         assert data["entity_id"] == "light.living_room"
         api_hub.cache.upsert_curation.assert_called_once_with(
             "light.living_room",
-            status="tracked",
+            status="included",
             tier=3,
             decided_by="user",
             human_override=True,
@@ -278,13 +278,13 @@ class TestPutCuration:
 
         response = api_client.put(
             "/api/curation/light.living_room",
-            json={"status": "tracked", "tier": 2, "decided_by": "user"},
+            json={"status": "included", "tier": 2, "decided_by": "user"},
         )
         assert response.status_code == 200
 
         api_hub.cache.upsert_curation.assert_called_once_with(
             "light.living_room",
-            status="tracked",
+            status="included",
             tier=2,
             decided_by="user",
             human_override=True,
@@ -297,7 +297,7 @@ class TestPutCuration:
 
         response = api_client.put(
             "/api/curation/light.living_room",
-            json={"status": "tracked"},
+            json={"status": "included"},
         )
         assert response.status_code == 200
 
@@ -319,7 +319,7 @@ class TestBulkUpdateCuration:
             "/api/curation/bulk",
             json={
                 "entity_ids": ["light.a", "light.b", "light.c"],
-                "status": "tracked",
+                "status": "included",
                 "decided_by": "user",
             },
         )
@@ -334,7 +334,7 @@ class TestBulkUpdateCuration:
 
         response = api_client.post(
             "/api/curation/bulk",
-            json={"entity_ids": [], "status": "tracked"},
+            json={"entity_ids": [], "status": "included"},
         )
         assert response.status_code == 200
 

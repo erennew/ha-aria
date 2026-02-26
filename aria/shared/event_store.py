@@ -95,6 +95,12 @@ class EventStore:
             await self._conn.close()
             self._conn = None
 
+    async def shutdown(self) -> None:
+        """Close the database connection on shutdown (alias for close())."""
+        if self._conn is not None:
+            await self._conn.close()
+            self._conn = None
+
     async def _get_conn(self) -> aiosqlite.Connection:
         """Return a live connection, reconnecting if the connection was dropped.
 
