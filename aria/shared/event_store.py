@@ -4,10 +4,13 @@ Separate database from hub.db to avoid write contention.
 Uses WAL mode for concurrent read access during analysis queries.
 """
 
+import logging
 import os
 from typing import TypedDict
 
 import aiosqlite
+
+logger = logging.getLogger(__name__)
 
 
 class StateChangeEvent(TypedDict, total=False):
@@ -71,8 +74,16 @@ class EventStore:
             await self._conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_sce_context ON state_change_events(context_parent_id)"
             )
-        except Exception:
-            pass  # Column already exists
+        except Exception as e:
+            # "duplicate column name" is the expected path — suppress it silently.
+            # Any other error means the schema migration failed, which must not be hidden.
+            if "duplicate column" not in str(e).lower():
+                logger.error(
+                    "event_store migration failed — context_parent_id column: %s — db_path: %s",
+                    e,
+                    self.db_path,
+                )
+                raise
 
         await self._conn.commit()
 
@@ -81,6 +92,19 @@ class EventStore:
         if self._conn:
             await self._conn.close()
             self._conn = None
+
+    async def _get_conn(self) -> aiosqlite.Connection:
+        """Return a live connection, reconnecting if the connection was dropped.
+
+        This handles the case where the persistent aiosqlite connection is lost
+        (e.g. the underlying file descriptor was closed unexpectedly). Rather than
+        letting all subsequent writes fail with RuntimeError, we transparently
+        re-establish the connection and re-apply the required pragmas.
+        """
+        if self._conn is None:
+            logger.warning("EventStore: connection was None (dropped?) — reconnecting to %s", self.db_path)
+            await self.initialize()
+        return self._conn  # type: ignore[return-value]
 
     # ── Write methods ───────────────────────────────────────────────────
 
@@ -97,9 +121,8 @@ class EventStore:
         context_parent_id: str | None = None,
     ) -> None:
         """Insert a single state_changed event."""
-        if not self._conn:
-            raise RuntimeError("EventStore not initialized")
-        await self._conn.execute(
+        conn = await self._get_conn()
+        await conn.execute(
             """INSERT INTO state_change_events
                (timestamp, entity_id, domain, old_state, new_state,
                 device_id, area_id, attributes_json, context_parent_id)
@@ -116,7 +139,7 @@ class EventStore:
                 context_parent_id,
             ),
         )
-        await self._conn.commit()
+        await conn.commit()
 
     async def insert_events_batch(self, events: list[tuple]) -> None:
         """Bulk insert events. Each tuple must match column order:
@@ -126,20 +149,19 @@ class EventStore:
         Accepts 8 or 9 element tuples for backward compatibility.
         Missing context_parent_id defaults to None.
         """
-        if not self._conn:
-            raise RuntimeError("EventStore not initialized")
+        conn = await self._get_conn()
         if not events:
             return
         # Pad 8-element tuples to 9 for backward compatibility
         padded = [e if len(e) >= 9 else (*e, None) for e in events]
-        await self._conn.executemany(
+        await conn.executemany(
             """INSERT INTO state_change_events
                (timestamp, entity_id, domain, old_state, new_state,
                 device_id, area_id, attributes_json, context_parent_id)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             padded,
         )
-        await self._conn.commit()
+        await conn.commit()
 
     # ── Read methods ────────────────────────────────────────────────────
 
