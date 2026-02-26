@@ -3,24 +3,28 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 
 from aria.modules.unifi import UniFiModule
+
+_UNIFI_CONFIG = {
+    "unifi.enabled": "true",
+    "unifi.site": "default",
+    "unifi.poll_interval_s": "30",
+    "unifi.ap_rooms": '{"11:22:33:44:55:66": "office"}',
+    "unifi.device_people": '{"aa:bb:cc:dd:ee:ff": "justin"}',
+    "unifi.rssi_room_threshold": "-75",
+    "unifi.device_active_kbps": "100",
+}
 
 
 @pytest.fixture
 def hub():
     h = MagicMock()
-    h.get_config_value = MagicMock(
-        side_effect=lambda key, default=None: {
-            "unifi.enabled": "true",
-            "unifi.site": "default",
-            "unifi.poll_interval_s": "30",
-            "unifi.ap_rooms": '{"11:22:33:44:55:66": "office"}',
-            "unifi.device_people": '{"aa:bb:cc:dd:ee:ff": "justin"}',
-            "unifi.rssi_room_threshold": "-75",
-            "unifi.device_active_kbps": "100",
-        }.get(key, default)
-    )
+    # hub.cache.get_config_value is the correct path after #258
+    cache_mock = MagicMock()
+    cache_mock.get_config_value = AsyncMock(side_effect=lambda key, default=None: _UNIFI_CONFIG.get(key, default))
+    h.cache = cache_mock
     h.subscribe = MagicMock()
     h.unsubscribe = MagicMock()
     h.publish = AsyncMock()
@@ -30,10 +34,10 @@ def hub():
     return h
 
 
-@pytest.fixture
-def module(hub):
+@pytest_asyncio.fixture
+async def module(hub):
     m = UniFiModule(hub, host="192.168.1.1", api_key="test-key")
-    m._load_config()
+    await m._load_config()
     return m
 
 

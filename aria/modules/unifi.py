@@ -50,26 +50,35 @@ class UniFiModule(Module):
         # Subscriber callback references (for unsubscribe in shutdown)
         # UniFiModule currently uses no hub.subscribe() — signals are polled/pushed directly.
 
-    def _load_config(self) -> None:
-        """Load all unifi.* config values from hub."""
-        enabled_str = self.hub.get_config_value("unifi.enabled", "false")
+    async def _load_config(self) -> None:
+        """Load all unifi.* config values from hub cache.
+
+        Uses hub.cache.get_config_value() — the method lives on CacheManager,
+        not on IntelligenceHub directly. Guard ensures graceful degradation if
+        the cache attribute is unavailable.  (#258)
+        """
+        if not (hasattr(self.hub, "cache") and hasattr(self.hub.cache, "get_config_value")):
+            logger.warning("UniFi: hub.cache.get_config_value unavailable — using defaults")
+            return
+
+        enabled_str = await self.hub.cache.get_config_value("unifi.enabled", "false")
         self._enabled = str(enabled_str).lower() in ("true", "1", "yes")
-        config_host = self.hub.get_config_value("unifi.host", "")
+        config_host = await self.hub.cache.get_config_value("unifi.host", "")
         if config_host and not os.environ.get("UNIFI_HOST"):
             self._host = config_host.rstrip("/")
-        self._site = self.hub.get_config_value("unifi.site", "default")
-        self._poll_interval = int(self.hub.get_config_value("unifi.poll_interval_s", 30))
-        self._rssi_threshold = int(self.hub.get_config_value("unifi.rssi_room_threshold", -75))
-        self._active_kbps = int(self.hub.get_config_value("unifi.device_active_kbps", 100))
+        self._site = await self.hub.cache.get_config_value("unifi.site", "default")
+        self._poll_interval = int(await self.hub.cache.get_config_value("unifi.poll_interval_s", 30))
+        self._rssi_threshold = int(await self.hub.cache.get_config_value("unifi.rssi_room_threshold", -75))
+        self._active_kbps = int(await self.hub.cache.get_config_value("unifi.device_active_kbps", 100))
 
-        ap_rooms_raw = self.hub.get_config_value("unifi.ap_rooms", "{}")
+        ap_rooms_raw = await self.hub.cache.get_config_value("unifi.ap_rooms", "{}")
         try:
             self._ap_rooms = json.loads(ap_rooms_raw) if ap_rooms_raw else {}
         except (json.JSONDecodeError, TypeError):
             logger.warning("unifi.ap_rooms is not valid JSON — using empty mapping")
             self._ap_rooms = {}
 
-        device_people_raw = self.hub.get_config_value("unifi.device_people", "{}")
+        device_people_raw = await self.hub.cache.get_config_value("unifi.device_people", "{}")
         try:
             self._device_people = json.loads(device_people_raw) if device_people_raw else {}
         except (json.JSONDecodeError, TypeError):
@@ -78,7 +87,7 @@ class UniFiModule(Module):
 
     async def initialize(self) -> None:
         """Load config and start polling/WebSocket loops if enabled."""
-        self._load_config()
+        await self._load_config()
 
         if not self._enabled:
             logger.info("UniFi integration disabled (unifi.enabled=false)")
@@ -181,13 +190,14 @@ class UniFiModule(Module):
 
             weight = self._compute_network_weight(rssi)
             detail = f"{person or hostname}@{room} rssi={rssi}"
+            ts_str = ts.isoformat()  # Convert datetime to ISO string at publish boundary — #255
             signals.append(
                 {
                     "room": room,
                     "signal_type": "network_client_present",
                     "value": weight,
                     "detail": detail,
-                    "ts": ts,
+                    "ts": ts_str,
                 }
             )
 
@@ -198,7 +208,7 @@ class UniFiModule(Module):
                         "signal_type": "device_active",
                         "value": 0.85,  # High confidence — active tx/rx proves device (and person) is present
                         "detail": f"{person or hostname} active",
-                        "ts": ts,
+                        "ts": ts_str,
                     }
                 )
 
