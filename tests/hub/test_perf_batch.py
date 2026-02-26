@@ -461,6 +461,7 @@ def presence_module():
         from aria.engine.analysis.occupancy import BayesianOccupancy
 
         m._occupancy = BayesianOccupancy()
+        m._sub_unifi_protect = None
         return m
 
 

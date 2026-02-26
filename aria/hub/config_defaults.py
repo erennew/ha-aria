@@ -2486,6 +2486,120 @@ CONFIG_DEFAULTS: list[dict[str, Any]] = [
         "max_value": 3600,
         "step": 30,
     },
+    # ── UniFi signal weights and decay ────────────────────────────────
+    {
+        "key": "presence.weight.network_client_present",
+        "default_value": "0.75",
+        "value_type": "number",
+        "label": "UniFi Network Client Trust",
+        "description": "Bayesian prior weight for UniFi WiFi client presence signals.",
+        "description_layman": (
+            "How much should ARIA trust a phone connected to your WiFi?"
+            " Default 0.75 — strong signal but phone may connect remotely."
+        ),
+        "description_technical": (
+            "Bayesian prior weight for network_client_present (UniFi WiFi)."
+            " Range 0.1-1.0. Default 0.75. RSSI below threshold halves weight."
+        ),
+        "category": "Presence Weights",
+        "min_value": 0.1,
+        "max_value": 1.0,
+        "step": 0.05,
+    },
+    {
+        "key": "presence.weight.device_active",
+        "default_value": "0.4",
+        "value_type": "number",
+        "label": "UniFi Device Activity Trust",
+        "description": "Bayesian prior weight for active network device signals (above kbps threshold).",
+        "description_layman": (
+            "How much should ARIA trust active data usage on a device?"
+            " Default 0.4 — moderate, since background sync can be misleading."
+        ),
+        "description_technical": (
+            "Bayesian prior weight for device_active (UniFi tx+rx kbps)."
+            " Range 0.1-1.0. Default 0.4. Supplementary to network_client_present."
+        ),
+        "category": "Presence Weights",
+        "min_value": 0.1,
+        "max_value": 1.0,
+        "step": 0.05,
+    },
+    {
+        "key": "presence.weight.protect_person",
+        "default_value": "0.85",
+        "value_type": "number",
+        "label": "UniFi Protect Person Trust",
+        "description": "Bayesian prior weight for UniFi Protect camera person detection.",
+        "description_layman": (
+            "How much should ARIA trust the UniFi Protect camera person detection?"
+            " Default 0.85 — high confidence AI model."
+        ),
+        "description_technical": (
+            "Bayesian prior weight for protect_person (UniFi Protect smartDetectZone)."
+            " Range 0.1-1.0. Default 0.85. Slightly below camera_person (0.95) — Protect"
+            " events are delivered with a score but are not Frigate-level calibrated."
+        ),
+        "category": "Presence Weights",
+        "min_value": 0.1,
+        "max_value": 1.0,
+        "step": 0.05,
+    },
+    {
+        "key": "presence.decay.network_client_present",
+        "default_value": "300",
+        "value_type": "number",
+        "label": "UniFi Network Client Decay (seconds)",
+        "description": "How long a UniFi WiFi client presence signal persists before fading.",
+        "description_layman": (
+            "After a device is seen on WiFi, how long does that count?"
+            " Default 2 min — short because the poll refreshes every 30s."
+        ),
+        "description_technical": (
+            "Decay time for network_client_present. Default 120 (2 min)."
+            " Matches poll interval (30s) × 4 to tolerate missed polls."
+        ),
+        "category": "Presence Decay",
+        "min_value": 30,
+        "max_value": 600,
+        "step": 30,
+    },
+    {
+        "key": "presence.decay.device_active",
+        "default_value": "120",
+        "value_type": "number",
+        "label": "UniFi Device Activity Decay (seconds)",
+        "description": "How long an active-device signal persists before fading.",
+        "description_layman": ("After a device is seen actively using data, how long does that count? Default 2 min."),
+        "description_technical": (
+            "Decay time for device_active (kbps threshold crossing)."
+            " Default 120 (2 min). Matches network_client_present decay."
+        ),
+        "category": "Presence Decay",
+        "min_value": 30,
+        "max_value": 600,
+        "step": 30,
+    },
+    {
+        "key": "presence.decay.protect_person",
+        "default_value": "180",
+        "value_type": "number",
+        "label": "UniFi Protect Person Decay (seconds)",
+        "description": "How long a UniFi Protect person detection persists before fading.",
+        "description_layman": (
+            "After the UniFi camera sees a person, how long does that count?"
+            " Default 3 min — slightly longer than Frigate since events are less frequent."
+        ),
+        "description_technical": (
+            "Decay time for protect_person. Default 180 (3 min). Longer than"
+            " camera_person (120s) because Protect events are push-based, not"
+            " polled — longer decay tolerates gaps between Protect events."
+        ),
+        "category": "Presence Decay",
+        "min_value": 30,
+        "max_value": 1800,
+        "step": 30,
+    },
     # ── Module Data Sources ────────────────────────────────────────────
     {
         "key": "presence.enabled_signals",

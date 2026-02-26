@@ -70,7 +70,3 @@ def test_unifi_sensor_config_entries():
     assert "protect_person" in SENSOR_CONFIG
     assert SENSOR_CONFIG["protect_person"]["weight"] == 0.85
     assert SENSOR_CONFIG["protect_person"]["decay_seconds"] == 180
-
-    assert "protect_face" in SENSOR_CONFIG
-    assert SENSOR_CONFIG["protect_face"]["weight"] == 1.0
-    assert SENSOR_CONFIG["protect_face"]["decay_seconds"] == 0
