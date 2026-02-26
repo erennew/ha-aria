@@ -33,13 +33,14 @@ def _write_corrupt(path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_load_snapshot_corrupt_returns_empty_dict(store_with_tmp):
+def test_load_snapshot_corrupt_returns_empty_dict(store_with_tmp, caplog):
     store, paths = store_with_tmp
     corrupt_path = paths.daily_dir / "2026-01-01.json"
     _write_corrupt(corrupt_path)
 
     result = store.load_snapshot("2026-01-01")
     assert result == {}
+    assert "corrupt JSON" in caplog.text
 
 
 def test_load_snapshot_missing_returns_none(store_with_tmp):
