@@ -1,6 +1,5 @@
 """Integration tests: full Network poll + Protect event → presence flush pipeline."""
 
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -39,8 +38,8 @@ def module(hub):
 
 
 @pytest.mark.asyncio
-async def test_full_network_pipeline_writes_cache(module):
-    """Network poll → _process_clients → hub.set_cache with correct structure."""
+async def test_process_clients_updates_state(module):
+    """_process_clients → correct signal list, home_away state, and client dict."""
     raw_clients = [
         {
             "mac": "aa:bb:cc:dd:ee:ff",
@@ -59,18 +58,11 @@ async def test_full_network_pipeline_writes_cache(module):
     assert "network_client_present" in sig_types
     assert "device_active" in sig_types  # 28000 bytes/s = 224 kbps > 100 kbps
 
-    # Verify home/away
+    # Verify home/away state
     assert module._home_away is True
 
-    # Simulate cache write
-    cache_payload = {
-        "home": module._home_away,
-        "clients": module._last_client_state,
-        "signals": signals,
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
-    assert "aa:bb:cc:dd:ee:ff" in cache_payload["clients"]
-    assert cache_payload["home"] is True
+    # Verify client dict updated
+    assert "aa:bb:cc:dd:ee:ff" in module._last_client_state
 
 
 @pytest.mark.asyncio
