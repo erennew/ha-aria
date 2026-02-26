@@ -65,13 +65,11 @@ async def refine_automation(
     prompt = _REFINE_PROMPT.format(automation_json=json.dumps(automation, indent=2))
 
     try:
-        raw_response = await asyncio.wait_for(
-            asyncio.to_thread(ollama_chat, prompt, config),
-            timeout=timeout,
-        )
-    except TimeoutError:
-        logger.warning("LLM refiner timed out after %ds, using template output", timeout)
-        return automation
+        # The urllib timeout in OllamaConfig is the effective timeout — asyncio.wait_for
+        # wrapping asyncio.to_thread does not reliably cancel blocking urllib calls
+        # (the thread continues running after asyncio cancellation). Rely on the
+        # inner network-layer timeout instead.
+        raw_response = await asyncio.to_thread(ollama_chat, prompt, config)
     except Exception:
         logger.warning("LLM refiner call failed, using template output", exc_info=True)
         return automation

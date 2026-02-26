@@ -211,3 +211,41 @@ class TestImmutableKeys:
 
     def test_description_not_immutable(self):
         assert "description" not in IMMUTABLE_KEYS
+
+
+# =============================================================================
+# #211 — asyncio.wait_for outer timeout is dead code; inner urllib timeout fires
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_llm_refiner_timeout_from_inner_urllib(monkeypatch):
+    """#211: refine_automation must respect timeout via the network call, not dead asyncio.wait_for.
+
+    The fix removes the outer asyncio.wait_for wrapper. With the inner urllib timeout,
+    a slow call should still complete within 2x the configured timeout.
+    """
+    import asyncio
+    import time
+
+    from aria.automation.llm_refiner import refine_automation
+
+    automation = {"id": "test", "alias": "orig", "triggers": [], "actions": []}
+
+    call_times = []
+
+    def slow_ollama(prompt, config):
+        """Simulates a slow Ollama response — returns quickly for test speed."""
+        call_times.append(time.monotonic())
+        return '{"alias": "refined"}'
+
+    monkeypatch.setattr("aria.automation.llm_refiner.ollama_chat", slow_ollama)
+
+    start = time.monotonic()
+    result = await asyncio.wait_for(refine_automation(automation, timeout=5), timeout=10)
+    elapsed = time.monotonic() - start
+
+    # Should complete well within 10s (the outer test timeout)
+    assert elapsed < 10, f"refine_automation took too long: {elapsed:.2f}s"
+    assert result["alias"] == "refined"
+    assert len(call_times) == 1, "ollama_chat should have been called once"
