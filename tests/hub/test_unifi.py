@@ -233,3 +233,60 @@ async def test_protect_thumbnail_failure_still_adds_signal(module, tmp_path):
         )
     # Signal still added despite thumbnail failure
     assert signals_published
+
+
+# ── Cross-validation tests ────────────────────────────────────────────
+
+
+@pytest.fixture
+def module_with_clients(module):
+    """Module with a known client state: justin's phone in office."""
+    module._last_client_state = {
+        "aa:bb:cc:dd:ee:ff": {
+            "mac": "aa:bb:cc:dd:ee:ff",
+            "ap_mac": "11:22:33:44:55:66",
+            "hostname": "justins-iphone",
+        }
+    }
+    module._ap_rooms = {"11:22:33:44:55:66": "office"}
+    module._home_away = True
+    return module
+
+
+def test_cross_validate_boosts_corroborated_signals(module_with_clients):
+    """network_client_present + camera_person in same room → both boosted."""
+    room_signals = {
+        "office": [
+            ("network_client_present", 0.75, "justin@office", None),
+            ("camera_person", 0.9, "person detected", None),
+        ]
+    }
+    result = module_with_clients.cross_validate_signals(room_signals)
+    office = dict(result["office"])
+    # Both should be boosted (capped at 0.95)
+    assert office["network_client_present"] > 0.75
+    assert office["camera_person"] > 0.9
+
+
+def test_cross_validate_suppresses_unsupported_camera(module_with_clients):
+    """camera_person fires in a room with no network device → reduce weight."""
+    # Device is in office (via module_with_clients fixture), camera fires in bedroom.
+    # No device seen in bedroom → likely pet/shadow.
+
+    room_signals = {
+        "bedroom": [
+            ("camera_person", 0.9, "person detected", None),
+        ]
+    }
+    result = module_with_clients.cross_validate_signals(room_signals)
+    bedroom = dict(result["bedroom"])
+    # camera_person should be reduced (likely pet/shadow)
+    assert bedroom["camera_person"] < 0.9
+
+
+def test_cross_validate_no_change_when_no_client_state(module):
+    """Without client state, signals pass through unchanged."""
+    module._last_client_state = {}
+    room_signals = {"office": [("camera_person", 0.9, "detail", None)]}
+    result = module.cross_validate_signals(room_signals)
+    assert dict(result["office"])["camera_person"] == pytest.approx(0.9)

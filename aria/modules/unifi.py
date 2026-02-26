@@ -203,6 +203,56 @@ class UniFiModule(Module):
         self._home_away = len(seen_known) > 0 if known_macs else True
         return signals
 
+    # ── Cross-validation ──────────────────────────────────────────────
+
+    def cross_validate_signals(self, room_signals: dict[str, list[tuple]]) -> dict[str, list[tuple]]:
+        """Adjust signal weights based on cross-validation between UniFi and camera signals.
+
+        Called by PresenceModule._flush_presence_state() before Bayesian fusion.
+        Input format:  {room: [(signal_type, value, detail, ts), ...]}
+        Output format: {room: [(signal_type, value), ...]}
+
+        Rules (from PMC10864388 — reduces false alarms 63.1% → 8.4%):
+        1. network_client_present + camera_person/protect_person same room → boost both ×1.15 (cap 0.95)
+        2. camera_person in room but no known device → reduce camera_person ×0.70
+        3. No client state available → pass through unchanged (graceful degradation)
+        """
+        if not self._last_client_state:
+            return {room: [(sig[0], sig[1]) for sig in signals] for room, signals in room_signals.items()}
+
+        # Build room → set of MAC addresses from last poll
+        room_to_macs: dict[str, set[str]] = {}
+        for mac, client in self._last_client_state.items():
+            ap_mac = client.get("ap_mac", "")
+            room = self._resolve_room(ap_mac)
+            if room:
+                room_to_macs.setdefault(room, set()).add(mac)
+
+        result: dict[str, list[tuple]] = {}
+        for room, signals in room_signals.items():
+            has_network = any(sig[0] == "network_client_present" for sig in signals)
+            has_camera = any(sig[0] in ("camera_person", "protect_person") for sig in signals)
+            room_has_device = bool(room_to_macs.get(room))
+
+            new_signals = []
+            for sig in signals:
+                sig_type = sig[0]
+                value = sig[1]
+                if (
+                    has_network
+                    and has_camera
+                    and sig_type in ("network_client_present", "camera_person", "protect_person")
+                ):
+                    # Rule 1: Two independent systems agree → boost
+                    value = min(value * 1.15, 0.95)
+                elif sig_type in ("camera_person", "protect_person") and not room_has_device:
+                    # Rule 2: Camera fires but no known device nearby → likely pet
+                    value = value * 0.70
+                new_signals.append((sig_type, value))
+            result[room] = new_signals
+
+        return result
+
     # ── Network poll loop ─────────────────────────────────────────────
 
     async def _network_poll_loop(self) -> None:
