@@ -192,6 +192,15 @@ class ActivityMonitor(Module):
 
         self.logger.info("Activity monitor started")
 
+    async def shutdown(self) -> None:
+        """Flush remaining event buffer before shutting down."""
+        if self._activity_buffer:
+            try:
+                await self._flush_activity_buffer()
+            except Exception as e:
+                self.logger.warning("Activity monitor: buffer flush failed during shutdown — %s", e)
+        self.logger.debug("ActivityMonitor shutdown complete")
+
     async def on_event(self, event_type: str, data: dict[str, Any]):
         if event_type == "curation_updated":
             try:
