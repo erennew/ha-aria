@@ -1,7 +1,10 @@
 """Device failure prediction using RandomForest."""
 
+import logging
 import os
 import pickle
+
+logger = logging.getLogger(__name__)
 
 HAS_SKLEARN = True
 try:
@@ -118,6 +121,10 @@ def predict_device_failures(snapshots, model_dir):
 
     model_path = os.path.join(model_dir, "device_failure.pkl")
     if not os.path.isfile(model_path):
+        logger.warning(
+            "predict_device_failures() called but model not found — path: %s",
+            model_path,
+        )
         return []
 
     with open(model_path, "rb") as f:
