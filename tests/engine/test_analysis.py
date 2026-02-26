@@ -127,5 +127,127 @@ class TestAnomalyDetection(unittest.TestCase):
         self.assertEqual(len(power_anomalies), 0)
 
 
+class TestSnapDictGuardAnomalies(unittest.TestCase):
+    """Issue #223: anomalies.py bare snap[] access must be guarded."""
+
+    def test_detect_anomalies_missing_power_key_returns_empty(self):
+        """Snapshot missing 'power' key must not raise KeyError."""
+        baselines = {
+            "Tuesday": {
+                "power_watts": {"mean": 150, "stddev": 10},
+                "lights_on": {"mean": 30, "stddev": 5},
+                "devices_home": {"mean": 50, "stddev": 10},
+                "unavailable": {"mean": 900, "stddev": 20},
+                "useful_events": {"mean": 2500, "stddev": 300},
+            }
+        }
+        # Snapshot missing 'power' key
+        bad_snap = {
+            "day_of_week": "Tuesday",
+            "lights": {"on": 30},
+            "occupancy": {"device_count_home": 50},
+            "entities": {"unavailable": 900},
+            "logbook_summary": {"useful_events": 2500},
+        }
+        # Should not raise — must return [] or an empty/partial list
+        result = detect_anomalies(bad_snap, baselines)
+        self.assertIsInstance(result, list)
+
+    def test_detect_anomalies_missing_power_key_logs_warning(self):
+        """Snapshot missing 'power' key emits WARNING."""
+        import logging
+
+        baselines = {
+            "Tuesday": {
+                "power_watts": {"mean": 150, "stddev": 10},
+                "lights_on": {"mean": 30, "stddev": 5},
+                "devices_home": {"mean": 50, "stddev": 10},
+                "unavailable": {"mean": 900, "stddev": 20},
+                "useful_events": {"mean": 2500, "stddev": 300},
+            }
+        }
+        bad_snap = {
+            "day_of_week": "Tuesday",
+            "lights": {"on": 30},
+            "occupancy": {"device_count_home": 50},
+            "entities": {"unavailable": 900},
+            "logbook_summary": {"useful_events": 2500},
+        }
+        with self.assertLogs("aria.engine.analysis.anomalies", level=logging.WARNING):
+            detect_anomalies(bad_snap, baselines)
+
+
+class TestSnapDictGuardBaselines(unittest.TestCase):
+    """Issue #223: baselines.py bare s[] access must be guarded."""
+
+    def test_compute_baselines_missing_power_key_skips_gracefully(self):
+        """Snapshot missing 'power' key must not raise KeyError in compute_baselines."""
+        bad_snap = {
+            "day_of_week": "Wednesday",
+            # 'power' key missing entirely
+            "lights": {"on": 5, "off": 60},
+            "occupancy": {"device_count_home": 50},
+            "entities": {"unavailable": 900},
+            "logbook_summary": {"useful_events": 2500},
+        }
+        # Should not raise — missing metrics are skipped or default to 0
+        result = compute_baselines([bad_snap])
+        self.assertIsInstance(result, dict)
+
+    def test_compute_baselines_missing_power_key_logs_warning(self):
+        """Snapshot missing 'power' key emits WARNING in compute_baselines."""
+        import logging
+
+        bad_snap = {
+            "day_of_week": "Wednesday",
+            "lights": {"on": 5, "off": 60},
+            "occupancy": {"device_count_home": 50},
+            "entities": {"unavailable": 900},
+            "logbook_summary": {"useful_events": 2500},
+        }
+        with self.assertLogs("aria.engine.analysis.baselines", level=logging.WARNING):
+            compute_baselines([bad_snap])
+
+
+class TestSnapDictGuardCorrelations(unittest.TestCase):
+    """Issue #223: correlations.py bare snap[] access must be guarded."""
+
+    def test_cross_correlate_missing_power_key_returns_list(self):
+        """cross_correlate with snapshots missing 'power' key must not raise KeyError."""
+        bad_snaps = []
+        for _i in range(6):
+            bad_snaps.append(
+                {
+                    "day_of_week": "Monday",
+                    # 'power' key missing
+                    "lights": {"on": 5},
+                    "occupancy": {"device_count_home": 50},
+                    "entities": {"unavailable": 900},
+                    "logbook_summary": {"useful_events": 2500},
+                }
+            )
+        # Should not raise
+        result = cross_correlate(bad_snaps)
+        self.assertIsInstance(result, list)
+
+    def test_cross_correlate_missing_power_key_logs_warning(self):
+        """cross_correlate with snapshots missing 'power' key emits WARNING."""
+        import logging
+
+        bad_snaps = []
+        for _i in range(6):
+            bad_snaps.append(
+                {
+                    "day_of_week": "Monday",
+                    "lights": {"on": 5},
+                    "occupancy": {"device_count_home": 50},
+                    "entities": {"unavailable": 900},
+                    "logbook_summary": {"useful_events": 2500},
+                }
+            )
+        with self.assertLogs("aria.engine.analysis.correlations", level=logging.WARNING):
+            cross_correlate(bad_snaps)
+
+
 if __name__ == "__main__":
     unittest.main()

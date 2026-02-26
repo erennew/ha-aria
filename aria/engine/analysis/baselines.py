@@ -1,6 +1,47 @@
 """Compute per-day-of-week baselines from historical snapshots."""
 
+import logging
 import statistics
+
+logger = logging.getLogger(__name__)
+
+# (metric_name, top_key, sub_key) for guarded extraction
+_METRIC_PATHS = [
+    ("power_watts", "power", "total_watts"),
+    ("lights_on", "lights", "on"),
+    ("lights_off", "lights", "off"),
+    ("devices_home", "occupancy", "device_count_home"),
+    ("unavailable", "entities", "unavailable"),
+]
+
+
+def _extract_metric_values(snaps):
+    """Extract metric values from snapshots, logging warnings for missing keys.
+
+    Returns a dict of metric_name -> list of float values.
+    Snapshots missing required keys are skipped per metric with a WARNING.
+    """
+    result = {name: [] for name, _, _ in _METRIC_PATHS}
+    result["useful_events"] = []
+
+    for s in snaps:
+        snap_id = s.get("date", s.get("id", "unknown"))
+
+        for metric, top_key, sub_key in _METRIC_PATHS:
+            top = s.get(top_key)
+            if top is None or top.get(sub_key) is None:
+                logger.warning(
+                    "compute_baselines: snapshot missing '%s.%s' — snap: %s",
+                    top_key,
+                    sub_key,
+                    snap_id,
+                )
+            else:
+                result[metric].append(top[sub_key])
+
+        result["useful_events"].append(s.get("logbook_summary", {}).get("useful_events", 0))
+
+    return result
 
 
 def compute_baselines(snapshots):
@@ -12,14 +53,7 @@ def compute_baselines(snapshots):
 
     baselines = {}
     for dow, snaps in by_day.items():
-        metrics = {
-            "power_watts": [s["power"]["total_watts"] for s in snaps],
-            "lights_on": [s["lights"]["on"] for s in snaps],
-            "lights_off": [s["lights"]["off"] for s in snaps],
-            "devices_home": [s["occupancy"]["device_count_home"] for s in snaps],
-            "unavailable": [s["entities"]["unavailable"] for s in snaps],
-            "useful_events": [s["logbook_summary"].get("useful_events", 0) for s in snaps],
-        }
+        metrics = _extract_metric_values(snaps)
 
         baseline = {"sample_count": len(snaps)}
         for metric_name, values in metrics.items():

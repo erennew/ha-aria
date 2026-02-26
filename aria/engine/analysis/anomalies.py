@@ -1,6 +1,47 @@
 """Z-score anomaly detection against day-of-week baselines."""
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 ANOMALY_THRESHOLD = 2.0  # z-score above which we flag anomaly
+
+# Mapping from metric name to (top-level key, sub-key) for safe extraction
+_METRIC_KEYS = {
+    "power_watts": ("power", "total_watts"),
+    "lights_on": ("lights", "on"),
+    "devices_home": ("occupancy", "device_count_home"),
+    "unavailable": ("entities", "unavailable"),
+}
+
+
+def _extract_current_values(snapshot):
+    """Extract all current metric values from a snapshot with null guards.
+
+    Returns (values_dict, error_occurred) where error_occurred is True if any
+    required key was missing.
+    """
+    snap_id = snapshot.get("date", snapshot.get("id", "unknown"))
+    values = {}
+
+    for metric, (top_key, sub_key) in _METRIC_KEYS.items():
+        top = snapshot.get(top_key)
+        if top is None:
+            logger.warning("detect_anomalies: snapshot missing '%s' key — snap: %s", top_key, snap_id)
+            return None
+        val = top.get(sub_key)
+        if val is None:
+            logger.warning(
+                "detect_anomalies: snapshot missing '%s.%s' — snap: %s",
+                top_key,
+                sub_key,
+                snap_id,
+            )
+            return None
+        values[metric] = val
+
+    values["useful_events"] = snapshot.get("logbook_summary", {}).get("useful_events", 0)
+    return values
 
 
 def detect_anomalies(snapshot, baselines):
@@ -10,13 +51,9 @@ def detect_anomalies(snapshot, baselines):
     if not baseline:
         return []
 
-    current_values = {
-        "power_watts": snapshot["power"]["total_watts"],
-        "lights_on": snapshot["lights"]["on"],
-        "devices_home": snapshot["occupancy"]["device_count_home"],
-        "unavailable": snapshot["entities"]["unavailable"],
-        "useful_events": snapshot["logbook_summary"].get("useful_events", 0),
-    }
+    current_values = _extract_current_values(snapshot)
+    if current_values is None:
+        return []
 
     anomalies = []
     for metric, current in current_values.items():
