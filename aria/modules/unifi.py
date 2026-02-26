@@ -8,6 +8,7 @@ Auth: X-API-Key header. ssl=False for Dream Machine self-signed cert.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -104,7 +105,8 @@ class UniFiModule(Module):
     async def shutdown(self) -> None:
         """Close aiohttp session and disconnect Protect client."""
         if self._session:
-            await self._session.close()
+            with contextlib.suppress(Exception):
+                await self._session.close()
             self._session = None
         if self._protect_client:
             try:
