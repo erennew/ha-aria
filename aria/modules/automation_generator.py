@@ -312,11 +312,12 @@ class AutomationGeneratorModule(Module):
         Replaces the hardcoded 'qwen2.5-coder:14b' default in refine_automation().
         """
         default_model = "qwen2.5-coder:14b"
-        if hasattr(self.hub, "get_config_value"):
-            try:
-                return await self.hub.get_config_value("llm.automation_model", default_model)
-            except Exception as e:
-                logger.warning("Failed to read llm.automation_model from hub config: %s", e)
+        try:
+            # get_config_value lives on hub.cache (CacheManager), not on hub directly
+            if hasattr(self.hub, "cache") and hasattr(self.hub.cache, "get_config_value"):
+                return await self.hub.cache.get_config_value("llm.automation_model", default_model)
+        except Exception as e:
+            logger.warning("Failed to read llm.automation_model from hub config: %s", e)
         return default_model
 
     async def _process_candidate(

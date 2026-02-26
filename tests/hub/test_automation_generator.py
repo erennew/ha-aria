@@ -815,13 +815,15 @@ async def test_automation_generator_uses_hub_config_for_llm_model(hub):
     module = AutomationGeneratorModule(hub)
     await module.initialize()
 
-    # Mock get_config_value on hub so the module can read config
-    hub._config_values = {"llm.automation_model": "test-model:7b"}
+    # Mock hub.cache (CacheManager) — get_config_value lives there, not on hub directly
+    config_values = {"llm.automation_model": "test-model:7b"}
 
     async def mock_get_config_value(key, fallback=None):
-        return hub._config_values.get(key, fallback)
+        return config_values.get(key, fallback)
 
-    hub.get_config_value = mock_get_config_value
+    mock_cache = MagicMock()
+    mock_cache.get_config_value = mock_get_config_value
+    hub.cache = mock_cache
 
     # After fix: AutomationGeneratorModule has _get_llm_model() that uses hub config
     assert hasattr(module, "_get_llm_model"), (
