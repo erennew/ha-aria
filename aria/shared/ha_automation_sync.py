@@ -52,6 +52,14 @@ class HaAutomationSync:
         if raw_automations is None:
             return {"success": False, "error": "Failed to fetch automations"}
 
+        if not isinstance(raw_automations, list):
+            logger.warning(
+                "ha_automation_sync: unexpected response type %s from HA API — expected list, got %r; skipping sync",
+                type(raw_automations).__name__,
+                raw_automations,
+            )
+            return {"success": False, "error": f"Unexpected response type: {type(raw_automations).__name__}"}
+
         # Determine which automations changed
         changes = 0
         normalized = {}
