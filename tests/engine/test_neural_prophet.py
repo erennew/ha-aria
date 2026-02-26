@@ -127,5 +127,42 @@ class TestNeuralProphetForecaster(unittest.TestCase):
             self.assertNotIn("error", results[metric])
 
 
+# =============================================================================
+# #206 — NeuralProphet training exceptions caught and logged
+# =============================================================================
+
+
+def test_neuralprophet_fit_exception_logged(tmp_path, caplog):
+    """#206: RuntimeError from model.fit() must be caught, logged at ERROR with exc_info, return None."""
+    import logging
+    from unittest.mock import patch
+
+    from aria.engine.models.neural_prophet_forecaster import NeuralProphetForecaster
+
+    if not HAS_NP:
+        pytest.skip("neuralprophet not installed")
+
+    snapshots = _make_daily_snapshots(n_days=20)
+
+    with (
+        caplog.at_level(logging.ERROR, logger="aria.engine.models.neural_prophet_forecaster"),
+        patch(
+            "aria.engine.models.neural_prophet_forecaster.NeuralProphet.fit",
+            side_effect=RuntimeError("simulated training failure"),
+        ),
+    ):
+        result = NeuralProphetForecaster().train("power_watts", snapshots, str(tmp_path))
+
+    assert result is None, f"Expected None on failure, got: {result}"
+    error_msgs = [r.message for r in caplog.records if r.levelno == logging.ERROR]
+    assert any("neuralprophet" in m.lower() or "training" in m.lower() for m in error_msgs), (
+        f"Expected ERROR log for training failure, got: {caplog.records}"
+    )
+    # exc_info must be present (traceback captured)
+    assert any(r.exc_info is not None for r in caplog.records if r.levelno == logging.ERROR), (
+        "Expected exc_info=True on the ERROR log record"
+    )
+
+
 if __name__ == "__main__":
     unittest.main()

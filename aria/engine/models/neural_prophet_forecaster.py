@@ -81,7 +81,16 @@ class NeuralProphetForecaster:
             batch_size=min(32, len(rows)),
         )
 
-        metrics_df = model.fit(df, freq="D")
+        try:
+            metrics_df = model.fit(df, freq="D")
+        except Exception as e:
+            logger.error(
+                "NeuralProphet training failed for metric '%s': %s",
+                metric_name,
+                e,
+                exc_info=True,
+            )
+            return None
 
         # In-sample diagnostics
         forecast = model.predict(df)
