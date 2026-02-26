@@ -395,15 +395,16 @@ class TestFrigateEvents:
 
         mock_session = MagicMock()
         mock_session.get = MagicMock(return_value=mock_get)
+        mock_session.closed = False  # guard in _process_face_async checks .closed
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=False)
 
+        # Wire the module-level session (replaces per-call aiohttp.ClientSession() — #252)
+        module._http_session = mock_session
+
         # Patch FacePipeline at the source module (local import inside _process_face_async
         # resolves through aria.faces.pipeline, so patch there)
-        with (
-            patch("aria.faces.pipeline.FacePipeline", return_value=pipeline_instance),
-            patch("aiohttp.ClientSession", return_value=mock_session),
-        ):
+        with patch("aria.faces.pipeline.FacePipeline", return_value=pipeline_instance):
             await module._process_face_async("evt-alice", "http://localhost/snap.jpg", "front_cam", "entryway")
 
         assert "alice" in module._identified_persons

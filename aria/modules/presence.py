@@ -641,8 +641,11 @@ class PresenceModule(Module):
         tmp_path = None
         persistent_path = None
         try:
+            session = self._http_session
+            if session is None or session.closed:
+                self.logger.warning("Presence._http_session unavailable — skipping face snapshot fetch")
+                return
             async with (
-                aiohttp.ClientSession() as session,
                 session.get(snapshot_url, timeout=aiohttp.ClientTimeout(total=10)) as resp,
             ):
                 if resp.status != 200:
@@ -1061,9 +1064,15 @@ class PresenceModule(Module):
             # All known devices absent — clear signal history for this cycle.
             # Note: this destroys accumulated signals, not a temporary suppression.
             # Recovery requires new _add_signal calls on the next flush cycle.
+            total_signals = sum(len(sigs) for sigs in self._room_signals.values())
+            num_rooms = len(self._room_signals)
             for room in list(self._room_signals.keys()):
                 self._room_signals[room] = []
-            logger.debug("UniFi home/away gate: all devices away — clearing room signal history")
+            logger.info(
+                "UniFi home=False — clearing %d signals across %d rooms",
+                total_signals,
+                num_rooms,
+            )
             return
         unifi_mod = self.hub.get_module("unifi") if hasattr(self.hub, "get_module") else None
         if unifi_mod is None:
