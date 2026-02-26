@@ -300,8 +300,86 @@ function FaceRecognitionStatus({ faceConfig, labeledFaces }) {
   );
 }
 
+/** UniFi connected devices table */
+function DevicesTab({ unifiState }) {
+  if (!unifiState) {
+    return (
+      <div style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+        UniFi integration not enabled or no data yet.
+        Set <code>unifi.enabled = true</code> in config.
+      </div>
+    );
+  }
+
+  const clients = Object.values(unifiState.clients || {});
+  const home = unifiState.home;
+  const updatedAt = unifiState.updated_at
+    ? new Date(unifiState.updated_at).toLocaleTimeString()
+    : 'unknown';
+
+  return (
+    <div style={{ padding: '0.5rem' }}>
+      <div style={{ marginBottom: '0.75rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <span style={{
+          fontWeight: 600,
+          color: home ? 'var(--success)' : 'var(--text-secondary)'
+        }}>
+          {home ? 'Home' : 'Away'}
+        </span>
+        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+          Updated: {updatedAt} · {clients.length} device{clients.length !== 1 ? 's' : ''} online
+        </span>
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid var(--border)' }}>
+            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>Device</th>
+            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>MAC</th>
+            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>AP</th>
+            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>RSSI</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clients.map(client => (
+            <tr key={client.mac} style={{ borderBottom: '1px solid var(--border-light)' }}>
+              <td style={{ padding: '0.25rem 0.5rem' }}>
+                {client.hostname || client.mac}
+              </td>
+              <td style={{ padding: '0.25rem 0.5rem', fontFamily: 'monospace' }}>
+                {client.mac}
+              </td>
+              <td style={{ padding: '0.25rem 0.5rem' }}>
+                {client.ap_mac || '—'}
+              </td>
+              <td style={{ padding: '0.25rem 0.5rem' }}>
+                {client.rssi != null ? `${client.rssi} dBm` : '—'}
+              </td>
+            </tr>
+          ))}
+          {clients.length === 0 && (
+            <tr>
+              <td colSpan={4} style={{ padding: '1rem', textAlign: 'center',
+                                       color: 'var(--text-tertiary)' }}>
+                No devices online
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Presence() {
   const { data, loading, error, refetch } = useCache('presence');
+
+  const [unifiState, setUnifiState] = useState(null);
+
+  useEffect(() => {
+    fetchJson('/api/cache/unifi_client_state')
+      .then(d => setUnifiState(d))
+      .catch(() => setUnifiState(null));
+  }, []);
 
   if (loading && !data) return <LoadingState type="cards" />;
   if (error) return <ErrorState error={error} onRetry={refetch} />;
@@ -437,6 +515,13 @@ export default function Presence() {
       <Section title="Cameras" subtitle="Active camera-to-room mappings. Cameras publish person detections to MQTT via Frigate." summary={`${cameraCount} mapped`} defaultOpen={false}>
         <div class="t-frame p-4" data-label="camera map">
           <CameraStrip cameraRooms={cameraRooms} />
+        </div>
+      </Section>
+
+      {/* UniFi Devices */}
+      <Section title="Devices" subtitle="UniFi network clients currently connected. Home/away presence derived from tracked device MACs." summary={unifiState ? `${Object.values(unifiState.clients || {}).length} online` : 'disabled'} defaultOpen={false}>
+        <div class="t-frame p-4" data-label="unifi devices">
+          <DevicesTab unifiState={unifiState} />
         </div>
       </Section>
     </div>
