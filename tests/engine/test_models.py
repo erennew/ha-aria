@@ -7,6 +7,8 @@ import shutil
 import tempfile
 import unittest
 
+import pytest
+
 from aria.engine.collectors.snapshot import build_empty_snapshot
 from aria.engine.config import HolidayConfig, PathConfig
 from aria.engine.features.feature_config import DEFAULT_FEATURE_CONFIG
@@ -350,6 +352,36 @@ def test_gradient_boosting_missing_model_logs_warning(tmp_path, caplog):
     warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
     assert any("model" in m.lower() or "not" in m.lower() or "missing" in m.lower() for m in warning_msgs), (
         f"Expected WARNING about missing model, got: {caplog.records}"
+    )
+
+
+# =============================================================================
+# #204 — autoencoder MLPRegressor convergence warning surfaced via logger
+# =============================================================================
+
+
+def test_autoencoder_convergence_warning_logged(tmp_path, caplog):
+    """#204: ConvergenceWarning from MLPRegressor must be re-emitted via logger.warning()."""
+    import logging
+
+    import numpy as np
+
+    from aria.engine.models.autoencoder import Autoencoder
+
+    if not HAS_SKLEARN:
+        pytest.skip("sklearn not installed")
+
+    # Tiny data + max_iter=1 guarantees non-convergence
+    np.random.seed(42)
+    X = np.random.randn(20, 4)
+    ae = Autoencoder(hidden_layers=(8, 4, 8), max_iter=1)
+
+    with caplog.at_level(logging.WARNING, logger="aria.engine.models.autoencoder"):
+        ae.train(X, str(tmp_path))
+
+    warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("convergence" in m.lower() or "mlpregressor" in m.lower() for m in warning_msgs), (
+        f"Expected convergence WARNING to be logged, got: {caplog.records}"
     )
 
 

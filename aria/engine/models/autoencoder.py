@@ -3,12 +3,14 @@
 import logging
 import os
 import pickle
+import warnings
 
 logger = logging.getLogger(__name__)
 
 HAS_SKLEARN = True
 try:
     import numpy as np
+    from sklearn.exceptions import ConvergenceWarning
     from sklearn.neural_network import MLPRegressor
     from sklearn.preprocessing import StandardScaler
 except ImportError:
@@ -52,7 +54,13 @@ class Autoencoder:
             early_stopping=True,
             validation_fraction=0.1,
         )
-        model.fit(X_scaled, X_scaled)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ConvergenceWarning)
+            model.fit(X_scaled, X_scaled)
+
+        for w in caught:
+            if issubclass(w.category, ConvergenceWarning):
+                logger.warning("MLPRegressor convergence warning: %s", str(w.message))
 
         os.makedirs(model_dir, exist_ok=True)
         with open(os.path.join(model_dir, "autoencoder.pkl"), "wb") as f:
