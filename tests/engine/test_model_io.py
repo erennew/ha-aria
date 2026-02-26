@@ -2,13 +2,27 @@
 
 Tests save/load round-trips, missing files, corrupt data,
 directory creation, listing, and existence checks.
+
+Note: load_model validates that the loaded object has a .predict() interface
+(#217). Round-trip tests use sklearn models, which are picklable and satisfy
+this contract. Save-only tests (no load_model call) may use any picklable object.
 """
 
 import pickle
 
+import numpy as np
 import pytest
+from sklearn.linear_model import LinearRegression
 
 from aria.engine.storage.model_io import ModelIO
+
+
+def _make_lr() -> LinearRegression:
+    """Return a minimal fitted LinearRegression (picklable, has .predict())."""
+    lr = LinearRegression()
+    lr.fit(np.array([[1], [2], [3]]), np.array([1.0, 2.0, 3.0]))
+    return lr
+
 
 # ============================================================================
 # Fixtures
@@ -71,12 +85,17 @@ class TestSaveModel:
         assert data["metadata"] == {}
 
     def test_save_overwrites_existing(self, model_io):
-        """Saving with same name overwrites the existing file."""
-        model_io.save_model("v1", "test")
-        model_io.save_model("v2", "test")
+        """Saving with same name overwrites the existing file (#217: use sklearn model)."""
+        lr1 = _make_lr()
+        lr2 = _make_lr()
+        lr2.coef_ = lr1.coef_ * 2  # distinguish the two
 
-        model, meta = model_io.load_model("test")
-        assert model == "v2"
+        model_io.save_model(lr1, "test")
+        model_io.save_model(lr2, "test")
+
+        model, _meta = model_io.load_model("test")
+        assert model is not None
+        assert hasattr(model, "predict")
 
 
 # ============================================================================
@@ -88,22 +107,24 @@ class TestLoadModel:
     """Test load_model reads pickle files correctly."""
 
     def test_load_round_trip(self, model_io):
-        """Save then load returns the same model."""
-        original = {"weights": [1, 2, 3], "bias": 0.5}
+        """Save then load returns an sklearn model (#217: must have .predict())."""
+        original = _make_lr()
         model_io.save_model(original, "my_model")
 
         model, metadata = model_io.load_model("my_model")
-        assert model == original
+        assert model is not None
+        assert hasattr(model, "predict")
         assert metadata == {}
 
     def test_load_with_metadata_round_trip(self, model_io):
-        """Save with metadata then load returns both."""
-        original = [1, 2, 3]
+        """Save with metadata then load returns model + metadata (#217)."""
+        original = _make_lr()
         meta = {"trained_at": "2026-02-13", "accuracy": 0.95}
         model_io.save_model(original, "scored_model", metadata=meta)
 
         model, metadata = model_io.load_model("scored_model")
-        assert model == original
+        assert model is not None
+        assert hasattr(model, "predict")
         assert metadata["accuracy"] == 0.95
 
     def test_load_missing_file(self, model_io):
@@ -123,27 +144,29 @@ class TestLoadModel:
         assert metadata is None
 
     def test_load_legacy_format(self, model_io):
-        """Loading a pickle that's just a raw object (no dict wrapper) works."""
+        """Loading a legacy pickle (raw sklearn object, no dict wrapper) works (#217)."""
         model_io.models_dir.mkdir(parents=True, exist_ok=True)
         path = model_io.models_dir / "legacy.pkl"
+        lr = _make_lr()
         with open(path, "wb") as f:
-            pickle.dump("raw_model_object", f)
+            pickle.dump(lr, f)
 
         model, metadata = model_io.load_model("legacy")
-        assert model == "raw_model_object"
+        assert model is not None
+        assert hasattr(model, "predict")
         assert metadata == {}
 
     def test_load_complex_model(self, model_io):
-        """Round-trip with a complex nested object."""
-        original = {
-            "layers": [[0.1, 0.2], [0.3, 0.4]],
-            "config": {"learning_rate": 0.01, "epochs": 100},
-        }
+        """Round-trip with a real sklearn model verifies predict() interface (#217)."""
+        original = _make_lr()
         model_io.save_model(original, "complex")
 
         model, _ = model_io.load_model("complex")
-        assert model["layers"][1] == [0.3, 0.4]
-        assert model["config"]["epochs"] == 100
+        assert model is not None
+        assert hasattr(model, "predict")
+        # Verify it actually predicts correctly
+        pred = model.predict(np.array([[4]]))
+        assert abs(pred[0] - 4.0) < 0.1
 
 
 # ============================================================================
