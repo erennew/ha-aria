@@ -266,5 +266,42 @@ class TestPresenceCollector(unittest.TestCase):
         assert snapshot["presence"]["occupied_room_count"] == 0
 
 
+# =============================================================================
+# #207 — SunCollector daylight_hours failure logged instead of suppress()
+# =============================================================================
+
+
+def test_sun_collector_daylight_hours_failure_logs_warning(caplog):
+    """#207: ValueError during daylight_hours calc must log WARNING and return fallback."""
+    import logging
+
+    # Malformed sunrise string — length >= 16 so parsing is attempted, but chars 11:16 are "BADBAD"
+    # which has no ":" so _time_to_minutes("BADBA") -> split gives ["BADBA"] -> int("BADBA") raises ValueError
+    states = [
+        {
+            "entity_id": "sun.sun",
+            "state": "above_horizon",
+            "attributes": {
+                "next_rising": "2026-02-25TBADBA",  # len=16 -> [11:16] = "BADBA" -> ValueError
+                "next_setting": "2026-02-25TBADBA",
+                "elevation": 30,
+            },
+        }
+    ]
+    snapshot = {"sun": {}}
+
+    with caplog.at_level(logging.WARNING, logger="aria.engine.collectors.extractors"):
+        SunCollector().extract(snapshot, states)
+
+    # Fallback default (12.0) should be in snapshot
+    assert snapshot["sun"]["daylight_hours"] == 12.0, (
+        f"Expected fallback 12.0, got {snapshot['sun'].get('daylight_hours')}"
+    )
+    warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("daylight" in m.lower() or "sun" in m.lower() or "suncollector" in m.lower() for m in warning_msgs), (
+        f"Expected WARNING logged for SunCollector failure, got: {caplog.records}"
+    )
+
+
 if __name__ == "__main__":
     unittest.main()

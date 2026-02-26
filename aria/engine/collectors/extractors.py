@@ -321,10 +321,18 @@ class SunCollector(BaseCollector):
                     sun_data["sunset"] = setting[11:16]
                 sun_data["solar_elevation"] = attrs.get("elevation", 0) or 0
                 # Compute daylight hours
-                with contextlib.suppress(Exception):
+                try:
                     sr = _time_to_minutes(sun_data["sunrise"])
                     ss = _time_to_minutes(sun_data["sunset"])
                     sun_data["daylight_hours"] = round(max(0, ss - sr) / 60.0, 2)
+                except Exception as e:
+                    logger.warning(
+                        "SunCollector.daylight_hours() failed — sunrise=%s sunset=%s: %s",
+                        sun_data.get("sunrise"),
+                        sun_data.get("sunset"),
+                        e,
+                    )
+                    # Keep the default fallback of 12.0 already set above
                 break
         snapshot["sun"] = sun_data
 
