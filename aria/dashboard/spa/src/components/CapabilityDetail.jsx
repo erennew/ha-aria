@@ -68,7 +68,7 @@ export default function CapabilityDetail({ name, capability, onAction }) {
   async function handleAction(action) {
     setBusy(action);
     try {
-      await putJson(`/api/capabilities/${name}/${action}`, JSON.stringify({}));
+      await putJson(`/api/capabilities/${name}/${action}`, {});
       if (onAction) onAction();
     } catch (err) {
       console.error(`Failed to ${action} capability:`, err);
