@@ -411,7 +411,13 @@ class IntelligenceHub:
         for module in list(self.modules.values()):
             mod_start = time.monotonic()
             try:
-                await module.on_event(event_type, data)
+                await asyncio.wait_for(module.on_event(event_type, data), timeout=5.0)
+            except TimeoutError:
+                self.logger.warning(
+                    "on_event() timeout (5s) in module '%s' for event '%s' — skipping to avoid blocking bus",
+                    module.module_id,
+                    event_type,
+                )
             except Exception as e:
                 self.logger.error(f"Error in module {module.module_id} event handler: {e}")
             mod_elapsed_ms = (time.monotonic() - mod_start) * 1000
