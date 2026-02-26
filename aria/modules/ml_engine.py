@@ -679,9 +679,17 @@ class MLEngine(Module):
                 )
                 rolling_stats["lights_mean_7d"] = sum(s.get("lights", {}).get("on", 0) for s in recent) / len(recent)
 
+            # Compute rolling window stats from training snapshots so the model
+            # trains on real signal rather than permanent zeros — #260 fix.
+            rolling_window_stats = self._compute_rolling_window_stats_from_snapshots(snapshots, i)
+
             # Extract features
             features = await self._extract_features(
-                snapshot, config=config, prev_snapshot=prev_snapshot, rolling_stats=rolling_stats
+                snapshot,
+                config=config,
+                prev_snapshot=prev_snapshot,
+                rolling_stats=rolling_stats,
+                rolling_window_stats=rolling_window_stats,
             )
             if features is None:
                 continue
@@ -944,6 +952,76 @@ class MLEngine(Module):
             weights.append(recency_decay * weekday_bonus)
 
         return np.array(weights, dtype=float)
+
+    @staticmethod
+    def _compute_rolling_window_stats_from_snapshots(
+        snapshots: list[dict[str, Any]],
+        i: int,
+    ) -> dict[str, float]:
+        """Compute rolling window stats for training from a list of daily snapshots.
+
+        Because historical training snapshots are daily aggregates (not minute-level
+        activity windows), this method constructs pseudo-windows from preceding
+        snapshots to approximate the same rolling_Xh_* features that
+        _compute_rolling_window_stats() computes from the live activity log at
+        inference time.
+
+        Each preceding daily snapshot is treated as one window.  The "event count"
+        is proxied from active entities (lights on + motion sensors + people home),
+        and domain distribution is derived from the proportional presence of each
+        sensor domain.  ROLLING_WINDOWS_HOURS (1, 3, 6) map to look-back windows of
+        1, 3, and 6 preceding snapshots respectively — a deliberate approximation
+        that carries real signal vs. the permanent-zero alternative.
+
+        This fix ensures training and inference see non-zero rolling features,
+        eliminating the training/inference distribution mismatch introduced when
+        the column alignment fix (#260) added the feature columns without populating
+        them in the training path.
+
+        Args:
+            snapshots: Full ordered list of training snapshots.
+            i: Index of the current snapshot being featurised.
+
+        Returns:
+            Dict of rolling window stats keyed by ROLLING_FEATURE_NAMES strings.
+        """
+        stats: dict[str, float] = {}
+
+        for hours in ROLLING_WINDOWS_HOURS:
+            # Use hours as look-back count (1h→1 snap, 3h→3 snaps, 6h→6 snaps)
+            lookback = hours
+            start = max(0, i - lookback)
+            relevant_snaps = snapshots[start:i]
+
+            if not relevant_snaps:
+                stats[f"rolling_{hours}h_event_count"] = 0.0
+                stats[f"rolling_{hours}h_domain_entropy"] = 0.0
+                stats[f"rolling_{hours}h_dominant_domain_pct"] = 0.0
+                stats[f"rolling_{hours}h_trend"] = 0.0
+                continue
+
+            # Build pseudo-windows from each snapshot's aggregate activity data.
+            # Proxy event count: lights on + motion active + people home gives a
+            # rough measure of how "busy" the home was that day.
+            pseudo_windows = []
+            for s in relevant_snaps:
+                lights_on = s.get("lights", {}).get("on", 0) or 0
+                motion_active = s.get("motion", {}).get("active_count", 0) or 0
+                people_home = s.get("occupancy", {}).get("people_home_count", 0) or 0
+                total = int(lights_on) + int(motion_active) + int(people_home)
+                by_domain = {}
+                if lights_on:
+                    by_domain["light"] = int(lights_on)
+                if motion_active:
+                    by_domain["binary_sensor"] = int(motion_active)
+                if people_home:
+                    by_domain["person"] = int(people_home)
+                pseudo_windows.append({"event_count": total, "by_domain": by_domain})
+
+            # Re-use existing aggregation logic via the stats dict interface
+            MLEngine._compute_single_window_stats(stats, hours, pseudo_windows)
+
+        return stats
 
     async def _compute_rolling_window_stats(self, activity_log: dict[str, Any] | None = None) -> dict[str, float]:
         """Compute rolling window statistics from activity log.

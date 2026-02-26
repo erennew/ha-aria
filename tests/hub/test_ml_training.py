@@ -1324,6 +1324,56 @@ class TestFeatureEngineering:
         # Later snapshots should have higher weight (more recent)
         assert weights[-1] > weights[0]
 
+    @pytest.mark.asyncio
+    async def test_build_training_dataset_rolling_window_features_nonzero(self, engine, mock_hub):
+        """Rolling window feature columns must have non-zero values in training matrix.
+
+        Regression test for #260 fix: _build_training_dataset must compute
+        rolling_window_stats from the training snapshot list and pass them to
+        _extract_features(), so rolling_Xh_* columns carry real signal rather
+        than being permanently zeroed out.
+        """
+        from aria.modules.ml_engine import ROLLING_FEATURE_NAMES
+
+        mock_hub.get_cache = AsyncMock(return_value=None)
+
+        # Create snapshots with actual activity — lights on, motion, people home.
+        # From index 1 onward there are preceding snapshots, so rolling stats
+        # will be non-zero.
+        snapshots = []
+        for i in range(20):
+            date = datetime(2026, 1, 1) + timedelta(days=i)
+            snapshots.append(
+                {
+                    "date": date.strftime("%Y-%m-%d"),
+                    "power": {"total_watts": 400 + i * 5},
+                    "lights": {"on": 4, "total_brightness": 200},
+                    "occupancy": {"people_home_count": 2, "device_count_home": 3},
+                    "motion": {"active_count": 2},
+                    "weather": {"temp_f": 68, "humidity_pct": 45, "wind_mph": 8},
+                }
+            )
+
+        X, y, weights = await engine._build_training_dataset(snapshots, "power_watts")
+
+        assert len(X) > 0, "Expected non-empty training matrix"
+        assert len(y) > 0
+
+        # Determine column indices for rolling window features
+        config = await engine._get_feature_config()
+        feature_names = await engine._get_feature_names(config)
+        rolling_col_indices = [feature_names.index(name) for name in ROLLING_FEATURE_NAMES if name in feature_names]
+
+        assert rolling_col_indices, "No rolling feature columns found in feature_names"
+
+        # Check that at least one rolling column has at least one non-zero value
+        # across the training rows (from row 1 onward, preceding snapshots exist).
+        rolling_block = X[:, rolling_col_indices]
+        assert np.any(rolling_block != 0), (
+            "All rolling window feature columns are zero in the training matrix. "
+            "_build_training_dataset must pass rolling_window_stats to _extract_features()."
+        )
+
 
 class TestIncrementalLightGBM:
     """Tests for eGBDT incremental LightGBM adaptation."""
