@@ -63,6 +63,15 @@ def cmd_snapshot_intraday():
     timestamp = snapshot.get("timestamp", datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%S"))
     snapshot["time_features"] = build_time_features(timestamp, snapshot.get("sun"), snapshot.get("date"))
 
+    ha_reachable = snapshot.get("data_quality", {}).get("ha_reachable", True)
+    if not ha_reachable:
+        logger.warning(
+            "HA unreachable during intraday snapshot (hour=%s, date=%s) — skipping disk write",
+            snapshot.get("hour", "?"),
+            snapshot.get("date", "?"),
+        )
+        return snapshot
+
     path = store.save_intraday_snapshot(snapshot)
     entities = snapshot.get("entities", {}).get("total", 0)
     hour = snapshot.get("hour", "?")

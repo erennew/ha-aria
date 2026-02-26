@@ -236,3 +236,42 @@ def test_build_empty_snapshot_has_presence_key():
 
     snap = build_empty_snapshot("2026-02-25", HolidayConfig())
     assert "presence" in snap, f"Missing 'presence' key. Keys: {list(snap.keys())}"
+
+
+# =============================================================================
+# #209 — HA-unreachable snapshot NOT written to disk
+# =============================================================================
+
+
+class TestHAUnreachableSnapshotSkip:
+    """When HA is unreachable, cmd_snapshot_intraday must not save to disk."""
+
+    @patch("aria.engine.collectors.snapshot.fetch_ha_states", return_value=None)
+    @patch("aria.engine.collectors.snapshot._fetch_presence_cache", return_value=None)
+    @patch("aria.engine.collectors.snapshot.fetch_weather", return_value=None)
+    @patch("aria.engine.collectors.snapshot.parse_weather", return_value={})
+    @patch("aria.engine.collectors.snapshot.summarize_logbook", return_value={})
+    def test_ha_unreachable_snapshot_skips_disk_write(
+        self, _mock_log, _mock_pw, _mock_fw, _mock_pc, _mock_ha, store, app_config, caplog
+    ):
+        """#209: HA-unreachable snapshot must not be written to disk (or must log WARNING)."""
+        import logging
+
+        from aria.engine.cli import cmd_snapshot_intraday
+
+        with (
+            caplog.at_level(logging.WARNING),
+            patch("aria.engine.cli._init", return_value=(app_config, store)),
+        ):
+            result = cmd_snapshot_intraday()
+
+        # If HA unreachable, the snapshot must not persist as a valid file
+        day_dir = store.paths.intraday_dir / result["date"]
+        hour = result.get("hour", 0)
+        snapshot_path = day_dir / f"{hour:02d}.json"
+
+        assert not snapshot_path.exists(), f"HA-unreachable snapshot must not be written to disk at {snapshot_path}"
+        warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("unreachable" in m.lower() or "ha" in m.lower() or "reachable" in m.lower() for m in warning_msgs), (
+            f"Expected WARNING about HA unreachable, got: {caplog.records}"
+        )
