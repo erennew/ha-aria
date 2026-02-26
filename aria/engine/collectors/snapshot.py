@@ -195,8 +195,10 @@ def build_intraday_snapshot(hour: int | None, date_str: str | None, config: AppC
             "entity_count": len(states) if states else 0,
         }
 
-        # Note: time_features will be added by the features module when it's migrated.
-        # For now, snapshot["time_features"] is not set here.
+        # Compute and embed time features — #262.
+        from aria.engine.features.time_features import build_time_features
+
+        snapshot["time_features"] = build_time_features(timestamp)
 
         # Weather
         weather_raw = fetch_weather(config.weather)
