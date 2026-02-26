@@ -210,3 +210,43 @@ class TestModelExists:
         """Returns False when models directory doesn't exist."""
         io = ModelIO(tmp_path / "no_dir")
         assert io.model_exists("anything") is False
+
+
+# =============================================================================
+# #217 — model_io validates loaded object has .predict() interface
+# =============================================================================
+
+
+class TestLoadModelValidation:
+    """load_model must validate the loaded object has a .predict() interface."""
+
+    def test_load_dict_without_predict_returns_none_and_logs_error(self, model_io_with_dir, caplog):
+        """#217: pickle.load of a dict (no .predict) returns None and logs ERROR."""
+        import logging
+
+        path = model_io_with_dir.models_dir / "bad_model.pkl"
+        # Write a raw dict — no "model" key, no .predict() method
+        with open(path, "wb") as f:
+            pickle.dump({"not_a_model": True}, f)
+
+        with caplog.at_level(logging.ERROR):
+            model, metadata = model_io_with_dir.load_model("bad_model")
+
+        assert model is None, f"Expected None for unpredictable object, got: {model}"
+        error_msgs = [r.message for r in caplog.records if r.levelno == logging.ERROR]
+        assert any("predict" in m.lower() or "interface" in m.lower() or "model_io" in m.lower() for m in error_msgs), (
+            f"Expected ERROR log about missing .predict(), got: {caplog.records}"
+        )
+
+    def test_load_valid_model_with_predict_succeeds(self, model_io_with_dir):
+        """#217: sklearn-like object with .predict() loads successfully."""
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+
+        # Use a real sklearn model (picklable and has .predict())
+        lr = LinearRegression()
+        lr.fit(np.array([[1], [2], [3]]), np.array([1.0, 2.0, 3.0]))
+        model_io_with_dir.save_model(lr, "valid_model")
+        loaded_model, _ = model_io_with_dir.load_model("valid_model")
+        assert loaded_model is not None
+        assert hasattr(loaded_model, "predict")

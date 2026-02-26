@@ -30,9 +30,23 @@ class ModelIO:
             with open(path, "rb") as f:
                 data = pickle.load(f)
             if isinstance(data, dict) and "model" in data:
-                return data["model"], data.get("metadata", {})
-            # Legacy format: just the model object
-            return data, {}
+                model = data["model"]
+                metadata = data.get("metadata", {})
+            else:
+                # Legacy format: the data itself is the model object
+                model = data
+                metadata = {}
+
+            # Validate the loaded object has the expected ML interface
+            if not hasattr(model, "predict"):
+                logger.error(
+                    "model_io: loaded object from %s has no .predict() method — type: %s",
+                    path,
+                    type(model).__name__,
+                )
+                return None, None
+
+            return model, metadata
         except Exception:
             logger.warning("Failed to load model %s from %s", name, path, exc_info=True)
             return None, None
