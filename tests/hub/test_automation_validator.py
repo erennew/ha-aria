@@ -362,6 +362,41 @@ class TestCheck9RestrictedDomain:
         assert not valid
 
 
+class TestEntityGraphNoneGuard:
+    """Issue #214: entity_graph=None must not raise AttributeError."""
+
+    def test_entity_graph_none_returns_valid_empty_errors(self):
+        """validate_automation with entity_graph=None returns (True, []) for valid automation."""
+        auto = {
+            "id": "test_none_graph",
+            "alias": "Test None Graph",
+            "triggers": [{"platform": "state", "entity_id": "binary_sensor.motion", "to": "on"}],
+            "conditions": [],
+            "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.bedroom"}}],
+            "mode": "single",
+        }
+        # Should not raise AttributeError — must return empty errors (entity check skipped)
+        valid, errors = validate_automation(auto, None, set())
+        assert valid
+        assert errors == []
+
+    def test_entity_graph_none_logs_warning(self, caplog):
+        """validate_automation with entity_graph=None emits a warning."""
+        import logging
+
+        auto = {
+            "id": "test_none_graph_log",
+            "alias": "Test",
+            "triggers": [{"platform": "state", "entity_id": "binary_sensor.motion", "to": "on"}],
+            "conditions": [],
+            "actions": [{"action": "light.turn_on", "target": {"entity_id": "light.bedroom"}}],
+            "mode": "single",
+        }
+        with caplog.at_level(logging.WARNING, logger="aria.automation.validator"):
+            validate_automation(auto, None, set())
+        assert any("entity_graph" in r.message.lower() for r in caplog.records)
+
+
 class TestMultipleErrors:
     """Test that validator collects all errors, not just the first."""
 

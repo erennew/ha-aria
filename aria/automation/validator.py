@@ -125,6 +125,10 @@ def _walk_for_booleans(obj: Any, path: str, errors: list[str]) -> None:
 
 def _check_entities_exist(automation: dict, entity_graph: object) -> list[str]:
     """Check 4: All referenced entity_ids must exist in EntityGraph."""
+    if entity_graph is None:
+        logger.warning("entity_graph is None in validate — entity existence check skipped")
+        return []
+
     errors = []
     entity_ids = _collect_entity_ids(automation)
 
