@@ -12,6 +12,7 @@ import contextlib
 import json
 import logging
 import os
+from datetime import UTC, datetime
 from typing import Any
 
 from aria.hub.core import Module
@@ -116,11 +117,128 @@ class UniFiModule(Module):
             self._protect_client = None
         logger.info("UniFi module shut down")
 
+    # ── Person and room resolution ────────────────────────────────────
+
+    def _resolve_person(self, mac: str, hostname: str) -> str | None:
+        """Resolve MAC → person name. device_people override > hostname > None."""
+        if mac in self._device_people:
+            return self._device_people[mac]
+        return hostname if hostname else None
+
+    def _resolve_room(self, ap_mac: str) -> str | None:
+        """Resolve AP MAC → room name via ap_rooms config."""
+        return self._ap_rooms.get(ap_mac)
+
+    def _is_device_active(self, tx_bytes_r: int, rx_bytes_r: int) -> bool:
+        """True if tx+rx rate exceeds device_active_kbps threshold."""
+        kbps = (tx_bytes_r + rx_bytes_r) * 8 / 1000
+        return kbps >= self._active_kbps
+
+    def _compute_network_weight(self, rssi: int) -> float:
+        """Base weight for network_client_present, halved if RSSI is ambiguous."""
+        base = 0.75
+        if rssi < self._rssi_threshold:
+            return base * 0.5
+        return base
+
+    # ── Client state processing ───────────────────────────────────────
+
+    def _process_clients(self, clients: list[dict]) -> list[dict]:
+        """Process raw UniFi client list → signal dicts + update home/away state.
+
+        Returns list of dicts: {room, signal_type, value, detail, ts}
+        """
+        ts = datetime.now(UTC)
+        signals: list[dict] = []
+        known_macs = set(self._device_people.keys())
+        seen_known: set[str] = set()
+
+        # Update cached client state (MAC → data) for cross-validation
+        self._last_client_state = {c["mac"]: c for c in clients}
+
+        for client in clients:
+            mac = client.get("mac", "")
+            ap_mac = client.get("ap_mac", "")
+            hostname = client.get("hostname", "")
+            rssi = client.get("rssi", -90)
+            tx_bytes_r = client.get("tx_bytes_r", 0)
+            rx_bytes_r = client.get("rx_bytes_r", 0)
+
+            person = self._resolve_person(mac, hostname)
+            room = self._resolve_room(ap_mac)
+
+            # Track known devices for home/away gate
+            if mac in known_macs:
+                seen_known.add(mac)
+
+            if room is None:
+                continue  # Can't place in room — skip room signals; home/away still tracked
+
+            weight = self._compute_network_weight(rssi)
+            detail = f"{person or hostname}@{room} rssi={rssi}"
+            signals.append(
+                {
+                    "room": room,
+                    "signal_type": "network_client_present",
+                    "value": weight,
+                    "detail": detail,
+                    "ts": ts,
+                }
+            )
+
+            if self._is_device_active(tx_bytes_r, rx_bytes_r):
+                signals.append(
+                    {
+                        "room": room,
+                        "signal_type": "device_active",
+                        "value": 0.85,
+                        "detail": f"{person or hostname} active",
+                        "ts": ts,
+                    }
+                )
+
+        # Update home/away gate
+        self._home_away = len(seen_known) > 0 if known_macs else True
+        return signals
+
     # ── Stub loops (implemented in Tasks 5, 6) ────────────────────────
 
     async def _network_poll_loop(self) -> None:
         """Poll UniFi Network for WiFi client state every poll_interval_s."""
-        raise NotImplementedError  # implemented in Task 5
+        url = f"https://{self._host}/proxy/network/api/s/{self._site}/stat/sta"
+        while self.hub.is_running():
+            try:
+                async with self._session.get(url) as resp:
+                    if resp.status == 401:
+                        self._last_error = "API key invalid (401)"
+                        logger.error("UniFi Network: API key invalid — disabling module")
+                        self._enabled = False
+                        return
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    clients = data.get("data", [])
+                    signals = self._process_clients(clients)
+
+                    # Publish signals to hub for PresenceModule cross-validation
+                    await self.hub.set_cache(
+                        "unifi_client_state",
+                        {
+                            "home": self._home_away,
+                            "clients": self._last_client_state,
+                            "signals": signals,
+                            "updated_at": datetime.now(UTC).isoformat(),
+                        },
+                    )
+                    self._last_error = None
+                    logger.debug(
+                        "UniFi Network: %d clients, %d signals, home=%s", len(clients), len(signals), self._home_away
+                    )
+
+            except Exception as e:
+                self._last_error = str(e)
+                logger.warning("UniFi Network poll error: %s", e)
+
+            await asyncio.sleep(self._poll_interval)
 
     async def _protect_ws_loop(self) -> None:
         """Subscribe to UniFi Protect WebSocket for smart detect events."""
