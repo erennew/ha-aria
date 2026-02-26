@@ -191,7 +191,7 @@ function connectWebSocket() {
         const sig = getCategory(category);
         sig.value = { ...sig.value, stale: true };
         // Background re-fetch (fire and forget)
-        fetchCategory(category);
+        fetchCategory(category).catch(err => console.error('fetchCategory failed:', err));
       }
       // pong messages and others are silently consumed
     } catch {
@@ -245,7 +245,7 @@ function disconnectWebSocket() {
 function markAllStale() {
   for (const [name, sig] of cacheStore) {
     sig.value = { ...sig.value, stale: true };
-    fetchCategory(name);
+    fetchCategory(name).catch(err => console.error('fetchCategory failed:', err));
   }
 }
 

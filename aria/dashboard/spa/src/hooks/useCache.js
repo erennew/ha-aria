@@ -23,16 +23,24 @@ export default function useCache(name) {
 
   // Fetch on mount if no data, and auto-refetch when stale
   useEffect(() => {
+    let cancelled = false;
     const current = sig.value;
     if (current.data === null && !current.loading) {
-      fetchCategory(name);
+      if (!cancelled) {
+        fetchCategory(name);
+      }
     }
+    return () => { cancelled = true; };
   }, [name]);
 
   useEffect(() => {
+    let cancelled = false;
     if (state.stale && !state.loading) {
-      fetchCategory(name);
+      if (!cancelled) {
+        fetchCategory(name);
+      }
     }
+    return () => { cancelled = true; };
   }, [state.stale, state.loading, name]);
 
   return {

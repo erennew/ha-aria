@@ -13,6 +13,11 @@ export default function useSearch(data, fields, debounceMs = 200) {
   const [debouncedTerm, setDebouncedTerm] = useState('');
   const timerRef = useRef(null);
 
+  // Stabilize the fields array so inline array literals from callers don't
+  // create a new reference on every render and cause infinite useMemo loops.
+  const fieldsKey = Array.isArray(fields) ? fields.join('\0') : '';
+  const stableFields = useMemo(() => fields, [fieldsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Debounce the search term
   useEffect(() => {
     if (timerRef.current != null) {
@@ -31,17 +36,17 @@ export default function useSearch(data, fields, debounceMs = 200) {
 
   const filteredData = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
-    if (!debouncedTerm || !fields || fields.length === 0) return data;
+    if (!debouncedTerm || !stableFields || stableFields.length === 0) return data;
 
     const needle = debouncedTerm.toLowerCase();
     return data.filter((row) =>
-      fields.some((field) => {
+      stableFields.some((field) => {
         const val = row[field];
         if (val == null) return false;
         return String(val).toLowerCase().includes(needle);
       })
     );
-  }, [data, debouncedTerm, fields]);
+  }, [data, debouncedTerm, stableFields]);
 
   return { searchTerm, setSearchTerm, filteredData };
 }

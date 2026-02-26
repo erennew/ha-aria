@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { wsConnected } from '../store.js';
 import { fetchJson, safeFetch } from '../api.js';
 
@@ -18,7 +18,11 @@ export default function PipelineStatusBar() {
   }, []);
 
   const pipelineStage = pipeline?.current_stage || 'starting';
-  const shadowStage = pipeline?.current_stage || 'backtest';
+  const prevStageRef = useRef(pipelineStage);
+  const shadowStage = prevStageRef.current;
+  useEffect(() => {
+    prevStageRef.current = pipelineStage;
+  }, [pipelineStage]);
   const hasFailed = health?.modules && Object.values(health.modules).some((status) => status === 'failed');
 
   const attrs = {};
