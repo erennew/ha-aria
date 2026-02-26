@@ -149,6 +149,10 @@ class MarkovChainDetector:
         if self.threshold is None:
             return []
 
+        # Negative log-probabilities: threshold is negative; more negative = stricter.
+        # A positive threshold would invert the anomaly direction — assert at detection time.
+        assert self.threshold <= 0, f"sequence_anomalies: threshold must be <= 0 (got {self.threshold})"
+
         events = self._filter_and_sort(logbook_entries)
         if len(events) < 3:
             return []

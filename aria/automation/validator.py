@@ -114,9 +114,6 @@ def _walk_for_booleans(obj: Any, path: str, errors: list[str]) -> None:
         errors.append(f"Boolean value at {path} — must be quoted string ('{suggested}')")
     elif isinstance(obj, dict):
         for key, value in obj.items():
-            # Skip non-state keys where booleans are legitimate
-            if key in ("_restricted",):
-                continue
             _walk_for_booleans(value, f"{path}.{key}", errors)
     elif isinstance(obj, list):
         for i, item in enumerate(obj):

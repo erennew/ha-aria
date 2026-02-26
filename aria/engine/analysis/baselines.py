@@ -5,6 +5,10 @@ import statistics
 
 logger = logging.getLogger(__name__)
 
+# Minimum top-level keys required to treat a snapshot as complete enough to baseline.
+# Snapshots missing any of these keys produce a malformed baseline with all-zero metrics.
+REQUIRED_BASELINE_KEYS = {"power", "lights", "occupancy"}
+
 # (metric_name, top_key, sub_key) for guarded extraction
 _METRIC_PATHS = [
     ("power_watts", "power", "total_watts"),
@@ -48,6 +52,15 @@ def compute_baselines(snapshots):
     """Compute per-day-of-week baselines from historical snapshots."""
     by_day = {}
     for snap in snapshots:
+        missing_keys = REQUIRED_BASELINE_KEYS - snap.keys()
+        if missing_keys:
+            snap_id = snap.get("date", snap.get("id", "unknown"))
+            logger.warning(
+                "baselines: skipping partial snapshot — missing keys: %s — snap: %s",
+                missing_keys,
+                snap_id,
+            )
+            continue
         dow = snap.get("day_of_week", "Unknown")
         by_day.setdefault(dow, []).append(snap)
 

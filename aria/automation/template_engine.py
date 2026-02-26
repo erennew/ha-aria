@@ -91,7 +91,9 @@ def _generate_description(detection: DetectionResult) -> str:
         f"Confidence: {confidence_pct}%, observed {detection.observation_count} times.",
         f"Active: {detection.first_seen} to {detection.last_seen}.",
     ]
-    if detection.day_type != "all":
+    # "all" means no day-type restriction — do not add a day_type line.
+    # DetectionResult.day_type values: workday, weekend, holiday, wfh, all
+    if detection.day_type and detection.day_type != "all":
         lines.append(f"Day type: {detection.day_type}.")
 
     return " ".join(lines)

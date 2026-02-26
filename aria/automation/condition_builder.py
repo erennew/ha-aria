@@ -7,7 +7,7 @@ Conditions are optional enrichments — an automation is valid without any.
 import logging
 
 from aria.automation.models import DetectionResult
-from aria.automation.trigger_builder import _quote_state
+from aria.shared.yaml_utils import quote_state as _quote_state
 
 logger = logging.getLogger(__name__)
 

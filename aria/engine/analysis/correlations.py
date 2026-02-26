@@ -2,8 +2,14 @@
 
 import logging
 import math
+import os
 
 logger = logging.getLogger(__name__)
+
+# EV vehicle key in snapshot["ev"] dict.
+# Override via ARIA_EV_NAME env var if your vehicle is named differently.
+# Matches the key written by aria.engine.collectors.extractors (default: "TARS").
+EV_NAME = os.environ.get("ARIA_EV_NAME", "TARS")
 
 
 def pearson_r(x, y):
@@ -87,7 +93,7 @@ def cross_correlate(snapshots, min_r=0.5):
 
         series["useful_events"].append(snap.get("logbook_summary", {}).get("useful_events", 0))
 
-        ev = snap.get("ev", {}).get("TARS", {})
+        ev = snap.get("ev", {}).get(EV_NAME, {})
         series["ev_battery"].append(ev.get("battery_pct", 0))
         series["ev_power"].append(ev.get("charger_power_kw", 0))
 

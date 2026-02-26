@@ -8,10 +8,13 @@ Inspired by HA WashData — learns appliance fingerprints from power data.
 Operates on per-outlet wattage from USP PDU Pro smart plugs.
 """
 
+import logging
 from collections import defaultdict
 from datetime import datetime
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # Default thresholds for cycle detection
 DEFAULT_ON_THRESHOLD = 5.0  # Watts — outlet is "active" above this
@@ -120,6 +123,11 @@ class ApplianceProfiler:
             ApplianceProfile or None if insufficient cycles.
         """
         if len(cycles) < 2:
+            logger.warning(
+                "power_profiles.learn_profile: returned None for %s — need at least 2 cycles, got %d",
+                outlet_name,
+                len(cycles),
+            )
             return None
 
         durations = [c["duration_minutes"] for c in cycles]

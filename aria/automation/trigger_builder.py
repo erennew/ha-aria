@@ -4,10 +4,12 @@ Maps entity domains to appropriate HA trigger types and constructs
 valid trigger dicts for automation YAML generation.
 """
 
-from aria.automation.models import DetectionResult
+import logging
 
-# States that must be quoted as strings in YAML (HA interprets unquoted on/off as booleans)
-YAML_QUOTED_STATES = {"on", "off", "yes", "no", "true", "false", "home", "not_home"}
+from aria.automation.models import DetectionResult
+from aria.shared.yaml_utils import quote_state as _quote_state
+
+logger = logging.getLogger(__name__)
 
 # Domain → trigger type mapping
 DOMAIN_TRIGGER_MAP = {
@@ -94,18 +96,16 @@ def _build_numeric_trigger(
         # Use the observed value as an "above" threshold
         trigger["above"] = value - 1
         trigger["below"] = value + 1
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
         # Fallback: can't parse as number, use state trigger instead
+        logger.warning(
+            "trigger_builder: numeric_state parse error for '%s' — falling back to state trigger: %s",
+            entity_id,
+            e,
+        )
         trigger["trigger"] = "state"
         trigger["to"] = _quote_state(state)
     return trigger
-
-
-def _quote_state(state: str) -> str:
-    """Force-quote YAML-unsafe state values."""
-    if state.lower() in YAML_QUOTED_STATES:
-        return f'"{state}"'
-    return state
 
 
 def _format_duration(seconds: int) -> str:

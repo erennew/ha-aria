@@ -12,6 +12,10 @@ from aria.engine.config import AppConfig, OllamaConfig
 from aria.engine.llm.client import ollama_chat, strip_think_tags
 from aria.engine.storage.data_store import DataStore
 
+# Allowlist pattern for entity IDs supplied by the LLM.
+# Prevents YAML injection when interpolating into generated automation strings.
+_ENTITY_ID_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
+
 AUTOMATION_PROMPT = """You are a Home Assistant automation expert analyzing real behavioral data from a smart home.
 
 ## Entity Correlation Patterns (from learned data)
@@ -54,6 +58,26 @@ Example:
 "    entity_id: binary_sensor.motion_hallway\\n    to: 'on'\\naction:\\n"
 "  - service: light.turn_on\\n    target:\\n      entity_id: light.hallway"}}]
 """
+
+
+def _safe_entity_id(entity_id: str) -> str:
+    """Validate an entity ID from LLM output before YAML interpolation.
+
+    Raises ValueError if the entity_id does not match the expected pattern,
+    preventing YAML injection attacks from malformed LLM output.
+
+    Args:
+        entity_id: Entity ID string received from LLM.
+
+    Returns:
+        The entity_id unchanged if valid.
+
+    Raises:
+        ValueError: If entity_id does not match the allowlist pattern.
+    """
+    if not _ENTITY_ID_RE.match(entity_id):
+        raise ValueError(f"Invalid entity_id from LLM: {entity_id!r}")
+    return entity_id
 
 
 def _validate_yaml_structure(yaml_str: str) -> bool:
@@ -105,7 +129,11 @@ def parse_automation_suggestions(llm_response: str) -> list:
                 continue
             # Inject default alias if LLM omitted it
             if "alias" not in s["yaml"].lower():
-                entity = s.get("trigger_entity", "unknown")
+                raw_entity = s.get("trigger_entity", "unknown")
+                try:
+                    entity = _safe_entity_id(raw_entity)
+                except ValueError:
+                    entity = "unknown"
                 s["yaml"] = f"alias: 'ARIA Suggestion: {entity}'\n" + s["yaml"]
             if not _validate_yaml_structure(s["yaml"]):
                 continue

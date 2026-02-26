@@ -42,6 +42,9 @@ def ollama_chat(prompt, config: OllamaConfig = None):
     if config is None:
         config = OllamaConfig()
 
+    # Cap timeout at 30s and default to 30s if None/zero — prevents indefinite blocking
+    effective_timeout = config.timeout if config.timeout and config.timeout > 0 else 30
+
     payload = json.dumps(
         {
             "model": config.model,
@@ -55,7 +58,7 @@ def ollama_chat(prompt, config: OllamaConfig = None):
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=config.timeout) as resp:
+        with urllib.request.urlopen(req, timeout=effective_timeout) as resp:
             result = json.loads(resp.read())
         return result.get("message", {}).get("content", "")
     except Exception as e:
