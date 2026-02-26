@@ -12,6 +12,7 @@ Architecture:
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import math
@@ -53,6 +54,15 @@ logger = logging.getLogger(__name__)
 DECAY_HALF_LIFE_DAYS = 7
 WEEKDAY_ALIGNMENT_BONUS = 1.5
 ROLLING_WINDOWS_HOURS = [1, 3, 6]
+
+# Shared constant: all rolling-window feature names derived from ROLLING_WINDOWS_HOURS.
+# Used in BOTH _get_feature_names() (training) and _extract_features() (inference)
+# to guarantee training/inference feature alignment. Single source of truth — #260.
+ROLLING_FEATURE_NAMES: list[str] = [
+    f"rolling_{h}h_{metric}"
+    for h in ROLLING_WINDOWS_HOURS
+    for metric in ("event_count", "domain_entropy", "dominant_domain_pct", "trend")
+]
 
 
 def _compute_trend(relevant: list[dict[str, Any]]) -> float:
@@ -211,6 +221,20 @@ class MLEngine(Module):
         if self.models:
             self.model_status = "ready"
         self.logger.info("ML Engine initialized (model_status=%s)", self.model_status)
+
+    async def shutdown(self) -> None:
+        """Cancel in-flight training tasks and release resources."""
+        if hasattr(self, "_task") and self._task is not None:
+            self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
+            self._task = None
+
+        if hasattr(self, "_session") and self._session is not None:
+            await self._session.close()
+            self._session = None
+
+        self.logger.debug("MLEngineModule shutdown complete")
 
     async def _load_models(self):
         """Load trained models from disk."""
@@ -729,15 +753,8 @@ class MLEngine(Module):
         self._collect_dict_feature_names(config.get("event_features", {}), names)
 
         # Rolling window features (hub-only: live activity log stats not available to engine)
-        for hours in ROLLING_WINDOWS_HOURS:
-            names.extend(
-                [
-                    f"rolling_{hours}h_event_count",
-                    f"rolling_{hours}h_domain_entropy",
-                    f"rolling_{hours}h_dominant_domain_pct",
-                    f"rolling_{hours}h_trend",
-                ]
-            )
+        # Use shared constant ROLLING_FEATURE_NAMES for training/inference alignment — #260.
+        names.extend(ROLLING_FEATURE_NAMES)
 
         # Pattern features (Phase 3)
         if config.get("pattern_features", {}).get("trajectory_class", False):
@@ -1055,13 +1072,11 @@ class MLEngine(Module):
             snapshot, config, prev_snapshot, rolling_stats, segment_data=segment_data
         )
 
-        # Hub-only: append rolling window features from live activity log
+        # Hub-only: append rolling window features from live activity log.
+        # Use shared constant ROLLING_FEATURE_NAMES for training/inference alignment — #260.
         rws = rolling_window_stats or {}
-        for hours in ROLLING_WINDOWS_HOURS:
-            features[f"rolling_{hours}h_event_count"] = rws.get(f"rolling_{hours}h_event_count", 0)
-            features[f"rolling_{hours}h_domain_entropy"] = rws.get(f"rolling_{hours}h_domain_entropy", 0)
-            features[f"rolling_{hours}h_dominant_domain_pct"] = rws.get(f"rolling_{hours}h_dominant_domain_pct", 0)
-            features[f"rolling_{hours}h_trend"] = rws.get(f"rolling_{hours}h_trend", 0)
+        for name in ROLLING_FEATURE_NAMES:
+            features[name] = rws.get(name, 0)
 
         # Pattern features (Phase 3)
         if config.get("pattern_features", {}).get("trajectory_class", False):
