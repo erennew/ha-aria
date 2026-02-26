@@ -2,6 +2,7 @@
 
 import copy
 import unittest
+from datetime import UTC
 
 from aria.engine.collectors.snapshot import build_empty_snapshot
 from aria.engine.config import HolidayConfig
@@ -337,6 +338,41 @@ class TestMRMRFeatureSelection(unittest.TestCase):
         selected = mrmr_select(X, y, names, max_features=10)
         self.assertEqual(len(selected), 5)
         self.assertEqual(set(selected), set(names))
+
+
+# =============================================================================
+# #210 — build_time_features with no timestamp uses UTC-aware datetime
+# =============================================================================
+
+
+def test_time_features_no_timestamp_uses_utc():
+    """#210: when timestamp_str is None, datetime.now(tz=timezone.utc) must be used."""
+    from datetime import datetime as _dt
+    from unittest.mock import patch
+
+    import aria.engine.features.time_features as tf_module
+    from aria.engine.features.time_features import build_time_features
+
+    captured_calls = []
+
+    original_now = _dt.now
+
+    def mock_now(tz=None):
+        captured_calls.append(tz)
+        return original_now(tz=tz) if tz is not None else original_now()
+
+    with patch.object(tf_module, "datetime") as mock_dt:
+        # Make fromisoformat and strptime still work
+        mock_dt.fromisoformat = _dt.fromisoformat
+        mock_dt.strptime = _dt.strptime
+        mock_dt.now = mock_now
+
+        build_time_features(None)
+
+    assert len(captured_calls) == 1, f"Expected datetime.now() called once, got {len(captured_calls)}"
+    assert captured_calls[0] == UTC, (
+        f"Expected datetime.now(tz=timezone.utc) but got datetime.now(tz={captured_calls[0]})"
+    )
 
 
 if __name__ == "__main__":

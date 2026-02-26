@@ -1,7 +1,7 @@
 """Time-based feature engineering — cyclical encoding, sun-relative features, holidays."""
 
 import math
-from datetime import datetime
+from datetime import UTC, datetime
 
 # US holidays (Florida)
 try:
@@ -33,7 +33,7 @@ def build_time_features(timestamp_str, sun_data=None, date_str=None):
             else datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
         )
     else:
-        dt = datetime.now()
+        dt = datetime.now(tz=UTC)
 
     hour = dt.hour + dt.minute / 60.0
     dow = dt.weekday()
