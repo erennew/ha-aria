@@ -600,6 +600,20 @@ async def _register_monitor_modules(hub, ha_url, ha_token, _init, logger):
     except Exception as e:
         logger.warning(f"Presence module failed (non-fatal): {e}")
 
+    # unifi (optional — requires UNIFI_HOST env var and unifi.enabled=true)
+    try:
+        from aria.modules.unifi import UniFiModule
+
+        unifi = UniFiModule(
+            hub,
+            host=os.environ.get("UNIFI_HOST", ""),
+            api_key=os.environ.get("UNIFI_API_KEY", ""),
+        )
+        hub.register_module(unifi)
+        await _init(unifi, "unifi")()
+    except Exception as e:
+        logger.warning(f"UniFi module failed to register (non-fatal): {e}")
+
 
 def _log_module_summary(hub, logger):
     """Log a summary of module load status."""

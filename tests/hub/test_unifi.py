@@ -290,3 +290,20 @@ def test_cross_validate_no_change_when_no_client_state(module):
     room_signals = {"office": [("camera_person", 0.9, "detail", None)]}
     result = module.cross_validate_signals(room_signals)
     assert dict(result["office"])["camera_person"] == pytest.approx(0.9)
+
+
+def test_module_id_not_duplicated():
+    """Verify no other module uses the 'unifi' ID."""
+    import subprocess
+    from pathlib import Path
+
+    # Use the repo root that contains this worktree's aria/ package
+    repo_root = Path(__file__).parent.parent.parent
+    result = subprocess.run(
+        ["grep", "-r", 'module_id = "unifi"', "aria/"],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+    )
+    matches = [line for line in result.stdout.strip().splitlines() if not line.endswith("test_unifi.py")]
+    assert len(matches) == 1, f"Expected exactly one module with id 'unifi', got: {matches}"
