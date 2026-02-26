@@ -20,6 +20,7 @@ from aria.engine.models.device_failure import (
 )
 from aria.engine.models.isolation_forest import IsolationForestModel
 from aria.engine.models.training import (
+    _persist_anomaly_status,
     blend_predictions,
     count_days_of_data,
     predict_with_ml,
@@ -383,6 +384,55 @@ def test_autoencoder_convergence_warning_logged(tmp_path, caplog):
     assert any("convergence" in m.lower() or "mlpregressor" in m.lower() for m in warning_msgs), (
         f"Expected convergence WARNING to be logged, got: {caplog.records}"
     )
+
+
+class TestPersistAnomalyStatus:
+    """Tests for _persist_anomaly_status logging (Fix 2 — bare except guard)."""
+
+    def test_persist_anomaly_status_write_error_logs_warning(self, tmp_path, caplog):
+        """When write fails (read-only dir), logs WARNING instead of silently swallowing."""
+        import logging
+        import stat
+
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        # Make directory read-only so writes fail
+        models_dir.chmod(stat.S_IRUSR | stat.S_IXUSR)
+        try:
+            anomaly_result = {"samples": 100, "contamination": 0.05, "autoencoder_enabled": False}
+            with caplog.at_level(logging.WARNING, logger="aria.engine.models.training"):
+                _persist_anomaly_status(anomaly_result, str(models_dir))
+            assert any("anomaly status" in r.message.lower() or "persist" in r.message.lower() for r in caplog.records)
+        finally:
+            models_dir.chmod(stat.S_IRWXU)
+
+    def test_persist_anomaly_status_success_no_warning(self, tmp_path, caplog):
+        """Successful write produces no warning."""
+        import logging
+
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        anomaly_result = {"samples": 100, "contamination": 0.05, "autoencoder_enabled": False}
+        with caplog.at_level(logging.WARNING, logger="aria.engine.models.training"):
+            _persist_anomaly_status(anomaly_result, str(models_dir))
+
+        assert len([r for r in caplog.records if r.levelno >= logging.WARNING]) == 0
+        assert (models_dir / "isolation_forest_status.json").exists()
+
+    def test_persist_anomaly_status_with_autoencoder(self, tmp_path):
+        """Autoencoder-enabled result writes both status files."""
+        models_dir = tmp_path / "models"
+        models_dir.mkdir()
+        anomaly_result = {
+            "samples": 200,
+            "contamination": 0.05,
+            "autoencoder_enabled": True,
+            "ae_samples": 180,
+            "hidden_layers": [16, 8, 16],
+        }
+        _persist_anomaly_status(anomaly_result, str(models_dir))
+        assert (models_dir / "isolation_forest_status.json").exists()
+        assert (models_dir / "autoencoder_status.json").exists()
 
 
 if __name__ == "__main__":

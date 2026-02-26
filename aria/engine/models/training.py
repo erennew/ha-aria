@@ -39,8 +39,8 @@ def _persist_anomaly_status(anomaly_result, models_dir):
             ae_status_path = os.path.join(models_dir, "autoencoder_status.json")
             with open(ae_status_path, "w") as f:
                 json.dump(ae_status, f, indent=2)
-    except Exception:
-        pass  # Non-critical — dashboard status only
+    except Exception as e:
+        logger.warning("Training._persist_anomaly_status: failed to write anomaly status — %s", e)
 
 
 def _load_and_validate_snapshots(store, days):

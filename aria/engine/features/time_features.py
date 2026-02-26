@@ -1,7 +1,10 @@
 """Time-based feature engineering — cyclical encoding, sun-relative features, holidays."""
 
+import logging
 import math
 from datetime import UTC, datetime
+
+logger = logging.getLogger(__name__)
 
 # US holidays (Florida)
 try:
@@ -54,8 +57,8 @@ def build_time_features(timestamp_str, sun_data=None, date_str=None):
         try:
             sunrise_minutes = _time_to_minutes(sun_data.get("sunrise", "06:00"))
             sunset_minutes = _time_to_minutes(sun_data.get("sunset", "18:00"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("time_features: failed to parse sun times, using defaults — %s", e)
 
     daylight_total = max(1, sunset_minutes - sunrise_minutes)
     is_night = current_minutes < sunrise_minutes or current_minutes > sunset_minutes

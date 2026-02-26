@@ -450,9 +450,7 @@ class ActivityMonitor(Module):
                     },
                 )
             )
-            task.add_done_callback(
-                lambda t: self.logger.error(f"Event publish failed: {t.exception()}") if t.exception() else None
-            )
+            task.add_done_callback(self._log_task_exception)
         except RuntimeError as e:
             if "event loop" not in str(e).lower():
                 self.logger.warning(f"Unexpected RuntimeError during event publish: {e}")
@@ -608,6 +606,11 @@ class ActivityMonitor(Module):
         loop = asyncio.get_running_loop()
         fut = loop.run_in_executor(None, self._run_snapshot)
         fut.add_done_callback(self._snapshot_done_callback)
+
+    def _log_task_exception(self, task: asyncio.Task) -> None:
+        """Log exception from a background task if it failed."""
+        if not task.cancelled() and task.exception() is not None:
+            self.logger.error("Background task failed: %s", task.exception())
 
     def _snapshot_done_callback(self, future):
         """Log errors from the snapshot executor future."""

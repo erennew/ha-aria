@@ -375,5 +375,34 @@ def test_time_features_no_timestamp_uses_utc():
     )
 
 
+class TestTimeFeaturesLogging:
+    """Tests for the sun-times parse warning (Fix 3 — bare except guard)."""
+
+    def test_corrupt_sun_data_uses_defaults_and_warns(self, caplog):
+        """Corrupt sun_data values fall back to defaults and emit a WARNING."""
+        import logging
+
+        bad_sun_data = {"sunrise": "not-a-time", "sunset": "also-bad"}
+        with caplog.at_level(logging.WARNING, logger="aria.engine.features.time_features"):
+            tf = build_time_features("2026-02-10T10:00:00", bad_sun_data, "2026-02-10")
+
+        # Should use default sunrise=360 (06:00) and sunset=1080 (18:00)
+        assert tf["hour"] == 10
+        # 10:00 is between default sunrise (06:00) and sunset (18:00) — not night
+        assert tf["is_night"] is False
+        assert any("sun times" in r.message.lower() or "defaults" in r.message.lower() for r in caplog.records)
+
+    def test_valid_sun_data_no_warning(self, caplog):
+        """Valid sun_data produces no warning and uses the provided times."""
+        import logging
+
+        good_sun_data = {"sunrise": "06:30", "sunset": "18:30"}
+        with caplog.at_level(logging.WARNING, logger="aria.engine.features.time_features"):
+            tf = build_time_features("2026-02-10T10:00:00", good_sun_data, "2026-02-10")
+
+        assert tf["minutes_since_sunrise"] == (10 * 60) - (6 * 60 + 30)
+        assert len([r for r in caplog.records if r.levelno >= logging.WARNING]) == 0
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -67,8 +67,12 @@ class DataStore:
         path = self.paths.daily_dir / f"{date_str}.json"
         if not path.is_file():
             return None
-        with open(path) as f:
-            return json.load(f)
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_snapshot: corrupt JSON at %s — %s", path, e)
+            return {}
 
     def load_recent_snapshots(self, days: int = 30) -> list[dict]:
         """Load up to N days of recent daily snapshots."""
@@ -128,8 +132,12 @@ class DataStore:
         """Load baselines. Returns empty dict if not yet computed."""
         if not self.paths.baselines_path.is_file():
             return {}
-        with open(self.paths.baselines_path) as f:
-            return json.load(f)
+        try:
+            with open(self.paths.baselines_path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_baselines: corrupt JSON at %s — %s", self.paths.baselines_path, e)
+            return {}
 
     # --- Predictions ---
 
@@ -142,8 +150,12 @@ class DataStore:
         """Load predictions. Returns empty dict if none exist."""
         if not self.paths.predictions_path.is_file():
             return {}
-        with open(self.paths.predictions_path) as f:
-            return json.load(f)
+        try:
+            with open(self.paths.predictions_path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_predictions: corrupt JSON at %s — %s", self.paths.predictions_path, e)
+            return {}
 
     # --- Correlations ---
 
@@ -156,8 +168,12 @@ class DataStore:
         """Load correlations. Returns empty dict if not yet computed."""
         if not self.paths.correlations_path.is_file():
             return {}
-        with open(self.paths.correlations_path) as f:
-            return json.load(f)
+        try:
+            with open(self.paths.correlations_path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_correlations: corrupt JSON at %s — %s", self.paths.correlations_path, e)
+            return {}
 
     # --- Entity Correlations ---
 
@@ -172,8 +188,12 @@ class DataStore:
         path = self.paths.data_dir / "entity_correlations.json"
         if not path.is_file():
             return {}
-        with open(path) as f:
-            return json.load(f)
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_entity_correlations: corrupt JSON at %s — %s", path, e)
+            return {}
 
     # --- Accuracy History ---
 
@@ -181,8 +201,12 @@ class DataStore:
         """Load prediction accuracy history."""
         if not self.paths.accuracy_path.is_file():
             return {"scores": []}
-        with open(self.paths.accuracy_path) as f:
-            return json.load(f)
+        try:
+            with open(self.paths.accuracy_path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_accuracy_history: corrupt JSON at %s — %s", self.paths.accuracy_path, e)
+            return {"scores": []}
 
     def update_accuracy_history(self, new_score: dict) -> dict:
         """Append score to accuracy history, keep last 90 entries."""
@@ -200,8 +224,12 @@ class DataStore:
         """Load feature config. Returns None if not yet created."""
         if not self.paths.feature_config_path.is_file():
             return None
-        with open(self.paths.feature_config_path) as f:
-            return json.load(f)
+        try:
+            with open(self.paths.feature_config_path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_feature_config: corrupt JSON at %s — %s", self.paths.feature_config_path, e)
+            return {}
 
     def save_feature_config(self, config: dict):
         """Save feature config."""
@@ -214,8 +242,11 @@ class DataStore:
         """Load history of applied meta-learning suggestions."""
         path = self.paths.meta_dir / "applied.json"
         if path.is_file():
-            with open(path) as f:
-                return json.load(f)
+            try:
+                with open(path) as f:
+                    return json.load(f)
+            except json.JSONDecodeError as e:
+                logger.warning("DataStore.load_applied_suggestions: corrupt JSON at %s — %s", path, e)
         return {"applied": [], "total_applied": 0}
 
     def save_applied_suggestions(self, history: dict):
@@ -235,8 +266,12 @@ class DataStore:
         """Load trained Markov chain model. Returns None if not yet trained."""
         if not self.paths.sequence_model_path.is_file():
             return None
-        with open(self.paths.sequence_model_path) as f:
-            return json.load(f)
+        try:
+            with open(self.paths.sequence_model_path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_sequence_model: corrupt JSON at %s — %s", self.paths.sequence_model_path, e)
+            return None
 
     def save_sequence_anomalies(self, summary: dict):
         """Save sequence anomaly detection results."""
@@ -249,8 +284,12 @@ class DataStore:
         path = self.paths.data_dir / "sequence_anomalies.json"
         if not path.is_file():
             return None
-        with open(path) as f:
-            return json.load(f)
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            logger.warning("DataStore.load_sequence_anomalies: corrupt JSON at %s — %s", path, e)
+            return None
 
     # --- Logbook ---
 

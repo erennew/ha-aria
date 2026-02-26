@@ -795,3 +795,70 @@ class TestEntityCuration:
         }
         monitor._handle_state_changed(data2)
         assert len(monitor._activity_buffer) == 1
+
+
+# ============================================================================
+# _log_task_exception Tests (Fix 4 — done_callback guard)
+# ============================================================================
+
+
+class TestLogTaskException:
+    """Tests for ActivityMonitor._log_task_exception (Fix 4)."""
+
+    def test_log_task_exception_logs_on_failure(self, monitor, caplog):
+        """A failed (non-cancelled) task logs an error via _log_task_exception."""
+        import asyncio
+        import contextlib
+        import logging
+
+        async def _failing():
+            raise ValueError("simulated task failure")
+
+        async def run():
+            task = asyncio.create_task(_failing())
+            with contextlib.suppress(ValueError):
+                await task
+            with caplog.at_level(logging.ERROR):
+                monitor._log_task_exception(task)
+
+        asyncio.run(run())
+        assert any(
+            "simulated task failure" in r.message or "Background task failed" in r.message for r in caplog.records
+        )
+
+    def test_log_task_exception_silent_on_success(self, monitor, caplog):
+        """A successful task produces no log output."""
+        import asyncio
+        import logging
+
+        async def _ok():
+            return 42
+
+        async def run():
+            task = asyncio.create_task(_ok())
+            await task
+            with caplog.at_level(logging.ERROR):
+                monitor._log_task_exception(task)
+
+        asyncio.run(run())
+        assert len([r for r in caplog.records if r.levelno >= logging.ERROR]) == 0
+
+    def test_log_task_exception_silent_on_cancelled(self, monitor, caplog):
+        """A cancelled task does not raise CancelledError and produces no log output."""
+        import asyncio
+        import contextlib
+        import logging
+
+        async def _slow():
+            await asyncio.sleep(10)
+
+        async def run():
+            task = asyncio.create_task(_slow())
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            with caplog.at_level(logging.ERROR):
+                monitor._log_task_exception(task)
+
+        asyncio.run(run())
+        assert len([r for r in caplog.records if r.levelno >= logging.ERROR]) == 0
