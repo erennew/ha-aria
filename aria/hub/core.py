@@ -100,6 +100,7 @@ class IntelligenceHub:
         self._capability_registry = None  # Cached capability registry (created on first access)
         self.logger = logging.getLogger("hub")
         self._broadcast_callback: Callable | None = None  # Stored for unsubscribe on shutdown
+        self._subscribers: list[tuple[str, Callable]] = []  # (event_type, callback) pairs for cleanup
         self.entity_graph = EntityGraph()
         # EventStore lives alongside hub.db (same directory)
         events_db_path = str(Path(cache_path).parent / "events.db")
@@ -153,6 +154,7 @@ class IntelligenceHub:
             await self.on_config_updated(data)
 
         self.subscribe("config_updated", _dispatch_config_updated)
+        self._subscribers.append(("config_updated", _dispatch_config_updated))
 
         # Refresh entity graph when entities/devices/areas cache is updated
         async def _on_cache_updated_entity_graph(data: dict):
@@ -161,6 +163,7 @@ class IntelligenceHub:
                 await self._refresh_entity_graph()
 
         self.subscribe("cache_updated", _on_cache_updated_entity_graph)
+        self._subscribers.append(("cache_updated", _on_cache_updated_entity_graph))
 
         self._start_time = datetime.now(tz=UTC)
         self.logger.info("Hub initialized successfully")
@@ -202,6 +205,11 @@ class IntelligenceHub:
         """Shutdown hub and all modules."""
         self.logger.info("Shutting down ARIA Hub...")
         self._running = False
+
+        # Unsubscribe closures registered during initialize() to prevent ghost subscribers
+        for event_type, callback in self._subscribers:
+            self.unsubscribe(event_type, callback)
+        self._subscribers.clear()
 
         # Shutdown all modules
         for module_id, module in self.modules.items():
@@ -457,6 +465,7 @@ class IntelligenceHub:
         task = asyncio.create_task(run_task())
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
+        task.add_done_callback(self._log_task_exception)
 
         self.logger.info(f"Scheduled task: {task_id}" + (f" (interval: {interval})" if interval else " (one-time)"))
 
