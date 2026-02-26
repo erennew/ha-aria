@@ -1548,7 +1548,7 @@ def create_api(hub: IntelligenceHub) -> FastAPI:
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:8001", "http://localhost:8001"],
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-        allow_headers=["X-API-Key"],
+        allow_headers=["X-API-Key", "Content-Type"],
     )
 
     ws_manager = WebSocketManager()

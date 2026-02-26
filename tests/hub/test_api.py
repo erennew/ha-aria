@@ -132,3 +132,38 @@ class TestTrendDirectionThreshold:
         }
         result = _compute_stage_health(stats)
         assert result["trend_direction"] == "insufficient_data"
+
+
+# ============================================================================
+# #292: CORS allow_headers must include Content-Type
+# ============================================================================
+
+
+class TestCORSAllowHeaders:
+    """CORS preflight must allow Content-Type and X-API-Key headers."""
+
+    def test_cors_allow_headers_includes_content_type(self, api_hub, api_client):
+        """#292: CORS preflight must allow Content-Type header."""
+        resp = api_client.options(
+            "/api/models/retrain",
+            headers={
+                "Origin": "http://127.0.0.1:8001",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "Content-Type,X-API-Key",
+            },
+        )
+        allowed = resp.headers.get("access-control-allow-headers", "")
+        assert "content-type" in allowed.lower(), f"Content-Type not in CORS allow_headers: '{allowed}'"
+
+    def test_cors_allow_headers_includes_x_api_key(self, api_hub, api_client):
+        """#292 + #267: CORS preflight must allow X-API-Key header."""
+        resp = api_client.options(
+            "/api/models/retrain",
+            headers={
+                "Origin": "http://127.0.0.1:8001",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "X-API-Key",
+            },
+        )
+        allowed = resp.headers.get("access-control-allow-headers", "")
+        assert "x-api-key" in allowed.lower(), f"X-API-Key not in CORS allow_headers: '{allowed}'"
