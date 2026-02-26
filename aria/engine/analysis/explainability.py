@@ -48,8 +48,22 @@ def explain_prediction(model, scaler, feature_names, feature_vector, top_n=5):
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(scaled)
 
-    # shap_values shape: (1, n_features) for regression
-    sv = shap_values[0] if shap_values.ndim == 2 else shap_values
+    # Normalize shap_values to a 1D array of per-feature contributions:
+    #   ndim == 1: regression already flat — use directly
+    #   ndim == 2: (n_samples, n_features) for regression — extract first sample row
+    #   unexpected shape: log WARNING and attempt best-effort extraction
+    if shap_values.ndim == 1:
+        sv = shap_values
+    elif shap_values.ndim == 2:
+        sv = shap_values[0]  # (n_samples=1, n_features) → (n_features,)
+    else:
+        logger.warning(
+            "explain_prediction: unexpected shap_values ndim=%d shape=%s — attempting fallback extraction",
+            shap_values.ndim,
+            shap_values.shape,
+        )
+        # Best-effort: flatten to 1D for graceful degradation
+        sv = shap_values.reshape(-1)[: scaled.shape[1]]
 
     # Sort by absolute SHAP value descending
     indices = np.argsort(np.abs(sv))[::-1][:top_n]
