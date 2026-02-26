@@ -283,6 +283,10 @@ class OrchestratorModule(Module):
         Returns:
             Result dictionary with success status
         """
+        if self._session is None:
+            logger.warning("OrchestratorModule._session is None — skipping _create_automation request")
+            return {"success": False, "error": "HTTP session not initialized"}
+
         url = f"{self.ha_url}/api/config/automation/config/{automation_id}"
 
         try:
@@ -426,6 +430,10 @@ class OrchestratorModule(Module):
             pattern_id: Pattern identifier
             confidence: Pattern confidence (0-1)
         """
+        if self._session is None:
+            logger.warning("OrchestratorModule._session is None — skipping update_pattern_detection_sensor")
+            return
+
         sensor_entity_id = "sensor.ha_hub_pattern_detected"
         url = f"{self.ha_url}/api/states/{sensor_entity_id}"
 
