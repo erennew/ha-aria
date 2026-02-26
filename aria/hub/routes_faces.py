@@ -265,9 +265,12 @@ def _register_face_routes(router: APIRouter, hub: Any) -> None:  # noqa: PLR0912
             return {"status": "started", "clips_dir": clips_dir}
         except HTTPException:
             raise
-        except Exception:
-            logger.exception("Error starting bootstrap")
-            raise HTTPException(status_code=500, detail="Internal server error") from None
+        except Exception as exc:
+            logger.error("bootstrap trigger failed: %s", exc)
+            progress_tracker: _BootstrapProgress | None = getattr(hub, "_bootstrap_progress", None)
+            if progress_tracker is not None:
+                progress_tracker.finish()
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @router.post("/api/faces/deploy")
     async def deploy_to_frigate():
