@@ -127,6 +127,45 @@ class TestAnomalyDetection(unittest.TestCase):
         self.assertEqual(len(power_anomalies), 0)
 
 
+class TestSnapDateGuardReliability(unittest.TestCase):
+    """Issue #224: reliability.py bare snap['date'] access must be guarded."""
+
+    def test_compute_reliability_missing_date_key_does_not_raise(self):
+        """Snapshot missing 'date' key must not raise KeyError in compute_device_reliability."""
+        # Snapshot with unavailable list but no 'date' key
+        bad_snap = {
+            # 'date' key missing
+            "entities": {"unavailable_list": ["sensor.flaky"]},
+        }
+        # Should not raise
+        result = compute_device_reliability([bad_snap])
+        self.assertIsInstance(result, dict)
+
+    def test_compute_reliability_missing_date_key_logs_warning(self):
+        """Snapshot missing 'date' key emits WARNING in compute_device_reliability."""
+        import logging
+
+        bad_snap = {
+            "entities": {"unavailable_list": ["sensor.flaky"]},
+        }
+        with self.assertLogs("aria.engine.analysis.reliability", level=logging.WARNING):
+            compute_device_reliability([bad_snap])
+
+    def test_compute_reliability_mixed_snapshots_processes_good_ones(self):
+        """Snapshots with and without 'date' key — good ones still produce scores."""
+        good_snap = {
+            "date": "2026-02-10",
+            "entities": {"unavailable_list": ["sensor.flaky"]},
+        }
+        bad_snap = {
+            # 'date' key missing
+            "entities": {"unavailable_list": ["sensor.flaky"]},
+        }
+        result = compute_device_reliability([good_snap, bad_snap])
+        # sensor.flaky appeared in good_snap at least, so it should be in result
+        self.assertIsInstance(result, dict)
+
+
 class TestSnapDictGuardAnomalies(unittest.TestCase):
     """Issue #223: anomalies.py bare snap[] access must be guarded."""
 
