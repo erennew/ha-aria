@@ -191,7 +191,7 @@ class UniFiModule(Module):
                     {
                         "room": room,
                         "signal_type": "device_active",
-                        "value": 0.85,
+                        "value": 0.85,  # High confidence — active tx/rx proves device (and person) is present
                         "detail": f"{person or hostname} active",
                         "ts": ts,
                     }
@@ -207,6 +207,8 @@ class UniFiModule(Module):
         """Poll UniFi Network for WiFi client state every poll_interval_s."""
         url = f"https://{self._host}/proxy/network/api/s/{self._site}/stat/sta"
         while self.hub.is_running():
+            if not self._enabled:
+                break
             try:
                 async with self._session.get(url) as resp:
                     if resp.status == 401:
