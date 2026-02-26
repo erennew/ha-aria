@@ -28,6 +28,10 @@ from typing import Any
 from aria.engine.config import PathConfig
 from aria.shared.constants import DEFAULT_FEATURE_CONFIG
 
+# Single source of truth for the model file extension.
+# Training saves .pkl files; glob must match exactly.
+MODEL_EXT = ".pkl"
+
 
 class ReferenceModel:
     """Unmodified reference model for meta-learner loop stability.
@@ -86,8 +90,8 @@ class ReferenceModel:
                     }
                     # Copy model artifact to reference dir
                     src = Path(tmpdir)
-                    for f in src.glob("*.joblib"):
-                        dest = self._ref_dir / f"ref_{metric}.joblib"
+                    for f in src.glob(f"*{MODEL_EXT}"):
+                        dest = self._ref_dir / f"ref_{metric}{MODEL_EXT}"
                         shutil.copy2(str(f), str(dest))
             finally:
                 shutil.rmtree(tmpdir, ignore_errors=True)

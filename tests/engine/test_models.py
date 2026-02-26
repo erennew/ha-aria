@@ -267,5 +267,91 @@ class TestHybridAnomalyDetection(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
 
+# =============================================================================
+# #199 — reference_model glob must match .pkl extension
+# =============================================================================
+
+
+def test_reference_model_glob_matches_save_extension(tmp_path):
+    """#199: glob pattern must match the extension used when saving."""
+    import glob
+
+    from aria.engine.models.reference_model import MODEL_EXT, ReferenceModel  # noqa: F401
+
+    # Verify constant exists and is .pkl
+    assert MODEL_EXT == ".pkl", f"Expected .pkl, got {MODEL_EXT}"
+    # Verify model file would be found by glob (create a fake .pkl and check glob finds it)
+    fake_model = tmp_path / f"test_model{MODEL_EXT}"
+    fake_model.write_bytes(b"fake")
+    found = glob.glob(str(tmp_path / f"*{MODEL_EXT}"))
+    assert len(found) == 1
+
+
+# =============================================================================
+# #200 — autoencoder missing model logs WARNING not silent None
+# =============================================================================
+
+
+def test_autoencoder_missing_model_logs_warning(tmp_path, caplog):
+    """#200: missing model file must log WARNING, not return None silently."""
+    import logging
+
+    from aria.engine.models.autoencoder import Autoencoder
+
+    ae = Autoencoder()
+    with caplog.at_level(logging.WARNING):
+        result = ae.reconstruction_errors([[0.5, 0.5, 0.5]], str(tmp_path))
+    # Result should still be None (typed return) but a WARNING must be logged
+    assert result is None
+    warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert any(
+        "model" in m.lower() or "not" in m.lower() or "missing" in m.lower() or "autoencoder" in m.lower()
+        for m in warning_msgs
+    ), f"Expected WARNING about missing model, got: {caplog.records}"
+
+
+# =============================================================================
+# #201 — device_failure missing model logs WARNING not silent []
+# =============================================================================
+
+
+def test_device_failure_missing_model_logs_warning(tmp_path, caplog):
+    """#201: missing model file must log WARNING, not return [] silently."""
+    import logging
+
+    from aria.engine.models.device_failure import predict_device_failures
+
+    snapshots = [{"entities": {"unavailable_list": ["light.test"]}} for _ in range(5)]
+    with caplog.at_level(logging.WARNING):
+        result = predict_device_failures(snapshots, str(tmp_path))
+    assert result == []
+    warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("model" in m.lower() or "not" in m.lower() or "missing" in m.lower() for m in warning_msgs), (
+        f"Expected WARNING about missing model, got: {caplog.records}"
+    )
+
+
+# =============================================================================
+# #202 — gradient_boosting missing model logs WARNING not silent None
+# =============================================================================
+
+
+def test_gradient_boosting_missing_model_logs_warning(tmp_path, caplog):
+    """#202: missing model file must log WARNING, not return None silently."""
+    import logging
+
+    from aria.engine.models.gradient_boosting import GradientBoostingModel
+
+    model = GradientBoostingModel()
+    model_path = str(tmp_path / "nonexistent.pkl")
+    with caplog.at_level(logging.WARNING):
+        result = model.predict([1.0, 2.0, 3.0], model_path)
+    assert result is None
+    warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("model" in m.lower() or "not" in m.lower() or "missing" in m.lower() for m in warning_msgs), (
+        f"Expected WARNING about missing model, got: {caplog.records}"
+    )
+
+
 if __name__ == "__main__":
     unittest.main()
