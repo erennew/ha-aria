@@ -306,6 +306,19 @@ class AutomationGeneratorModule(Module):
             return {s["suggestion_id"]: s for s in cached["data"].get("suggestions", [])}
         return {}
 
+    async def _get_llm_model(self) -> str:
+        """Read the configured LLM model from hub config, falling back to the default.
+
+        Replaces the hardcoded 'qwen2.5-coder:14b' default in refine_automation().
+        """
+        default_model = "qwen2.5-coder:14b"
+        if hasattr(self.hub, "get_config_value"):
+            try:
+                return await self.hub.get_config_value("llm.automation_model", default_model)
+            except Exception as e:
+                logger.warning("Failed to read llm.automation_model from hub config: %s", e)
+        return default_model
+
     async def _process_candidate(
         self,
         detection: DetectionResult,
@@ -324,9 +337,10 @@ class AutomationGeneratorModule(Module):
             self.logger.error("Template build failed for %s: %s", detection.trigger_entity, e)
             return None
 
-        # LLM refinement (best-effort)
+        # LLM refinement (best-effort) — use configured model, not hardcoded default
         try:
-            automation = await refine_automation(automation)
+            llm_model = await self._get_llm_model()
+            automation = await refine_automation(automation, model=llm_model)
         except Exception:
             self.logger.debug("LLM refiner failed for %s, using template output", detection.trigger_entity)
 

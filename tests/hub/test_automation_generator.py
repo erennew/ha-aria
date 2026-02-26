@@ -796,3 +796,36 @@ class TestHealthCacheUpdate:
         await module.generate_suggestions()
         health = await hub.get_cache("automation_system_health")
         assert health["data"]["orchestrator_loaded"] is True
+
+
+# =============================================================================
+# #213 — automation_generator uses hub config for LLM model, not hardcoded
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_automation_generator_uses_hub_config_for_llm_model(hub):
+    """#213: automation_generator must have _get_llm_model() reading from hub config.
+
+    After fix: AutomationGeneratorModule._get_llm_model() reads 'llm.automation_model'
+    via hub.get_config_value() instead of using the hardcoded default in refine_automation.
+    """
+    from aria.modules.automation_generator import AutomationGeneratorModule
+
+    module = AutomationGeneratorModule(hub)
+    await module.initialize()
+
+    # Mock get_config_value on hub so the module can read config
+    hub._config_values = {"llm.automation_model": "test-model:7b"}
+
+    async def mock_get_config_value(key, fallback=None):
+        return hub._config_values.get(key, fallback)
+
+    hub.get_config_value = mock_get_config_value
+
+    # After fix: AutomationGeneratorModule has _get_llm_model() that uses hub config
+    assert hasattr(module, "_get_llm_model"), (
+        "AutomationGeneratorModule must have _get_llm_model() method after fix #213"
+    )
+    model = await module._get_llm_model()
+    assert model == "test-model:7b", f"Expected 'test-model:7b' from hub config, got '{model}'"
