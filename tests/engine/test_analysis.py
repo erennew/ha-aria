@@ -164,13 +164,14 @@ class TestSnapDateGuardReliability(unittest.TestCase):
         result = compute_device_reliability([good_snap, bad_snap])
         # sensor.flaky appeared in good_snap at least, so it should be in result
         self.assertIsInstance(result, dict)
+        self.assertIn("sensor.flaky", result)
 
 
 class TestSnapDictGuardAnomalies(unittest.TestCase):
     """Issue #223: anomalies.py bare snap[] access must be guarded."""
 
-    def test_detect_anomalies_missing_power_key_returns_empty(self):
-        """Snapshot missing 'power' key must not raise KeyError."""
+    def test_detect_anomalies_missing_power_key_partial_detection(self):
+        """Snapshot missing 'power' key: power skipped but other metrics can still produce results."""
         baselines = {
             "Tuesday": {
                 "power_watts": {"mean": 150, "stddev": 10},
@@ -180,17 +181,41 @@ class TestSnapDictGuardAnomalies(unittest.TestCase):
                 "useful_events": {"mean": 2500, "stddev": 300},
             }
         }
-        # Snapshot missing 'power' key
+        # Snapshot missing 'power' key but with extreme values for lights_on to trigger anomaly
         bad_snap = {
             "day_of_week": "Tuesday",
-            "lights": {"on": 30},
+            "lights": {"on": 100},  # 14σ above mean — should trigger anomaly
             "occupancy": {"device_count_home": 50},
             "entities": {"unavailable": 900},
             "logbook_summary": {"useful_events": 2500},
         }
-        # Should not raise — must return [] or an empty/partial list
+        # Should not raise — power skipped, lights_on anomaly detected
         result = detect_anomalies(bad_snap, baselines)
         self.assertIsInstance(result, list)
+        metrics_detected = [a["metric"] for a in result]
+        # power_watts must be absent (key missing)
+        self.assertNotIn("power_watts", metrics_detected)
+        # lights_on must be present (extreme value in snapshot)
+        self.assertIn("lights_on", metrics_detected)
+
+    def test_detect_anomalies_all_keys_missing_returns_empty(self):
+        """Snapshot with all metric keys missing returns empty list."""
+        baselines = {
+            "Tuesday": {
+                "power_watts": {"mean": 150, "stddev": 10},
+                "lights_on": {"mean": 30, "stddev": 5},
+                "devices_home": {"mean": 50, "stddev": 10},
+                "unavailable": {"mean": 900, "stddev": 20},
+                "useful_events": {"mean": 2500, "stddev": 300},
+            }
+        }
+        empty_snap = {
+            "day_of_week": "Tuesday",
+            "logbook_summary": {"useful_events": 2500},
+        }
+        result = detect_anomalies(empty_snap, baselines)
+        self.assertIsInstance(result, list)
+        self.assertEqual(result, [])
 
     def test_detect_anomalies_missing_power_key_logs_warning(self):
         """Snapshot missing 'power' key emits WARNING."""

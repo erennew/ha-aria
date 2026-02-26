@@ -30,7 +30,7 @@ def score_prediction(metric, predictions, actual_snapshot):
 
     actual_fn = METRIC_TO_ACTUAL.get(metric)
     if actual_fn is None:
-        return {"accuracy": 0, "error": None}
+        return {"accuracy": None, "error": None}
     try:
         actual = actual_fn(actual_snapshot)
     except KeyError as exc:
@@ -39,7 +39,7 @@ def score_prediction(metric, predictions, actual_snapshot):
             metric,
             exc,
         )
-        return {"accuracy": 0, "error": None}
+        return {"accuracy": None, "error": None}
 
     error = abs(predicted - actual)
     sigma_error = error / stddev if stddev > 0 else error

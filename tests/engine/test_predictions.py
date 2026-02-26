@@ -180,8 +180,8 @@ class TestMLEnhancedPredictions(unittest.TestCase):
 class TestScoringKeyErrorGuard:
     """Issue #215: METRIC_TO_ACTUAL lambda KeyError must not propagate silently."""
 
-    def test_score_prediction_missing_power_key_returns_zero_accuracy(self, caplog):
-        """score_prediction with snapshot missing 'power' key logs WARNING, returns accuracy=0."""
+    def test_score_prediction_missing_power_key_returns_none_accuracy(self, caplog):
+        """score_prediction with snapshot missing 'power' key logs WARNING, returns accuracy=None."""
         import logging
 
         # Snapshot missing the 'power' key entirely
@@ -196,12 +196,12 @@ class TestScoringKeyErrorGuard:
         with caplog.at_level(logging.WARNING):
             result = score_prediction("power_watts", prediction, bad_snapshot)
 
-        assert result["accuracy"] == 0
+        assert result["accuracy"] is None
         assert result["error"] is None
         assert any("power_watts" in r.message for r in caplog.records)
 
-    def test_score_prediction_missing_lights_key_returns_zero_accuracy(self, caplog):
-        """score_prediction with snapshot missing 'lights' key logs WARNING, returns accuracy=0."""
+    def test_score_prediction_missing_lights_key_returns_none_accuracy(self, caplog):
+        """score_prediction with snapshot missing 'lights' key logs WARNING, returns accuracy=None."""
         import logging
 
         bad_snapshot = {
@@ -215,11 +215,39 @@ class TestScoringKeyErrorGuard:
         with caplog.at_level(logging.WARNING):
             result = score_prediction("lights_on", prediction, bad_snapshot)
 
-        assert result["accuracy"] == 0
+        assert result["accuracy"] is None
         assert result["error"] is None
 
-    def test_score_all_predictions_skips_bad_metric_without_crash(self):
-        """score_all_predictions with a bad snapshot does not crash even if one metric key is missing."""
+    def test_score_all_predictions_excludes_none_metrics_from_mean(self):
+        """score_all_predictions excludes missing-key metrics (accuracy=None) from the overall mean."""
+        # Snapshot with only power present — other keys missing
+        partial_snapshot = {
+            "power": {"total_watts": 150},
+            "logbook_summary": {"useful_events": 2500},
+        }
+        predictions = {
+            "target_date": "2026-02-11",
+            "prediction_method": "statistical",
+            "days_of_data": 0,
+            "power_watts": {"predicted": 150, "baseline_stddev": 10},
+            "lights_on": {"predicted": 30, "baseline_stddev": 5},
+            "devices_home": {"predicted": 50, "baseline_stddev": 10},
+            "unavailable": {"predicted": 900, "baseline_stddev": 20},
+            "useful_events": {"predicted": 2500, "baseline_stddev": 300},
+        }
+        result = score_all_predictions(predictions, partial_snapshot)
+        assert isinstance(result, dict)
+        assert "overall" in result
+        # power_watts and useful_events have data; the 3 missing metrics must not
+        # drag the mean down to 0 — overall should be > 0
+        assert result["overall"] > 0
+        # Confirm missing-key metrics carry accuracy=None (excluded from mean)
+        assert result["metrics"]["lights_on"]["accuracy"] is None
+        assert result["metrics"]["devices_home"]["accuracy"] is None
+        assert result["metrics"]["unavailable"]["accuracy"] is None
+
+    def test_score_all_predictions_all_missing_returns_zero_overall(self):
+        """score_all_predictions with all metrics missing returns overall=0."""
         bad_snapshot = {}  # Everything missing
         predictions = {
             "target_date": "2026-02-11",
@@ -231,10 +259,9 @@ class TestScoringKeyErrorGuard:
             "unavailable": {"predicted": 900, "baseline_stddev": 20},
             "useful_events": {"predicted": 2500, "baseline_stddev": 300},
         }
-        # Must not raise — returns a result dict with overall=0
         result = score_all_predictions(predictions, bad_snapshot)
         assert isinstance(result, dict)
-        assert "overall" in result
+        assert result["overall"] == 0
 
 
 if __name__ == "__main__":

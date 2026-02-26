@@ -18,8 +18,8 @@ _METRIC_KEYS = {
 def _extract_current_values(snapshot):
     """Extract all current metric values from a snapshot with null guards.
 
-    Returns (values_dict, error_occurred) where error_occurred is True if any
-    required key was missing.
+    Returns a values dict where metrics with missing snapshot keys are set to
+    None (rather than aborting all detection). Callers must skip None entries.
     """
     snap_id = snapshot.get("date", snapshot.get("id", "unknown"))
     values = {}
@@ -28,7 +28,8 @@ def _extract_current_values(snapshot):
         top = snapshot.get(top_key)
         if top is None:
             logger.warning("detect_anomalies: snapshot missing '%s' key — snap: %s", top_key, snap_id)
-            return None
+            values[metric] = None
+            continue
         val = top.get(sub_key)
         if val is None:
             logger.warning(
@@ -37,7 +38,8 @@ def _extract_current_values(snapshot):
                 sub_key,
                 snap_id,
             )
-            return None
+            values[metric] = None
+            continue
         values[metric] = val
 
     values["useful_events"] = snapshot.get("logbook_summary", {}).get("useful_events", 0)
@@ -52,11 +54,11 @@ def detect_anomalies(snapshot, baselines):
         return []
 
     current_values = _extract_current_values(snapshot)
-    if current_values is None:
-        return []
 
     anomalies = []
     for metric, current in current_values.items():
+        if current is None:
+            continue
         bl = baseline.get(metric, {})
         mean = bl.get("mean")
         stddev = bl.get("stddev")
