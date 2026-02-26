@@ -75,6 +75,12 @@ class MockHub:
     async def publish(self, event_type: str, data: Any):
         self._published.append((event_type, data))
 
+    def subscribe(self, event_type: str, callback) -> None:
+        pass
+
+    def unsubscribe(self, event_type: str, callback) -> None:
+        pass
+
 
 # ============================================================================
 # Fixtures

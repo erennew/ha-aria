@@ -156,6 +156,9 @@ class PresenceModule(Module):
         self._face_last_processed: str | None = None  # exposed to hub for /api/faces/stats
         self._face_pipeline_errors: int = 0
 
+        # Hub event subscriber callback references (for unsubscribe in shutdown)
+        self._sub_unifi_protect = None
+
     async def _discover_camera_rooms(self) -> dict[str, str]:
         """Build camera->room mapping from HA entity/device registry cache.
 
@@ -365,10 +368,16 @@ class PresenceModule(Module):
         except Exception as e:
             self.logger.warning(f"Camera discovery failed (non-fatal): {e}")
 
+        # Subscribe to UniFi Protect person events (published by UniFiModule)
+        self._sub_unifi_protect = self._handle_unifi_protect_person
+        self.hub.subscribe("unifi_protect_person", self._sub_unifi_protect)
+
         self.logger.info("Presence module started")
 
     async def shutdown(self):
         """Clean up MQTT connection and HTTP session."""
+        if self._sub_unifi_protect:
+            self.hub.unsubscribe("unifi_protect_person", self._sub_unifi_protect)
         if self._http_session:
             with contextlib.suppress(Exception):
                 await self._http_session.close()
@@ -385,6 +394,14 @@ class PresenceModule(Module):
                 await self._refresh_camera_rooms()
             except Exception as e:
                 self.logger.warning(f"Camera refresh on discovery event failed: {e}")
+
+    async def _handle_unifi_protect_person(self, payload: dict) -> None:
+        """Ingest protect_person signal from UniFiModule into room signal history."""
+        room = payload.get("room")
+        value = payload.get("value", 0.85)
+        detail = payload.get("detail", "protect_person")
+        if room:
+            self._add_signal(room, "protect_person", value, detail, datetime.now())
 
     # ------------------------------------------------------------------
     # Frigate API helpers (face config, thumbnails, labeled faces)

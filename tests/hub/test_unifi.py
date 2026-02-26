@@ -23,7 +23,7 @@ def hub():
     )
     h.subscribe = MagicMock()
     h.unsubscribe = MagicMock()
-    h.publish = MagicMock()
+    h.publish = AsyncMock()
     h.set_cache = AsyncMock()
     h.get_cache = AsyncMock(return_value=None)
     h.is_running = MagicMock(return_value=False)

@@ -54,6 +54,9 @@ class UniFiModule(Module):
         """Load all unifi.* config values from hub."""
         enabled_str = self.hub.get_config_value("unifi.enabled", "false")
         self._enabled = str(enabled_str).lower() in ("true", "1", "yes")
+        config_host = self.hub.get_config_value("unifi.host", "")
+        if config_host and not os.environ.get("UNIFI_HOST"):
+            self._host = config_host.rstrip("/")
         self._site = self.hub.get_config_value("unifi.site", "default")
         self._poll_interval = int(self.hub.get_config_value("unifi.poll_interval_s", 30))
         self._rssi_threshold = int(self.hub.get_config_value("unifi.rssi_room_threshold", -75))
@@ -315,6 +318,18 @@ class UniFiModule(Module):
             "event_id": event.get("event_id"),
         }
         await self.hub.set_cache("unifi_protect_signal", signal)
+        score = event.get("score", 0)
+        camera_name = event.get("camera_name", "?")
+        await self.hub.publish(
+            "unifi_protect_person",
+            {
+                "room": room,
+                "signal_type": "protect_person",
+                "value": round(float(score) * 0.85, 3),  # same weight as protect_person in SENSOR_CONFIG
+                "detail": f"protect:{camera_name}",
+                "score": score,
+            },
+        )
         logger.debug("UniFi Protect: person in %s (event=%s)", room, event.get("event_id"))
 
         # Fetch thumbnail and feed into face pipeline (non-fatal)
@@ -390,7 +405,7 @@ class UniFiModule(Module):
             }
             await self._handle_protect_person(event_dict, room)
         except Exception as e:
-            logger.debug("UniFi Protect: dispatch error — %s", e)
+            logger.warning("UniFi Protect: dispatch error — %s", e)
 
     async def _protect_ws_loop(self) -> None:
         """Subscribe to UniFi Protect WebSocket via uiprotect library.
