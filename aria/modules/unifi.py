@@ -273,7 +273,10 @@ class UniFiModule(Module):
                     clients = data.get("data", [])
                     signals = self._process_clients(clients)
 
-                    # Publish signals to hub for PresenceModule cross-validation
+                    # Publish home/away + client snapshot to hub cache.
+                    # PresenceModule reads "home" for the gate and accesses _last_client_state
+                    # directly via get_module("unifi") for cross-validation.
+                    # "signals" is included for external inspection/debugging only.
                     await self.hub.set_cache(
                         "unifi_client_state",
                         {
