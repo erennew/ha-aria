@@ -350,58 +350,45 @@ class TestEventStoreMigrationFailure:
         await store.close()
 
     @pytest.mark.asyncio
-    async def test_unexpected_migration_error_is_logged_and_reraised(self, tmp_path):
-        """An unexpected exception during migration must be logged and re-raised."""
-        import logging
+    async def test_unexpected_migration_error_is_logged_and_reraised(self, tmp_path, caplog):
+        """An unexpected exception during migration must be logged and re-raised.
+
+        This test calls store.initialize() with a patched connection so that the
+        ALTER TABLE step raises a non-duplicate-column error.  The real initialize()
+        code path must log at ERROR level and re-raise — the test verifies both.
+        """
+        import aiosqlite
 
         store = EventStore(str(tmp_path / "events_fail.db"))
 
-        log_records = []
+        # Patch aiosqlite.connect to return a real connection whose execute()
+        # raises RuntimeError on ALTER TABLE but delegates all other calls to the
+        # real aiosqlite cursor so the CREATE TABLE / PRAGMA steps succeed.
+        original_connect = aiosqlite.connect
 
-        class CapturingHandler(logging.Handler):
-            def emit(self, record):
-                log_records.append(record)
+        async def patched_connect(path, *args, **kwargs):
+            real_conn = await original_connect(path, *args, **kwargs)
+            original_execute = real_conn.execute
 
-        handler = CapturingHandler()
-        logging.getLogger("aria.shared.event_store").addHandler(handler)
-        logging.getLogger("aria.shared.event_store").setLevel(logging.ERROR)
-
-        try:
-            original_execute = None
-
-            async def mock_execute(sql, *args, **kwargs):
+            async def execute_with_alter_failure(sql, *a, **kw):
                 if "ALTER TABLE" in sql:
                     raise RuntimeError("unexpected schema error")
-                return await original_execute(sql, *args, **kwargs)
+                return await original_execute(sql, *a, **kw)
 
-            # Connect and set up schema first
-            import aiosqlite
+            real_conn.execute = execute_with_alter_failure
+            return real_conn
 
-            conn = await aiosqlite.connect(str(tmp_path / "events_fail.db"))
-            original_execute = conn.execute
-            conn.execute = mock_execute
-            store._conn = conn
+        import logging
 
-            with pytest.raises(RuntimeError, match="unexpected schema error"):
-                # Manually call just the migration portion
-                try:
-                    await conn.execute("ALTER TABLE state_change_events ADD COLUMN context_parent_id TEXT")
-                except Exception as e:
-                    if "duplicate column" not in str(e).lower():
-                        logging.getLogger("aria.shared.event_store").error(
-                            "event_store migration failed — context_parent_id column: %s — db_path: %s",
-                            e,
-                            store.db_path,
-                        )
-                        raise
+        with (
+            patch("aiosqlite.connect", side_effect=patched_connect),
+            caplog.at_level(logging.ERROR, logger="aria.shared.event_store"),
+            pytest.raises(RuntimeError, match="unexpected schema error"),
+        ):
+            await store.initialize()
 
-            # Verify the error was logged
-            error_records = [r for r in log_records if r.levelno >= logging.ERROR]
-            assert any("migration failed" in r.getMessage() for r in error_records)
-
-            await conn.close()
-        finally:
-            logging.getLogger("aria.shared.event_store").removeHandler(handler)
+        # Verify the error was logged by the real initialize() code
+        assert any("migration failed" in record.message for record in caplog.records if record.levelno >= logging.ERROR)
 
 
 # ---------------------------------------------------------------------------
@@ -468,6 +455,21 @@ class TestEventStoreReconnect:
             event_store_logger.setLevel(original_level)
             event_store_logger.removeHandler(handler)
             await store.close()
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_prevents_reconnect_storm(self, tmp_path):
+        """After a failed reconnect, _get_conn() raises immediately without retrying."""
+        store = EventStore(str(tmp_path / "events_cb.db"))
+        # Simulate a prior failed reconnect — flag set, connection absent
+        store._reconnect_failed = True
+        store._conn = None
+
+        with pytest.raises(RuntimeError, match="previously failed to reconnect"):
+            await store._get_conn()
+
+        # The flag being True and the exception message prove the fast path fired
+        # (initialize() was never called — no DB file was created)
+        assert not (tmp_path / "events_cb.db").exists()
 
     @pytest.mark.asyncio
     async def test_batch_insert_after_connection_dropped(self, tmp_path):
