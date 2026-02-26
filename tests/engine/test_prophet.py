@@ -178,5 +178,26 @@ class TestProphetRegistered(unittest.TestCase):
         self.assertIn("prophet", ModelRegistry.available())
 
 
+# =============================================================================
+# #208 — prophet_forecaster uses logger not print()
+# =============================================================================
+
+
+def test_prophet_train_no_stdout(capsys, tmp_path):
+    """#208: train_prophet_models() must not write to stdout — use logger instead."""
+    import pytest
+
+    if not HAS_PROPHET:
+        pytest.skip("prophet not installed")
+
+    from aria.engine.models.prophet_forecaster import train_prophet_models
+
+    snapshots = _make_daily_snapshots(n_days=20)
+    train_prophet_models(snapshots, str(tmp_path))
+
+    captured = capsys.readouterr()
+    assert captured.out == "", f"Expected no stdout output, got: {captured.out!r}"
+
+
 if __name__ == "__main__":
     unittest.main()

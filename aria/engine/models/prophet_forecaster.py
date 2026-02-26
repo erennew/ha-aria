@@ -8,10 +8,13 @@ Blended with GradientBoosting output via the existing blend_predictions
 mechanism — Prophet weight increases with data maturity.
 """
 
+import logging
 import os
 import pickle
 
 from aria.engine.models.registry import BaseModel, ModelRegistry
+
+logger = logging.getLogger(__name__)
 
 HAS_PROPHET = True
 try:
@@ -194,9 +197,9 @@ def train_prophet_models(daily_snapshots, model_dir, holidays_list=None):
         result = forecaster.train(metric, daily_snapshots, model_dir, holidays_list)
         results[metric] = result
         if "error" not in result:
-            print(f"  Prophet {metric}: MAE={result['mae']}, MAPE={result['mape']}%")
+            logger.info("Prophet %s: MAE=%s, MAPE=%s%%", metric, result["mae"], result["mape"])
         else:
-            print(f"  Prophet {metric}: {result['error']}")
+            logger.warning("Prophet %s: %s", metric, result["error"])
 
     return results
 
