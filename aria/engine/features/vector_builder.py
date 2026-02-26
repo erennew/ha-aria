@@ -203,8 +203,15 @@ def extract_target_values(snapshot):
     }
 
 
-def build_training_data(snapshots, config=None):
+def build_training_data(snapshots, config=None, segment_data_list=None):
     """Build feature matrix and target arrays from a list of snapshots.
+
+    Args:
+        snapshots: List of snapshot dicts.
+        config: Feature config dict. Defaults to DEFAULT_FEATURE_CONFIG.
+        segment_data_list: Optional list of segment_data dicts (one per snapshot)
+            from SegmentBuilder. When provided, event features will be populated
+            from the corresponding segment_data entry rather than defaulting to 0.
 
     Returns (feature_names, X_list_of_dicts, targets_dict_of_lists).
     """
@@ -224,7 +231,8 @@ def build_training_data(snapshots, config=None):
             rolling["power_mean_7d"] = sum(s.get("power", {}).get("total_watts", 0) for s in recent) / len(recent)
             rolling["lights_mean_7d"] = sum(s.get("lights", {}).get("on", 0) for s in recent) / len(recent)
 
-        fv = build_feature_vector(snap, config, prev, rolling)
+        segment_data = segment_data_list[i] if segment_data_list and i < len(segment_data_list) else None
+        fv = build_feature_vector(snap, config, prev, rolling, segment_data=segment_data)
         # Convert to ordered list matching feature_names
         row = [fv.get(name, 0) for name in feature_names]
         X.append(row)

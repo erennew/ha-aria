@@ -139,3 +139,45 @@ class TestEventFeaturesWithSegment:
         assert "motion_events" not in names
         assert "unique_entities_active" in names
         assert "domain_entropy" not in names
+
+
+# =============================================================================
+# #212 — build_training_data must pass segment_data to build_feature_vector
+# =============================================================================
+
+
+def test_build_training_data_passes_segment_data():
+    """#212: build_training_data(segment_data_list=...) must produce non-zero event features."""
+    from aria.engine.features.vector_builder import build_training_data
+    from aria.shared.constants import DEFAULT_FEATURE_CONFIG
+
+    snapshot = _make_minimal_snapshot()
+    segment_data = {
+        "event_count": 42,
+        "light_transitions": 7,
+        "motion_events": 3,
+        "unique_entities_active": 10,
+        "domain_entropy": 1.5,
+    }
+
+    # Without segment_data: all event features are 0
+    _, X_no_seg, _ = build_training_data([snapshot], config=DEFAULT_FEATURE_CONFIG)
+    feature_names, X_with_seg, _ = build_training_data(
+        [snapshot],
+        config=DEFAULT_FEATURE_CONFIG,
+        segment_data_list=[segment_data],
+    )
+
+    event_feature_names = [
+        "event_count",
+        "light_transitions",
+        "motion_events",
+        "unique_entities_active",
+        "domain_entropy",
+    ]
+
+    for feat in event_feature_names:
+        if feat in feature_names:
+            idx = feature_names.index(feat)
+            assert X_no_seg[0][idx] == 0, f"{feat} should be 0 without segment_data"
+            assert X_with_seg[0][idx] != 0, f"{feat} should be non-zero when segment_data is provided"
