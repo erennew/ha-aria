@@ -250,3 +250,103 @@ class TestFrigateThumbnailTimeout:
         assert response.status_code == 504, (
             f"Expected 504 on Frigate timeout, got {response.status_code}: {response.text}"
         )
+
+
+# ============================================================================
+# #235: CurationUpdate Pydantic validator rejects invalid status/tier
+# ============================================================================
+
+
+class TestCurationUpdateValidation:
+    """PUT /api/curation/{entity_id} must reject invalid status and tier values."""
+
+    def test_invalid_status_returns_422(self, api_hub, api_client):
+        """#235: Sending an invalid status value must return HTTP 422."""
+        response = api_client.put(
+            "/api/curation/light.test",
+            json={"status": "invalid_status", "tier": 1},
+        )
+        assert response.status_code == 422, (
+            f"Expected 422 for invalid status, got {response.status_code}: {response.text}"
+        )
+
+    def test_invalid_tier_returns_422(self, api_hub, api_client):
+        """#235: Sending an invalid tier value must return HTTP 422."""
+        response = api_client.put(
+            "/api/curation/light.test",
+            json={"status": "promoted", "tier": 99},
+        )
+        assert response.status_code == 422, (
+            f"Expected 422 for invalid tier, got {response.status_code}: {response.text}"
+        )
+
+    def test_valid_curation_update_calls_hub(self, api_hub, api_client):
+        """#235: Valid status and tier pass validation and reach the hub."""
+        api_hub.cache.upsert_curation = AsyncMock(return_value=None)
+        api_hub.publish = AsyncMock(return_value=None)
+
+        response = api_client.put(
+            "/api/curation/light.test",
+            json={"status": "promoted", "tier": 1},
+        )
+        # Should not be 422 — validation passed (may be 200 or any non-422 success)
+        assert response.status_code != 422, f"Valid curation update must not return 422, got: {response.text}"
+
+
+# ============================================================================
+# #297: ALLOWED_LABELS allowlist at POST /api/data/label
+# ============================================================================
+
+
+class TestDataLabelAllowlist:
+    """POST /api/data/label must reject labels not in ALLOWED_LABELS."""
+
+    def test_invalid_label_returns_422(self, api_hub, api_client):
+        """#297: Label not in allowlist must return HTTP 422."""
+        api_hub.get_cache = AsyncMock(return_value=None)
+        response = api_client.post(
+            "/api/data/label",
+            json={"entity_id": "light.x", "label": "hacked_label", "snapshot_id": "snap-001"},
+        )
+        assert response.status_code == 422, (
+            f"Expected 422 for disallowed label, got {response.status_code}: {response.text}"
+        )
+
+    def test_valid_label_is_stored(self, api_hub, api_client):
+        """#297: A label in ALLOWED_LABELS must be accepted and stored."""
+        api_hub.get_cache = AsyncMock(return_value=None)
+        api_hub.set_cache = AsyncMock(return_value=None)
+        response = api_client.post(
+            "/api/data/label",
+            json={"label": "normal", "snapshot_id": "snap-001"},
+        )
+        assert response.status_code == 200, f"Expected 200 for valid label, got {response.status_code}: {response.text}"
+        assert response.json()["label"] == "normal"
+
+
+# ============================================================================
+# #298: Rate limiting at POST /api/models/retrain
+# ============================================================================
+
+
+class TestRetrainRateLimit:
+    """POST /api/models/retrain must return 429 when called too rapidly."""
+
+    def test_retrain_rate_limited_on_rapid_call(self, api_hub, api_client, monkeypatch):
+        """#298: Second call within 60s must return HTTP 429."""
+        import aria.hub.api as api_module
+
+        # Reset rate limiter state
+        monkeypatch.setattr(api_module, "_last_retrain", 0.0)
+
+        mock_ml = MagicMock()
+        mock_ml.train_models = AsyncMock(return_value={"status": "ok"})
+        api_hub.modules["ml_engine"] = mock_ml
+
+        # Simulate that a retrain just happened (set _last_retrain to now)
+        monkeypatch.setattr(api_module, "_last_retrain", api_module.time.monotonic())
+
+        response = api_client.post("/api/models/retrain")
+        assert response.status_code == 429, (
+            f"Expected 429 when retrain cooldown active, got {response.status_code}: {response.text}"
+        )

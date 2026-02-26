@@ -2,7 +2,7 @@
 
 import pytest
 
-from aria.shared.day_classifier import classify_days
+from aria.shared.day_classifier import _parse_date, classify_days
 
 
 @pytest.fixture
@@ -233,3 +233,36 @@ class TestDayContextOutput:
             config=default_config,
         )
         assert results[0].day_type == "vacation"
+
+
+# ============================================================================
+# #251: _parse_date("") returns None, doesn't raise
+# ============================================================================
+
+
+class TestParseDateGuard:
+    """_parse_date must return None for empty/None input, not raise."""
+
+    def test_empty_string_returns_none(self):
+        """#251: _parse_date('') must return None without raising."""
+        result = _parse_date("")
+        assert result is None
+
+    def test_none_input_returns_none(self):
+        """#251: _parse_date(None) must return None without raising."""
+        result = _parse_date(None)
+        assert result is None
+
+    def test_valid_date_is_parsed(self):
+        """#251: _parse_date('2026-01-15') returns a valid date object."""
+        from datetime import date
+
+        result = _parse_date("2026-01-15")
+        assert result == date(2026, 1, 15)
+
+    def test_iso_datetime_returns_date(self):
+        """_parse_date handles full ISO datetime strings by extracting the date part."""
+        from datetime import date
+
+        result = _parse_date("2026-01-15T08:30:00")
+        assert result == date(2026, 1, 15)

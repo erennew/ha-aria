@@ -284,3 +284,31 @@ class TestConcurrentSubscription:
         hub.subscribe("test_event", callback_that_subscribes)
         await hub.publish("test_event", {"key": "value"})
         assert "first" in called
+
+
+# ============================================================================
+# #234: _prune_stale_data() guards exceptions and logs warning
+# ============================================================================
+
+
+class TestPruneStaleDataExceptionGuard:
+    """_prune_stale_data must catch exceptions and log a warning instead of crashing."""
+
+    @pytest.mark.asyncio
+    async def test_prune_stale_data_exception_is_caught(self, hub, caplog):
+        """#234: If cache.prune_events raises, hub must not crash and must log WARNING."""
+        import logging
+        from unittest.mock import AsyncMock
+
+        # Make prune_events raise an unexpected error
+        hub.cache.prune_events = AsyncMock(side_effect=RuntimeError("simulated prune failure"))
+
+        with caplog.at_level(logging.WARNING, logger="aria.hub.core"):
+            # Must not raise
+            await hub._prune_stale_data()
+
+        # Verify a warning was emitted
+        warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("prune_stale_data" in m or "failed" in m for m in warning_msgs), (
+            f"Expected a warning about prune_stale_data failure, got: {warning_msgs}"
+        )

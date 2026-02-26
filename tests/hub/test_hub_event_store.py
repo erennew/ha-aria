@@ -87,3 +87,31 @@ async def test_hub_prune_event_store_method(tmp_path):
         assert remaining[0]["entity_id"] == "light.new"
     finally:
         await hub.shutdown()
+
+
+# ============================================================================
+# #243: EventStore.shutdown() closes the connection
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_event_store_shutdown_closes_connection(tmp_path):
+    """#243: EventStore.shutdown() sets _conn to None."""
+    store = EventStore(str(tmp_path / "events.db"))
+    await store.initialize()
+    assert store._conn is not None
+
+    await store.shutdown()
+    assert store._conn is None
+
+
+@pytest.mark.asyncio
+async def test_event_store_shutdown_idempotent_on_uninitialized(tmp_path):
+    """#243: Calling shutdown() on an uninitialized EventStore does not raise."""
+    store = EventStore(str(tmp_path / "events_uninit.db"))
+    # Never called initialize() — _conn is None
+    assert store._conn is None
+
+    # Must not raise
+    await store.shutdown()
+    assert store._conn is None

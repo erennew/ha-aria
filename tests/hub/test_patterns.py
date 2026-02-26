@@ -575,3 +575,45 @@ class TestHelpers:
         assert isinstance(txns, list)
         assert len(txns) == 2
         assert any("light_on_h7" in t for t in txns)
+
+
+# ============================================================================
+# #256: PatternsModule.shutdown() cancels the in-flight LLM task without raising
+# ============================================================================
+
+
+class TestPatternShutdownCancelsTask:
+    """PatternRecognition.shutdown() must cancel in-flight asyncio tasks without raising."""
+
+    @pytest.mark.asyncio
+    async def test_shutdown_cancels_inflight_task(self):
+        """#256: If _task is set, shutdown() cancels it without raising."""
+        import asyncio
+
+        hub = MockHub()
+        module = PatternRecognition(hub)
+
+        # Simulate a long-running in-flight task
+        async def long_running():
+            await asyncio.sleep(60)
+
+        task = asyncio.ensure_future(long_running())
+        module._task = task
+
+        # shutdown() must not raise
+        await module.shutdown()
+
+        # Task should be cancelled
+        assert task.cancelled() or task.done()
+        assert module._task is None
+
+    @pytest.mark.asyncio
+    async def test_shutdown_no_task_does_not_raise(self):
+        """#256: shutdown() with no in-flight task must not raise."""
+        hub = MockHub()
+        module = PatternRecognition(hub)
+        module._task = None
+
+        # Must not raise
+        await module.shutdown()
+        assert module._task is None
