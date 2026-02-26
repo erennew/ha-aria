@@ -1,7 +1,10 @@
 """Autoencoder using MLPRegressor for reconstruction-based anomaly feature extraction."""
 
+import logging
 import os
 import pickle
+
+logger = logging.getLogger(__name__)
 
 HAS_SKLEARN = True
 try:
@@ -76,6 +79,11 @@ class Autoencoder:
         ae_path = os.path.join(model_dir, "autoencoder.pkl")
         scaler_path = os.path.join(model_dir, "ae_scaler.pkl")
         if not os.path.isfile(ae_path) or not os.path.isfile(scaler_path):
+            logger.warning(
+                "%s.reconstruction_errors() called but model not loaded — path: %s",
+                self.__class__.__name__,
+                model_dir,
+            )
             return None
 
         with open(ae_path, "rb") as f:
