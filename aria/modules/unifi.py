@@ -379,6 +379,8 @@ class UniFiModule(Module):
                 backoff = min(backoff * 2, 60)
             finally:
                 if self._protect_client:
-                    with contextlib.suppress(Exception):
+                    try:
                         await self._protect_client.disconnect()
+                    except Exception as e:
+                        logger.debug("UniFi Protect: disconnect error in ws_loop finally — %s", e)
                     self._protect_client = None
