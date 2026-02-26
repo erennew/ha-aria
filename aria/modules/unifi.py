@@ -100,8 +100,10 @@ class UniFiModule(Module):
         logger.info("UniFi module initialized (host=%s, site=%s)", self._host, self._site)
 
         # Start loops — tracked as tasks by hub via log_task_exception pattern
-        asyncio.create_task(self._network_poll_loop(), name="unifi_network_poll")
-        asyncio.create_task(self._protect_ws_loop(), name="unifi_protect_ws")
+        t1 = asyncio.create_task(self._network_poll_loop(), name="unifi_network_poll")
+        t1.add_done_callback(self.hub._log_task_exception)  # noqa: SLF001
+        t2 = asyncio.create_task(self._protect_ws_loop(), name="unifi_protect_ws")
+        t2.add_done_callback(self.hub._log_task_exception)  # noqa: SLF001
 
     async def shutdown(self) -> None:
         """Close aiohttp session and disconnect Protect client."""
@@ -277,6 +279,7 @@ class UniFiModule(Module):
         url = f"https://{self._host}/proxy/protect/api/events/{event_id}/thumbnail"
         async with self._session.get(url) as resp:
             if resp.status != 200:
+                logger.debug("UniFi Protect: thumbnail HTTP %d for event %s", resp.status, event_id)
                 return None
             return await resp.read()
 
@@ -299,7 +302,7 @@ class UniFiModule(Module):
         img_path.write_bytes(thumbnail_bytes)
 
         # Publish face_snapshot event — PresenceModule's FacePipeline subscriber picks it up
-        self.hub.publish(
+        await self.hub.publish(
             "face_snapshot_available",
             {
                 "image_path": str(img_path),

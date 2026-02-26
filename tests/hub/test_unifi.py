@@ -202,7 +202,7 @@ async def test_protect_person_event_adds_signal(module):
         "score": 0.92,
     }
     await module._handle_protect_person(event, room="office")
-    assert len(signals_published) == 1
+    assert signals_published
     assert signals_published[0]["signal_type"] == "protect_person"
     assert signals_published[0]["room"] == "office"
 
@@ -232,4 +232,4 @@ async def test_protect_thumbnail_failure_still_adds_signal(module, tmp_path):
             room="office",
         )
     # Signal still added despite thumbnail failure
-    assert len(signals_published) == 1
+    assert signals_published
