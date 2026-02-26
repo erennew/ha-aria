@@ -829,6 +829,15 @@ def run_watchdog(quiet: bool = False, no_alert: bool = False, json_output: bool 
 
     all_results = _collect_results()
 
+    # Write heartbeat file so external monitors can detect a watchdog crash via file freshness
+    try:
+        heartbeat_path = LOG_DIR / "aria-heartbeat"
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        heartbeat_path.write_text(datetime.now(UTC).isoformat())
+        logger.debug("watchdog: heartbeat written to %s", heartbeat_path)
+    except Exception as hb_exc:
+        logger.warning("watchdog: failed to write heartbeat file: %s", hb_exc)
+
     # Summarize
     passed = sum(1 for r in all_results if r.level == "OK")
     total = len(all_results)
