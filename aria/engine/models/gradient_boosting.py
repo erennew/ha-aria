@@ -1,10 +1,13 @@
 """Gradient Boosting model for continuous metric prediction."""
 
+import logging
 import os
 import pickle
 
 from aria.engine.config import ModelConfig
 from aria.engine.models.registry import BaseModel, ModelRegistry
+
+logger = logging.getLogger(__name__)
 
 HAS_SKLEARN = True
 try:
@@ -82,6 +85,11 @@ class GradientBoostingModel(BaseModel):
             return None
 
         if not os.path.isfile(model_path):
+            logger.warning(
+                "%s.predict() called but model not loaded — path: %s",
+                self.__class__.__name__,
+                model_path,
+            )
             return None
 
         with open(model_path, "rb") as f:
