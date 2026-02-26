@@ -16,6 +16,9 @@ const SIGNAL_LABELS = {
   dimmer_press: 'Dimmer',
   door: 'Door',
   device_tracker: 'Tracker',
+  network_client_present: 'Network',
+  device_active: 'Active',
+  protect_person: 'Camera (Protect)',
 };
 
 const SIGNAL_COLORS = {
@@ -26,6 +29,9 @@ const SIGNAL_COLORS = {
   dimmer_press: 'var(--accent-warm)',
   door: 'var(--text-secondary)',
   device_tracker: 'var(--status-healthy)',
+  network_client_present: 'var(--info)',
+  device_active: 'var(--info)',
+  protect_person: 'var(--status-warning)',
 };
 
 /** Probability bar with gradient fill */
@@ -304,7 +310,7 @@ function FaceRecognitionStatus({ faceConfig, labeledFaces }) {
 function DevicesTab({ unifiState }) {
   if (!unifiState) {
     return (
-      <div style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+      <div style="padding: 1rem; color: var(--text-secondary)">
         UniFi integration not enabled or no data yet.
         Set <code>unifi.enabled = true</code> in config.
       </div>
@@ -318,48 +324,44 @@ function DevicesTab({ unifiState }) {
     : 'unknown';
 
   return (
-    <div style={{ padding: '0.5rem' }}>
-      <div style={{ marginBottom: '0.75rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <span style={{
-          fontWeight: 600,
-          color: home ? 'var(--success)' : 'var(--text-secondary)'
-        }}>
+    <div style="padding: 0.5rem">
+      <div style="margin-bottom: 0.75rem; display: flex; gap: 1rem; align-items: center">
+        <span style={`font-weight: 600; color: ${home ? 'var(--success)' : 'var(--text-secondary)'}`}>
           {home ? 'Home' : 'Away'}
         </span>
-        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>
+        <span style="color: var(--text-tertiary); font-size: 0.8rem">
           Updated: {updatedAt} · {clients.length} device{clients.length !== 1 ? 's' : ''} online
         </span>
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem">
         <thead>
-          <tr style={{ borderBottom: '1px solid var(--border)' }}>
-            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>Device</th>
-            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>MAC</th>
-            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>AP</th>
-            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>RSSI</th>
+          <tr style="border-bottom: 1px solid var(--border)">
+            <th style="text-align: left; padding: 0.25rem 0.5rem">Device</th>
+            <th style="text-align: left; padding: 0.25rem 0.5rem">MAC</th>
+            <th style="text-align: left; padding: 0.25rem 0.5rem">AP</th>
+            <th style="text-align: left; padding: 0.25rem 0.5rem">RSSI</th>
           </tr>
         </thead>
         <tbody>
           {clients.map(client => (
-            <tr key={client.mac} style={{ borderBottom: '1px solid var(--border-light)' }}>
-              <td style={{ padding: '0.25rem 0.5rem' }}>
+            <tr key={client.mac} style="border-bottom: 1px solid var(--border-light)">
+              <td style="padding: 0.25rem 0.5rem">
                 {client.hostname || client.mac}
               </td>
-              <td style={{ padding: '0.25rem 0.5rem', fontFamily: 'monospace' }}>
+              <td style="padding: 0.25rem 0.5rem; font-family: monospace">
                 {client.mac}
               </td>
-              <td style={{ padding: '0.25rem 0.5rem' }}>
+              <td style="padding: 0.25rem 0.5rem">
                 {client.ap_mac || '—'}
               </td>
-              <td style={{ padding: '0.25rem 0.5rem' }}>
+              <td style="padding: 0.25rem 0.5rem">
                 {client.rssi != null ? `${client.rssi} dBm` : '—'}
               </td>
             </tr>
           ))}
           {clients.length === 0 && (
             <tr>
-              <td colSpan={4} style={{ padding: '1rem', textAlign: 'center',
-                                       color: 'var(--text-tertiary)' }}>
+              <td colSpan={4} style="padding: 1rem; text-align: center; color: var(--text-tertiary)">
                 No devices online
               </td>
             </tr>
