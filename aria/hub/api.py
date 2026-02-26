@@ -1,5 +1,6 @@
 """FastAPI routes for ARIA Hub REST API."""
 
+import asyncio
 import json
 import logging
 import os
@@ -615,7 +616,7 @@ def _register_discovery_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         """Get current discovery settings."""
         module = hub.modules.get("organic_discovery")
         if not module:
-            return {"error": "Organic discovery module not loaded"}
+            raise HTTPException(status_code=503, detail="Organic discovery module not loaded")
         return module.settings
 
     @router.put("/api/settings/discovery")
@@ -1334,7 +1335,10 @@ def _register_frigate_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         presence_mod = hub.modules.get("presence")
         if not presence_mod or not hasattr(presence_mod, "get_frigate_thumbnail"):
             raise HTTPException(status_code=503, detail="Presence module not loaded")
-        data = await presence_mod.get_frigate_thumbnail(event_id)
+        try:
+            data = await asyncio.wait_for(presence_mod.get_frigate_thumbnail(event_id), timeout=5.0)
+        except TimeoutError as exc:
+            raise HTTPException(status_code=504, detail="Frigate thumbnail request timed out") from exc
         if data is None:
             raise HTTPException(status_code=404, detail="Thumbnail not found")
         from fastapi.responses import Response
@@ -1347,7 +1351,10 @@ def _register_frigate_routes(router: APIRouter, hub: IntelligenceHub) -> None:
         presence_mod = hub.modules.get("presence")
         if not presence_mod or not hasattr(presence_mod, "get_frigate_snapshot"):
             raise HTTPException(status_code=503, detail="Presence module not loaded")
-        data = await presence_mod.get_frigate_snapshot(event_id)
+        try:
+            data = await asyncio.wait_for(presence_mod.get_frigate_snapshot(event_id), timeout=5.0)
+        except TimeoutError as exc:
+            raise HTTPException(status_code=504, detail="Frigate snapshot request timed out") from exc
         if data is None:
             raise HTTPException(status_code=404, detail="Snapshot not found")
         from fastapi.responses import Response

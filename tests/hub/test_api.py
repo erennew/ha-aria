@@ -1,6 +1,7 @@
 """Tests for API fixes — can-predict cache bypass (#27), trend direction (#C5)."""
 
-from unittest.mock import AsyncMock
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 from aria.hub.api import _compute_stage_health
 
@@ -167,3 +168,85 @@ class TestCORSAllowHeaders:
         )
         allowed = resp.headers.get("access-control-allow-headers", "")
         assert "x-api-key" in allowed.lower(), f"X-API-Key not in CORS allow_headers: '{allowed}'"
+
+
+# ============================================================================
+# #293: GET /api/settings/discovery returns 503 when module not loaded
+# ============================================================================
+
+
+class TestDiscoverySettingsModuleNotLoaded:
+    """GET /api/settings/discovery must return HTTP 503 when organic_discovery is absent."""
+
+    def test_discovery_settings_returns_503_when_module_not_loaded(self, api_hub, api_client):
+        """#293: When organic_discovery is not in hub.modules, response must be 503."""
+        # organic_discovery absent — hub.modules is an empty dict by default in api_hub fixture
+        assert "organic_discovery" not in api_hub.modules
+
+        response = api_client.get("/api/settings/discovery")
+
+        assert response.status_code == 503, (
+            f"Expected 503 when organic_discovery not loaded, got {response.status_code}: {response.text}"
+        )
+
+    def test_discovery_settings_returns_200_when_module_loaded(self, api_hub, api_client):
+        """Sanity: When organic_discovery IS loaded, response must be 200 with settings."""
+        mock_module = MagicMock()
+        mock_module.settings = {"threshold": 0.8, "run_interval_hours": 24}
+        api_hub.modules["organic_discovery"] = mock_module
+
+        response = api_client.get("/api/settings/discovery")
+
+        assert response.status_code == 200
+        assert response.json()["threshold"] == 0.8
+
+
+# ============================================================================
+# #295: GET /api/events limit=le=1000 — PRE-EXISTING FIX
+# ============================================================================
+# Verified: line 238 of aria/hub/api.py already has:
+#   limit: int = Query(default=100, le=1000)
+# No code change required.
+
+
+# ============================================================================
+# #296: /api/frigate/thumbnail and /api/frigate/snapshot return 504 on timeout
+# ============================================================================
+
+
+class TestFrigateThumbnailTimeout:
+    """GET /api/frigate/thumbnail/{event_id} must return 504 on slow Frigate response."""
+
+    def test_frigate_thumbnail_returns_504_on_timeout(self, api_hub, api_client):
+        """#296: If get_frigate_thumbnail takes too long, response must be 504."""
+
+        async def slow_thumbnail(event_id):
+            await asyncio.sleep(10)  # simulates a hung Frigate response
+            return b"data"
+
+        mock_presence = MagicMock()
+        mock_presence.get_frigate_thumbnail = slow_thumbnail
+        api_hub.modules["presence"] = mock_presence
+
+        response = api_client.get("/api/frigate/thumbnail/test-event-123")
+
+        assert response.status_code == 504, (
+            f"Expected 504 on Frigate timeout, got {response.status_code}: {response.text}"
+        )
+
+    def test_frigate_snapshot_returns_504_on_timeout(self, api_hub, api_client):
+        """#296: If get_frigate_snapshot takes too long, response must be 504."""
+
+        async def slow_snapshot(event_id):
+            await asyncio.sleep(10)
+            return b"data"
+
+        mock_presence = MagicMock()
+        mock_presence.get_frigate_snapshot = slow_snapshot
+        api_hub.modules["presence"] = mock_presence
+
+        response = api_client.get("/api/frigate/snapshot/test-event-456")
+
+        assert response.status_code == 504, (
+            f"Expected 504 on Frigate timeout, got {response.status_code}: {response.text}"
+        )
