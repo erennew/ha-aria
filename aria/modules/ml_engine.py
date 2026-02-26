@@ -1562,9 +1562,16 @@ class MLEngine(Module):
         for i, snapshot in enumerate(training_data):
             prev_snapshot = training_data[i - 1] if i > 0 else None
             rolling_stats = self._compute_snapshot_rolling_stats(training_data, i)
+            # Same fix as _build_training_dataset — compute real rolling window
+            # stats so reference model trains on non-zero features (#260).
+            rolling_window_stats = self._compute_rolling_window_stats_from_snapshots(training_data, i)
 
             features = await self._extract_features(
-                snapshot, config=config, prev_snapshot=prev_snapshot, rolling_stats=rolling_stats
+                snapshot,
+                config=config,
+                prev_snapshot=prev_snapshot,
+                rolling_stats=rolling_stats,
+                rolling_window_stats=rolling_window_stats,
             )
             if features is None:
                 continue
