@@ -177,5 +177,65 @@ class TestMLEnhancedPredictions(unittest.TestCase):
         self.assertGreater(result["overall"], 0)
 
 
+class TestScoringKeyErrorGuard:
+    """Issue #215: METRIC_TO_ACTUAL lambda KeyError must not propagate silently."""
+
+    def test_score_prediction_missing_power_key_returns_zero_accuracy(self, caplog):
+        """score_prediction with snapshot missing 'power' key logs WARNING, returns accuracy=0."""
+        import logging
+
+        # Snapshot missing the 'power' key entirely
+        bad_snapshot = {
+            "lights": {"on": 30},
+            "occupancy": {"device_count_home": 50},
+            "entities": {"unavailable": 900},
+            "logbook_summary": {"useful_events": 2500},
+        }
+        prediction = {"power_watts": {"predicted": 150, "baseline_stddev": 10}}
+
+        with caplog.at_level(logging.WARNING):
+            result = score_prediction("power_watts", prediction, bad_snapshot)
+
+        assert result["accuracy"] == 0
+        assert result["error"] is None
+        assert any("power_watts" in r.message for r in caplog.records)
+
+    def test_score_prediction_missing_lights_key_returns_zero_accuracy(self, caplog):
+        """score_prediction with snapshot missing 'lights' key logs WARNING, returns accuracy=0."""
+        import logging
+
+        bad_snapshot = {
+            "power": {"total_watts": 150},
+            "occupancy": {"device_count_home": 50},
+            "entities": {"unavailable": 900},
+            "logbook_summary": {"useful_events": 2500},
+        }
+        prediction = {"lights_on": {"predicted": 30, "baseline_stddev": 5}}
+
+        with caplog.at_level(logging.WARNING):
+            result = score_prediction("lights_on", prediction, bad_snapshot)
+
+        assert result["accuracy"] == 0
+        assert result["error"] is None
+
+    def test_score_all_predictions_skips_bad_metric_without_crash(self):
+        """score_all_predictions with a bad snapshot does not crash even if one metric key is missing."""
+        bad_snapshot = {}  # Everything missing
+        predictions = {
+            "target_date": "2026-02-11",
+            "prediction_method": "statistical",
+            "days_of_data": 0,
+            "power_watts": {"predicted": 150, "baseline_stddev": 10},
+            "lights_on": {"predicted": 30, "baseline_stddev": 5},
+            "devices_home": {"predicted": 50, "baseline_stddev": 10},
+            "unavailable": {"predicted": 900, "baseline_stddev": 20},
+            "useful_events": {"predicted": 2500, "baseline_stddev": 300},
+        }
+        # Must not raise — returns a result dict with overall=0
+        result = score_all_predictions(predictions, bad_snapshot)
+        assert isinstance(result, dict)
+        assert "overall" in result
+
+
 if __name__ == "__main__":
     unittest.main()

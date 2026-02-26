@@ -4,7 +4,10 @@ Extracted from monolith lines 1662-1733: METRIC_TO_ACTUAL, score_prediction,
 score_all_predictions, accuracy_trend.
 """
 
+import logging
 import statistics
+
+logger = logging.getLogger(__name__)
 
 # Mapping from prediction metric to snapshot accessor
 METRIC_TO_ACTUAL = {
@@ -28,7 +31,15 @@ def score_prediction(metric, predictions, actual_snapshot):
     actual_fn = METRIC_TO_ACTUAL.get(metric)
     if actual_fn is None:
         return {"accuracy": 0, "error": None}
-    actual = actual_fn(actual_snapshot)
+    try:
+        actual = actual_fn(actual_snapshot)
+    except KeyError as exc:
+        logger.warning(
+            "score_prediction: snapshot missing key for metric '%s' — key: %s — skipping",
+            metric,
+            exc,
+        )
+        return {"accuracy": 0, "error": None}
 
     error = abs(predicted - actual)
     sigma_error = error / stddev if stddev > 0 else error
